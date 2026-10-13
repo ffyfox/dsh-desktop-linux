@@ -114,6 +114,11 @@ Three design points worth knowing:
   (`error: profile "desktop" is managed exclusively by the Electron application`).
   Sessions, settings, and credentials still live at the root of `$DSH_HOME`,
   shared with the CLI.
+- **To reuse your web configuration, migrate it once**: quit the desktop app, then copy or rename
+  `$DSH_HOME/profiles/web` into place, and let the two evolve separately afterwards. Sharing a single
+  directory through a symlink works in practice, but the two sides overwrite each other, and the
+  desktop's startup recovery acts on that shared directory as well — unknown problems may appear
+  once the two sides diverge in version.
 - **Sandboxing.** Where the kernel supports unprivileged user namespaces, the
   renderer runs in a namespace sandbox (separate user namespace + seccomp); only
   where it does not does it fall back to a setuid `chrome-sandbox`. The AppImage

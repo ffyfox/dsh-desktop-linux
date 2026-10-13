@@ -97,6 +97,8 @@ Arch 包只出未打包目录装进 `/opt/deepseek-harness-desktop`，`/usr/bin/
 - **profile 是独占的。** 桌面端用 `$DSH_HOME/profiles/desktop`，CLI 连参数层面都拒绝这个 profile
   （`error: profile "desktop" is managed exclusively by the Electron application`）。
   会话、设置、凭据仍在 `$DSH_HOME` 根上，与 CLI 共享。
+- **想复用 web 的配置，建议做一次性迁移**：退出桌面端后，把 `$DSH_HOME/profiles/web` 复制或改名过去，之后两边各自演化。通过符号链接方式共用同一份目录
+  实测有效，但两边会互相改写，桌面端的启动恢复动作也会作用到这份共享目录，两边版本跨度较大等情况下可能出现未知问题。
 - **沙箱。** 内核支持非特权 user namespace 时走 namespace 沙箱（渲染进程在独立 user namespace + seccomp）；
   不支持才退回 setuid `chrome-sandbox`。AppImage 交给 AppRun 自己探测，deb / rpm / Arch 包在
   postinst 里做同样的判断。
