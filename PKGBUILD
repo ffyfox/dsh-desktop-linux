@@ -17,7 +17,7 @@
 
 pkgname=dsh-desktop-linux
 pkgver=0.2.1alpha2
-pkgrel=1
+pkgrel=2
 _tag='dsh-v0.2.1-alpha.2'
 _commit='d743267388641bc76f17c45ce8b4c231aed1d32c'
 # GitHub 源码包的顶层目录名 = <repo>-<tag>，tag 自带的 "v" 不剥（实测 dsh-v0.2.1-alpha.2）
