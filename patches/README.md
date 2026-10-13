@@ -7,7 +7,7 @@
 两个补丁共用一个文件时（`electron-builder-config.mjs` 属 0003 与 0013，`src/main.ts` 属 0008、0013、0016 与 0017），
 必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的 hunk 一起带进来。
 
-已验证（0.2.1-alpha.2）：15 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-alpha.2`）上，
+已验证（0.2.1-alpha.2）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-alpha.2`）上，
 `patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）都干净通过（无 fuzz、
 无 reject），52 个触及文件（48 个改动 + 4 个新增）与开发工作树逐字节一致，`prepare()` 另外放置托盘 PNG；
 源码包本身也与 git 对象核对过（14988 个文件，除 3 个 `.cmd` 因上游 `.gitattributes` 的 CRLF 转换外
@@ -164,7 +164,7 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
   上游提交写进 `dshBuildCommit`：alpha.2 那份 Arch 包实测记 `a99ac6be…`，应记 `d7432673…`
   （deb/rpm/AppImage 不受影响，`build.sh` 从 `upstream/` 构建、根本不设这两个变量）。
 - **补丁按序应用时只有 offset、没有 fuzz，但会留下两个 `.orig`。** `electron-builder-config.mjs`
-  （0003 + 0013）与 `src/main.ts`（0008 + 0013 + 0016）被多个补丁触及，它们的 diff 取自「基线 +
+  （0003 + 0013）与 `src/main.ts`（0008 + 0013 + 0016 + 0017）被多个补丁触及，它们的 diff 取自「基线 +
   只有这一个补丁」的隔离树，所以后一个补丁落下去时命中 offset；GNU patch 遇到 offset 会各留一份
   `<文件>.orig`。备份不进产物，两个文件最终内容与开发工作树逐字节一致。
 - **rc.2 新增的 `prepare:cli` 在 Linux 上整块跳过（`0004`）。** `prepareDesktopCli(dir, platform)` 的
