@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/package.json b/apps/desktop/package.json
-index c1009cb..06450b6 100644
+index 33f7bb5..1b41786 100644
 --- a/apps/desktop/package.json
 +++ b/apps/desktop/package.json
 @@ -35,6 +35,8 @@

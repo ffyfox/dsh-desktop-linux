@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index f08b783..6236c28 100644
+index 4b9cd27..ca7751b 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -22,7 +22,8 @@ import {
@@ -9,11 +9,11 @@ index f08b783..6236c28 100644
 -import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
 +import { desktopPlatformEmbedsPolicy, resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
 +import { resolveDesktopLinuxFormats, resolveDesktopLinuxPackageMetadata } from './desktop-linux-packages.mjs'
- import { desktopTargetBuildPaths, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
+ import { desktopArtifactOutput, desktopTargetBuildPaths, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
  import { installWindowsDirectoryInstaller } from './windows-directory-installer.mjs'
  import { preserveWindowsRuntimeSignature, signWindowsCode } from './windows-runtime-signature.mjs'
-@@ -60,7 +61,13 @@ export function createElectronBuilderConfig(
-   const unsigned = env.DSH_DESKTOP_UNSIGNED === '1'
+@@ -65,7 +66,13 @@ export function createElectronBuilderConfig(
+   if (skipNotarization && (unsigned || resolvedPlatform !== 'darwin')) throw new Error('Skipping notarization requires a signed macOS build')
    const packagesMacOS = targetPlatform === 'darwin' || (targetPlatform === undefined && hostPlatform === 'darwin')
    const packagesWindows = resolvedPlatform === 'win32'
 -  const policy = packagesMacOS && unsigned ? undefined : resolveDesktopPolicyEnvironment(env)
@@ -26,10 +26,10 @@ index f08b783..6236c28 100644
 +  const linuxPackages = linuxFormats === undefined ? undefined : resolveDesktopLinuxPackageMetadata(env, linuxFormats)
    if (resolvedPlatform === 'win32') installWindowsDirectoryInstaller()
    const macOSSigning = packagesMacOS && !unsigned ? resolveMacOSSigningEnvironment(env) : undefined
-   if (packagesMacOS && !unsigned) resolveMacOSNotarizationEnvironment(env)
-@@ -102,6 +109,10 @@ export function createElectronBuilderConfig(
-     extraMetadata: {
+   if (packagesMacOS && !unsigned && !skipNotarization) resolveMacOSNotarizationEnvironment(env)
+@@ -110,6 +117,10 @@ export function createElectronBuilderConfig(
        dshDesktopAppId: appId,
+       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
        ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
 +      // Read by Electron as the window app_id and by the Linux target as the .desktop filename.
 +      ...(resolvedPlatform === 'linux' ? { desktopName: 'deepseek-harness' } : {}),
@@ -38,10 +38,10 @@ index f08b783..6236c28 100644
        ...buildVersion === productVersion ? {} : { version: buildVersion },
        ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
      },
-@@ -109,7 +120,10 @@ export function createElectronBuilderConfig(
+@@ -117,7 +128,10 @@ export function createElectronBuilderConfig(
      // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
-     artifactName: `deepseek-harness-\${version}-\${os}-\${arch}${unsigned ? '-unsigned' : ''}.\${ext}`,
-     directories: { output: unsigned ? buildPaths.unsignedArtifacts : buildPaths.artifacts },
+     artifactName: `deepseek-harness-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
+     directories: { output: output.directory },
 -    asar: true,
 +    // A standalone Node cannot read inside an ASAR archive, and Linux hosts the payload in the primary
 +    // runtime's Node rather than Electron's. An unpacked tree keeps every file the Host and its plugin
@@ -50,7 +50,7 @@ index f08b783..6236c28 100644
      electronDist: buildPaths.electron,
      electronFuses: { runAsNode: true },
      beforeBuild: async () => {
-@@ -231,9 +245,38 @@ export function createElectronBuilderConfig(
+@@ -246,9 +260,38 @@ export function createElectronBuilderConfig(
        target: ['nsis'],
      },
      linux: {

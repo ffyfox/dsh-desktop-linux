@@ -1,8 +1,31 @@
+diff --git a/apps/desktop-host/src/index.ts b/apps/desktop-host/src/index.ts
+index 410fd67..8d86505 100644
+--- a/apps/desktop-host/src/index.ts
++++ b/apps/desktop-host/src/index.ts
+@@ -15,6 +15,18 @@ import { installDesktopQuitInspection } from './quit-inspection.ts'
+ import { installPlatformSessionPublisher } from './platform-session.ts'
+ import { installOfficeEngineResolution } from './office-engine.ts'
+ 
++// An Electron process exposes its resources directory as `process.resourcesPath`; a standalone Node
++// (the Linux Host runtime) has no such concept. The shell passes the packaged installation's
++// resources root through the environment, and this republishes it so children that locate bundled
++// packages relative to Electron's layout (dsh-market's host lookup) see the same view as on
++// Windows/macOS. An Electron runtime already has the real thing, and its value always wins.
++// `resourcesPath` is Electron's own property, absent from Node's `Process` type: this host runs under
++// exactly one of the two runtimes, so the narrow view below is the truth for this process.
++const standaloneResourcesPath = process.env.DSH_DESKTOP_RESOURCES_PATH
++if (process.versions.electron === undefined && standaloneResourcesPath !== undefined && standaloneResourcesPath !== '') {
++  ;(process as NodeJS.Process & { resourcesPath?: string }).resourcesPath ??= standaloneResourcesPath
++}
++
+ async function main(): Promise<void> {
+   const runtimeDir = process.argv[2] as string
+   const projectDir = process.argv[3] as string
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index ec7067d..abb80a8 100644
+index 144d70e..52c5791 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -147,6 +147,8 @@ interface RuntimeResources {
+@@ -148,6 +148,8 @@ interface RuntimeResources {
    readonly nodeBin: string
    /** Electron executable that runs this application. */
    readonly electron: string
@@ -11,7 +34,7 @@ index ec7067d..abb80a8 100644
    readonly pnpm: string
    readonly dsh: string
  }
-@@ -160,7 +162,7 @@ function runtimeResources(): RuntimeResources {
+@@ -161,7 +163,7 @@ function runtimeResources(): RuntimeResources {
        : join(process.resourcesPath, 'runtime', 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs'))
    const dsh = (development ? process.env.DSH_DESKTOP_DSH_DIR : undefined)
      ?? (development ? join(app.getAppPath(), '.desktop-build', 'development', 'project') : join(app.getAppPath(), 'dsh'))
@@ -20,7 +43,7 @@ index ec7067d..abb80a8 100644
  }
  
  function developmentPrimaryRuntime(): string {
-@@ -450,7 +452,14 @@ async function main(): Promise<void> {
+@@ -447,7 +449,14 @@ async function main(): Promise<void> {
    const backend = new DesktopBackendController((onFailure) => {
      const hostInspectPort = developmentHostInspectPort(development)
      const host = new DesktopHostProcess(
@@ -140,26 +163,3 @@ index 282ca17..0fe9666 100644
  it('provides private launchers only to package installation processes', () => {
    expect(desktopNodeEnvironment({ executable: ELECTRON, electron: true }, '/desktop/bin', { PATH: '/user/bin' })).toEqual({
      ELECTRON_RUN_AS_NODE: '1',
-diff --git a/apps/desktop-host/src/index.ts b/apps/desktop-host/src/index.ts
-index 410fd67..8d86505 100644
---- a/apps/desktop-host/src/index.ts
-+++ b/apps/desktop-host/src/index.ts
-@@ -15,6 +15,18 @@ import { installDesktopQuitInspection } from './quit-inspection.ts'
- import { installPlatformSessionPublisher } from './platform-session.ts'
- import { installOfficeEngineResolution } from './office-engine.ts'
- 
-+// An Electron process exposes its resources directory as `process.resourcesPath`; a standalone Node
-+// (the Linux Host runtime) has no such concept. The shell passes the packaged installation's
-+// resources root through the environment, and this republishes it so children that locate bundled
-+// packages relative to Electron's layout (dsh-market's host lookup) see the same view as on
-+// Windows/macOS. An Electron runtime already has the real thing, and its value always wins.
-+// `resourcesPath` is Electron's own property, absent from Node's `Process` type: this host runs under
-+// exactly one of the two runtimes, so the narrow view below is the truth for this process.
-+const standaloneResourcesPath = process.env.DSH_DESKTOP_RESOURCES_PATH
-+if (process.versions.electron === undefined && standaloneResourcesPath !== undefined && standaloneResourcesPath !== '') {
-+  ;(process as NodeJS.Process & { resourcesPath?: string }).resourcesPath ??= standaloneResourcesPath
-+}
-+
- async function main(): Promise<void> {
-   const runtimeDir = process.argv[2] as string
-   const projectDir = process.argv[3] as string

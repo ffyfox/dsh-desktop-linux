@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 1202670..f17e9df 100644
+index 2afdfd7..e9c87b5 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -237,6 +237,9 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -238,6 +238,9 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        devTools: true,
      },
    })
@@ -12,7 +12,7 @@ index 1202670..f17e9df 100644
    window.webContents.setWindowOpenHandler(({ url }) => {
      if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
      return { action: 'deny' }
-@@ -295,7 +298,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -296,7 +299,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        const messages = currentDesktopLocale().messages
        Menu.buildFromTemplate(items.map(item => ({
          ...item,
@@ -22,7 +22,7 @@ index 1202670..f17e9df 100644
            ? { label: messages[item.role as keyof typeof messages] } : {}),
          accelerator: '',
        }))).popup({ window })
-@@ -1010,7 +1014,8 @@ async function main(): Promise<void> {
+@@ -1013,7 +1017,8 @@ async function main(): Promise<void> {
      ...(process.platform === 'win32' ? { icon: nativeImage.createFromPath(trayIconPath) } : {}),
    })
  
@@ -32,7 +32,7 @@ index 1202670..f17e9df 100644
      ipcMain.handle(DESKTOP_IPC.windowsMenu, (event, name: unknown, x: unknown, y: unknown) => {
        assertDesktopSender(event, ['app'])
        if (mainWindow === undefined || event.sender !== mainWindow.webContents
-@@ -1053,7 +1058,8 @@ async function main(): Promise<void> {
+@@ -1056,7 +1061,8 @@ async function main(): Promise<void> {
        // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
        const validColor = (value: unknown): value is string => typeof value === 'string'
          && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)

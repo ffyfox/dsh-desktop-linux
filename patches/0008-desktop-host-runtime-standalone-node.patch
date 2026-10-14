@@ -138,10 +138,10 @@ index 948a88e..a5888e8 100644
      })
      this.child = child
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 1202670..3f61a71 100644
+index 2afdfd7..144d70e 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -54,6 +54,7 @@ import { DesktopPolicyTestAuth } from './policy-test-auth.ts'
+@@ -55,6 +55,7 @@ import { DesktopPolicyTestAuth } from './policy-test-auth.ts'
  import { readDesktopSettings } from './settings.ts'
  import { DesktopUpdateDialog, type UpdateDialogOptions } from './update-dialog.ts'
  import { readDesktopRuntime } from './runtime-tree.ts'
@@ -149,7 +149,7 @@ index 1202670..3f61a71 100644
  import { DesktopBrowserGuests } from './browser-guests.ts'
  import { installDesktopShortcuts } from './keyboard.ts'
  import { DesktopUpdateOverlays } from './update-overlay.ts'
-@@ -144,21 +145,22 @@ protocol.registerSchemesAsPrivileged([{
+@@ -145,21 +146,22 @@ protocol.registerSchemesAsPrivileged([{
  
  interface RuntimeResources {
    readonly nodeBin: string
@@ -175,7 +175,7 @@ index 1202670..3f61a71 100644
  }
  
  function developmentPrimaryRuntime(): string {
-@@ -443,7 +445,8 @@ async function main(): Promise<void> {
+@@ -444,7 +446,8 @@ async function main(): Promise<void> {
      () => locale.id === 'zh-CN' ? 'zh_CN' : 'en_US', process.platform === 'win32' ? 'win32' : 'darwin')
    const backend = new DesktopBackendController((onFailure) => {
      const hostInspectPort = developmentHostInspectPort(development)

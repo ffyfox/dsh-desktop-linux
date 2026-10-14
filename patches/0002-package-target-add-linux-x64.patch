@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/scripts/desktop-upload-plan.ts b/apps/desktop/scripts/desktop-upload-plan.ts
-index 439a4fa..f28ffbe 100644
+index aa05966..7d2bca7 100644
 --- a/apps/desktop/scripts/desktop-upload-plan.ts
 +++ b/apps/desktop/scripts/desktop-upload-plan.ts
-@@ -21,6 +21,7 @@ const TARGETS = {
+@@ -20,6 +20,7 @@ const TARGETS = {
    'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
    'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
    'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
@@ -11,7 +11,7 @@ index 439a4fa..f28ffbe 100644
    readonly platform: NodeJS.Platform
    readonly arch: string
 diff --git a/apps/desktop/scripts/package-target.ts b/apps/desktop/scripts/package-target.ts
-index a133ccd..ac434f5 100644
+index be2f577..5127dfc 100644
 --- a/apps/desktop/scripts/package-target.ts
 +++ b/apps/desktop/scripts/package-target.ts
 @@ -47,14 +47,14 @@ const DESKTOP_UPLOAD_CREDENTIAL_ENV_NAMES = new Set([
@@ -46,7 +46,7 @@ index a133ccd..ac434f5 100644
  }
  
  /**
-@@ -188,6 +195,12 @@ export function resolveDesktopPackageTarget(
+@@ -189,6 +196,12 @@ export function resolveDesktopPackageTarget(
    if (name === 'mac-x64' && hostArch !== 'arm64' && hostArch !== 'x64') {
      throw new Error('desktop package: mac-x64 requires an Intel Mac or Apple Silicon with Rosetta')
    }

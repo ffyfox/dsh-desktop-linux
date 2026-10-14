@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
-index 7d290b9..b9a0d40 100644
+index 9de39d3..d9d88a6 100644
 --- a/apps/desktop/scripts/prepare-dsh.ts
 +++ b/apps/desktop/scripts/prepare-dsh.ts
-@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process'
+@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
  import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
  import { tmpdir } from 'node:os'
  import { delimiter, join, relative, resolve } from 'node:path'
@@ -11,7 +11,7 @@ index 7d290b9..b9a0d40 100644
  import { createRuntimeProjectMetadata } from '../src/project-manager.ts'
  import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
  import { parseDesktopRelease, type DesktopRelease } from '../src/release.ts'
-@@ -30,19 +30,23 @@ import {
+@@ -31,19 +31,23 @@ import {
  import {
    signMacOSRuntime,
  } from './macos-runtime.ts'
@@ -37,7 +37,7 @@ index 7d290b9..b9a0d40 100644
  const PNPM = join(RUNTIME_ROOT, 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs')
  
  function manifestVersion(path: string, subject: string): string {
-@@ -76,7 +80,7 @@ function runPnpm(args: readonly string[]): Promise<void> {
+@@ -77,7 +81,7 @@ function runPnpm(args: readonly string[]): Promise<void> {
      const userConfig = join(config, 'npmrc')
      mkdirSync(config, { recursive: true })
      writeFileSync(userConfig, '')
@@ -46,7 +46,7 @@ index 7d290b9..b9a0d40 100644
        '--expose-internals',
        PNPM,
        `--config.registry=${registry}`,
-@@ -94,7 +98,7 @@ function runPnpm(args: readonly string[]): Promise<void> {
+@@ -95,7 +99,7 @@ function runPnpm(args: readonly string[]): Promise<void> {
          NPM_CONFIG_REGISTRY: registry,
          NPM_CONFIG_STORE_DIR: STORE_ROOT,
          NPM_CONFIG_USERCONFIG: userConfig,
@@ -55,7 +55,7 @@ index 7d290b9..b9a0d40 100644
          PATH: `${join(RUNTIME_ROOT, 'bin')}${delimiter}${process.env.PATH ?? ''}`,
          XDG_CACHE_HOME: join(PNPM_BUILD_STATE, 'cache'),
          XDG_CONFIG_HOME: config,
-@@ -132,8 +136,7 @@ async function main(): Promise<void> {
+@@ -133,8 +137,7 @@ async function main(): Promise<void> {
      )
      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:install', () => runPnpm(['install', '--prod', '--frozen-lockfile', '--trust-lockfile']))
      const packageSet = readDesktopCorePackageSet(BUILD_ROOT, release.version)
@@ -65,7 +65,7 @@ index 7d290b9..b9a0d40 100644
      const modules = join(BUILD_ROOT, 'node_modules')
      const officeManifest = JSON.parse(readFileSync(join(modules, '@deepseek-ai/libreoffice-kit/package.json'), 'utf8'))
      const officeEngine = selectOfficeEngine(officeManifest, target)
-@@ -165,7 +168,7 @@ async function main(): Promise<void> {
+@@ -167,7 +170,7 @@ async function main(): Promise<void> {
      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:write-descriptor', async () => writeDesktopRuntime(DSH_OUTPUT_ROOT, release, packageSet.packages.map(entry => entry.name), target))
      const descriptor = await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:verify-before-smoke', () => verifyDesktopRuntime(DSH_OUTPUT_ROOT, release.version, target))
      if (!process.argv.includes('--defer-runtime-smoke')) {

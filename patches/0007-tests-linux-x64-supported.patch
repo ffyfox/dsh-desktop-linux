@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/tests/desktop-auto-update-environment.spec.ts b/apps/desktop/tests/desktop-auto-update-environment.spec.ts
-index c33a938..f7d4eec 100644
+index 9fbe629..5077021 100644
 --- a/apps/desktop/tests/desktop-auto-update-environment.spec.ts
 +++ b/apps/desktop/tests/desktop-auto-update-environment.spec.ts
 @@ -107,8 +107,9 @@ describe('desktop auto-update environment', () => {
@@ -15,7 +15,7 @@ index c33a938..f7d4eec 100644
  
    it('uses Nightly metadata for stable and prerelease Desktop versions', () => {
 diff --git a/apps/desktop/tests/desktop-build-paths.spec.ts b/apps/desktop/tests/desktop-build-paths.spec.ts
-index a5e9faf..933beaf 100644
+index ede5c5e..1fbbfa9 100644
 --- a/apps/desktop/tests/desktop-build-paths.spec.ts
 +++ b/apps/desktop/tests/desktop-build-paths.spec.ts
 @@ -1,6 +1,7 @@
@@ -26,7 +26,7 @@ index a5e9faf..933beaf 100644
    desktopTargetBuildPaths,
    desktopTargetPlatform,
    developmentRuntimeDirectory,
-@@ -54,7 +55,7 @@ describe('desktop build paths', () => {
+@@ -55,7 +56,7 @@ describe('desktop build paths', () => {
      expect(desktopTargetPlatform('mac-arm64')).toEqual({ platform: 'darwin', arch: 'arm64' })
      expect(desktopTargetPlatform('mac-x64')).toEqual({ platform: 'darwin', arch: 'x64' })
      expect(desktopTargetPlatform('win-x64')).toEqual({ platform: 'win32', arch: 'x64' })
@@ -35,7 +35,7 @@ index a5e9faf..933beaf 100644
    })
  
    it('resolves environment overrides and rejects unsupported targets', () => {
-@@ -63,7 +64,15 @@ describe('desktop build paths', () => {
+@@ -64,7 +65,15 @@ describe('desktop build paths', () => {
        DSH_DESKTOP_TARGET_ARCH: 'x64',
      }, 'darwin', 'arm64')).toBe('mac-x64')
      expect(resolveDesktopBuildTarget({}, 'win32', 'x64')).toBe('win-x64')
@@ -54,7 +54,7 @@ index a5e9faf..933beaf 100644
    })
  })
 diff --git a/apps/desktop/tests/package-target.spec.ts b/apps/desktop/tests/package-target.spec.ts
-index 5019841..785176e 100644
+index ba647d7..e4f74d0 100644
 --- a/apps/desktop/tests/package-target.spec.ts
 +++ b/apps/desktop/tests/package-target.spec.ts
 @@ -26,7 +26,11 @@ describe('desktop package target', () => {

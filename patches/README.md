@@ -1,24 +1,37 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `d743267`（tag `dsh-v0.2.1-alpha.2`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `2fbf435`（tag `dsh-v0.2.1-alpha.3`）。
 
 组织约定：**一个文件只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，
 互不重叠，因此应用顺序无关（仍按编号执行）。补丁由 `git diff -- <files>` 从开发工作树生成；
 两个补丁共用一个文件时（`electron-builder-config.mjs` 属 0003 与 0013，`src/main.ts` 属 0008、0013、0016 与 0017），
 必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的 hunk 一起带进来。
 
-已验证（0.2.1-alpha.2）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-alpha.2`）上，
-`patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）都干净通过（无 fuzz、
-无 reject），52 个触及文件（48 个改动 + 4 个新增）与开发工作树逐字节一致，`prepare()` 另外放置托盘 PNG；
-源码包本身也与 git 对象核对过（14988 个文件，除 3 个 `.cmd` 因上游 `.gitattributes` 的 CRLF 转换外
-逐字节一致）。`pnpm install --frozen-lockfile` 与整条打包流水线在这棵树上通过，`build.sh --all` 出齐
-AppImage / deb / rpm（344M / 291M / 229M），连打包后的冒烟也过 —— payload 的 koffi / sharp / html /
-pty / pnpm / ripgrep 全在场、CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三种格式转 PDF。
-`verify.sh` 静态 20 项 + 活体 31 项全过；`makepkg` 也整包构建成功
-（`dsh-desktop-linux-0.2.1alpha2-1`，352M / 24085 个文件 —— 比 alpha.1 那份少 1800 多个，是上游新加的
-`prune-python-tests` 把 payload 里的 Python 测试文件裁掉了）。产物里 `resources/runtime/cli`
-不存在、`versions.json` 记的是 primary-runtime 的 Node 24.21.0，正是 0004 的 Linux 闸门与
-0008 的运行时选择在起作用。
+**`0017` 是这条约定的一个已知例外。** 它的 5 个文件（`src/node-environment.ts`、`src/main.ts`、
+`tests/host-process.spec.ts`、`tests/node-environment.spec.ts`、`desktop-host/src/index.ts`）全部也属于
+`0008`，而且它的 diff 上下文含 `0008` 新增的行（`resourcesPath?: string` 紧挨着 `0008` 加的
+`readonly electron: boolean`），所以它单独打在干净基线上会直接 reject，只有排在 `0008` 之后才成立 ——
+现有系列靠「按文件名顺序」恰好满足。重生这类补丁要走两阶段：先在「新基线 + 前置补丁」上重算，
+再叠它自己的增量。
+
+已验证（0.2.1-alpha.3）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-alpha.3`）上，
+`patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）都干净通过（**无 fuzz、
+无 reject**，只在共用文件上留 offset 与那两份 `.orig`），53 个触及文件（49 个改动 + 4 个新增），
+`prepare()` 另外放置托盘 PNG。这一轮还核了三件事：重生后 `0010` / `0011` / `0015` 与仓库原版**逐字节
+相同**、`0012` 只差 `index` 行的缩写宽度（内容一字不差，因此保留原样不重写）；与同步前的开发工作树
+（alpha.2 + 15 个补丁）对照，33 个上游未改动的触及文件里 29 个逐字节相同，4 个不同正是 `0017` 的文件
+（那棵树铺于 PR #5 合并之前）；每个补丁的「新增行」与原版逐行相同，只有 `0005` 因上游重构而不同
+（`const path` → `let path`、判据改成调用方传入的 `accepts()`）。`pnpm install --frozen-lockfile`
+与整条打包流水线在这棵树上通过，`build.sh --all` 出齐 AppImage / deb / rpm
+（358 709 796 / 287 195 064 / 238 344 789 B，sha256 `490db362…` / `3c88cc95…` / `6cb30b8e…`），
+连打包后的冒烟也过 —— payload 的 koffi / sharp /
+html / pty / pnpm / grep / glob 全在场、CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三种格式转 PDF。
+`verify.sh` 静态 20 项 + 活体 31 项全过（另 1 项因「3080 没在监听」跳过，`0 failed`）；`makepkg` 也整包
+构建成功（`dsh-desktop-linux-0.2.1alpha3-1`，346 634 413 B / 28037 个文件 —— 比 alpha.2 那份多约 4000 个，
+是上游这一版新增的发布/保留脚本与测试）。产物里 `resources/runtime/cli` 不存在、`versions.json` 记的是
+primary-runtime 的 Node 24.21.0、包内 `package.json` 的 `dshBuildCommit` 记的是上游
+`2fbf4359…`（不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与 0012 的「环境变量优先」
+在起作用。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -37,6 +50,30 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 `0004` 的 `prepare-runtime.ts` 要落在上游拆分出的 `prepareElectron()` / `prepareCli()` 结构上
 （`runtime/bin/node` 的拷贝因此从 `prepareCli()` 里提出来，Linux 仍然要有这个启动器）。
 
+0.2.1-alpha.2 → 0.2.1-alpha.3 上游动了 852 个提交、2200 个改动文件，另加 584 个新增、19 个删除。
+主战场正是桌面端的打包/发布流水线：新增 `apps/desktop/{config,packaging,publishing}/`，新脚本
+`desktop-publish*.ts`、`desktop-release-store.ts`、`rollback-desktop-channel.ts`、`update-channel.ts`、
+`verify-retained-desktop.ts`、`desktop-ci-version.mjs` 等；`loadDesktopPackageEnvironment()` 多了第 4 个参数
+与 `DSH_PACKAGING_PRESET` / `DSH_PACKAGING_CONFIG_DIR` 预设机制，读文件的逻辑抽成
+`readSettings(path, accepts)`；产物目录改由新的 `desktopArtifactOutput()` 决定；更新通道从写死
+`nightly` 改成 `nightly` / `latest`；新增 `--skip-notarization`。补丁触及的 52 个文件里 19 个被改过，
+12 个补丁重生（0001 / 0002 / 0003 / 0004 / 0005 / 0006 / 0007 / 0008 / 0009 / 0013 / 0016 / 0017），
+0010 / 0011 / 0015 逐字节未动，0012 只差 `index` 行的缩写宽度（内容一字不差，保留原样）。
+**上游仍然没有 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由
+`0001` / `0002` 提供。四处要语义裁定：`0001` 的 `desktopTargetBuildPaths()` 多了 `unnotarizedArtifacts`
+（取上游新 `@returns`，只往 `@param` 加 `linux-x64`）；`0003` 的产物命名与输出目录改用 `output.suffix` /
+`output.directory`（我们的 `asar: resolvedPlatform !== 'linux'` 保留在原处）；`0005` 的
+`desktop-package-environment` 整个重构（Linux 分支落在上游新的 `readSettings(path, accepts)` 结构上）；
+`0009` 的 `smoke-packaged-runtime.ts` 改用上游新的 `resolveDesktopPackageTarget()` 判平台，
+产物目录跟着换 `desktopArtifactOutput()`。
+
+还有一处**不是靠读 diff 看出来的，是构建期抓出来的**：上游这次新增的 `desktop-release-store.ts` 把
+保留清单的 `target` 又写了一遍窄联合（`mac-arm64 | mac-x64 | win-x64`），而新的 `retain-desktop-ci.ts`
+把 `resolveDesktopBuildTarget()` 的结果直接交给它，于是 `tsc -p tsconfig.host.json` 这个 host 聚合门报
+`TS2322`。它的注释本来就写着「Storage accepts every Desktop target」，所以是放宽 schema、不是加类型断言；
+这一处并进了 `0001`（同一个「目标模型加 linux-x64」的职责）。**教训：光看补丁触及的 52 个文件不够，
+上游新写的文件也会引用我们放宽过的类型**，同步后必须实跑一遍构建门。
+
 `0016` 启动实测（0.2.1-alpha.2 这份产物；用隔离 `DSH_HOME` + 独立 `--user-data-dir` 起，KWin 读
 `frameGeometry` / `clientGeometry`，CDP 读渲染视口）：主窗口 frame 1280x848、客户区 1280x820、
 视口 820；欢迎窗 frame 600x757、客户区 600x729、视口 729。两个窗口的「客户区 − 视口」都是 0，
@@ -51,7 +88,7 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`desktop-auto-update-environment.{mjs,d.mts}` | target 白名单加 `linux-x64`；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()` |
+| `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`desktop-auto-update-environment.{mjs,d.mts}`、`desktop-release-store.ts` | target 白名单加 `linux-x64`；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()`；保留清单的 schema 也认出 `linux-x64`（上游 0.2.1-alpha.3 新增的 `retain-desktop-ci.ts` 把 `resolveDesktopBuildTarget()` 的结果直接交给它，窄联合会让 `tsc -p tsconfig.host.json` 报错） |
 | `0002-package-target-add-linux-x64.patch` | `package-target.ts`、`desktop-upload-plan.ts` | 打包目标表加 `linux-x64`；Linux 构建主机校验（当初还放宽了 `--unsigned` 的平台限制，0.2.1-alpha.2 起上游把那条限制整条删掉，这一半随之消失） |
 | `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
 | `0004-prepare-target-electron-distribution.patch` | `prepare-dsh.ts`、`prepare-runtime.ts` | Electron 分发路径按 target 推导，不再假设「非 mac 即 win32」；打包期 `pnpm install` / 运行时冒烟改用 Host 运行时；`versions.json.node` 记为 payload 实际运行的 Node 版本；Linux 上整块跳过 rc.2 新增的 `prepare:cli`（见「注意」） |
@@ -115,6 +152,9 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 |---|---|---|
 | `0017-desktop-host-resources-path.patch` | `src/node-environment.ts`、`src/main.ts`、`desktop-host/src/index.ts`、2 个 spec | Linux 的 Host 跑在 primary-runtime 的真 Node 上（0008），进程里没有 Electron 的 `process.resourcesPath`，dsh-market 的宿主探测（`dshHostInfo()`，靠它认出 `resources/app/dsh/node_modules/@deepseek-ai/dsh`）两路全落空 → 市场全程「宿主版本未知」。现在 shell 把打包安装的 resources 根随 `DesktopNodeRuntime.resourcesPath` 交给 Host（`desktopNodeEnvironment()` 只对 standalone 运行时展开成 `DSH_DESKTOP_RESOURCES_PATH`），Host 入口在 Electron 之外把它回填成 `process.resourcesPath` —— dsh-market 的 Electron 探测分支原样命中，#778 的嵌套候选天然覆盖本布局。Electron 运行时一字未动：它自带真值，且子进程里的值永远优先 |
 
+`0017` 的每个文件也属于 `0008`，且它的 diff 上下文含 `0008` 新增的行，所以**只有排在 `0008` 之后才成立**
+（见开头那条例外）。
+
 ## Arch 包与 deb/rpm 构建树的差异（无害）
 
 同一份上游代码、两套构建入口（`build.sh` 在 `upstream/` 里出 AppImage / deb / rpm，`makepkg` 在
@@ -142,6 +182,18 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 
 ## 注意
 
+- **上游自己的桌面单测在补丁态下会红 22 个用例，而上游基线零失败 —— 也就是说这 22 个全是我们造成的。**
+  实测 2026-10-14（alpha.3）：`/usr/bin/pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`
+  → 5 个文件 / 22 个用例失败、1577 通过；`git stash push` 掉全部补丁后同一条命令是 0 失败 / 1586 通过
+  （`stash pop` 后逐条比对 `git status --porcelain` 确认补丁态原样恢复）。原因是我们改了源码却没同步改
+  对应的上游 spec：`main-startup.spec.ts`（9 个，0008 把 `desktopNodeRuntime()` 的返回从字符串换成对象，
+  另有几个 Linux 分支超时）、`welcome-window.spec.ts`（7 个，0016 关掉菜单栏后 `window.setMenuBarVisibility`
+  不存在）、`update-overlay.spec.ts`（3 个，0015 的 reveal 路径）、`welcome-startup.spec.ts`（2 个）、
+  `preload-windows.client.spec.ts`（1 个，0016 的 caption）。alpha.2 与 alpha.3 下这一组**文件集合与
+  数量完全相同**。所以判断「某个补丁有没有引入回归」的办法是比对失败集合，而不是要求零失败；
+  `scripts/` 与 CI 都不跑上游单测。跑的时候注意两点：用 `/usr/bin/pnpm`（本机 `~/.npm-global/bin/pnpm`
+  是 9.15.4，会遮蔽它）；摘掉代理（`env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u http_proxy -u https_proxy
+  -u HTTP_PROXY -u HTTPS_PROXY`），否则 `host-process.spec.ts` 会因 `127.0.0.1` 也被代理接管而多红几个。
 - **dev 模式也需要 `0001`**——`dev.ts` 虽然不走 `package-target.ts`，
   但会调用 `resolveDesktopBuildTarget()`，Linux 上抛 `unsupported target linux-x64`。
 - 上游有手写的 `.d.mts` 声明文件，改 `.mjs` 的 JSDoc **不够**，类型联合必须同步改 `.d.mts`，
@@ -153,6 +205,10 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 - **`DSH_DESKTOP_TARGET_FORMATS` 刻意不进 `.env.linux` 白名单**。它是「这次构建打什么」的
   选择器（和 `DSH_DESKTOP_TARGET_PLATFORM` / `_ARCH` 同类），不是发布设置；进了文件反而会让
   `build.sh --deb` 被文件里的值盖掉。
+- **Linux 不接上游的 `DSH_PACKAGING_PRESET`（`0005`）。** 预设是给「打包机上的签名凭据」用的
+  （`presets/<test|production>.env` + `secrets/<平台>-signing.env`），而 Linux 产物无签名，
+  我们的 PKGBUILD 写的是 `.env.linux`、从不设 `DSH_PACKAGING_PRESET`。所以 `0005` 让 Linux 撞上预设时
+  直接报一条可行动的错，而不是顺着上游的三目去读一份不存在的 `macos-signing.env`。
 - **`0012` 是唯一为「非 git 源码」存在的补丁**。上游两条路都要 git：`scripts/build.ts` 经
   `repositoryCommitHash()` 读 `HEAD`（有 `DSH_CLIENT_COMMIT_HASH` 环境变量出口，不用改），
   `apps/desktop/scripts/package-target.ts` 的打包入口无条件调 `readDesktopBuildCommit()`（没有出口，
