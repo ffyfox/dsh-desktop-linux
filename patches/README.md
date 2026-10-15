@@ -2,10 +2,10 @@
 
 按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `2fbf435`（tag `dsh-v0.2.1-alpha.3`）。
 
-组织约定：**一个文件只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，
-互不重叠，因此应用顺序无关（仍按编号执行）。补丁由 `git diff -- <files>` 从开发工作树生成；
-两个补丁共用一个文件时（`electron-builder-config.mjs` 属 0003 与 0013，`src/main.ts` 属 0008、0013、0016 与 0017），
-必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的 hunk 一起带进来。
+组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
+按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
+多个补丁触及**，此时必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的
+hunk 一起带进来。
 
 **`0017` 是这条约定的一个已知例外。** 它的 5 个文件（`src/node-environment.ts`、`src/main.ts`、
 `tests/host-process.spec.ts`、`tests/node-environment.spec.ts`、`desktop-host/src/index.ts`）全部也属于
@@ -100,7 +100,7 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0008-desktop-host-runtime-standalone-node.patch` | `src/node-environment.ts`、`src/host-process.ts`、`src/main.ts`、`desktop-host/src/{index,cli}.ts`、`scripts/node-bin/node`、4 个 spec | 引入 `DesktopNodeRuntime`；Linux 上 Host 走 primary-runtime 的真 Node；`ELECTRON_RUN_AS_NODE` 只在真 Electron 运行时下设置；`dsh` CLI 在「真目录树」布局下按 `resources/runtime` 找 supportDir（关掉 asar 后原来那段推导会落到 `resources/app/runtime`，见「注意」） |
+| `0008-desktop-host-runtime-standalone-node.patch` | `src/node-environment.ts`、`src/host-process.ts`、`src/main.ts`、`desktop-host/src/{index,cli}.ts`、`scripts/node-bin/node`、5 个 spec | 引入 `DesktopNodeRuntime`；Linux 上 Host 走 primary-runtime 的真 Node；`ELECTRON_RUN_AS_NODE` 只在真 Electron 运行时下设置；`dsh` CLI 在「真目录树」布局下按 `resources/runtime` 找 supportDir（关掉 asar 后原来那段推导会落到 `resources/app/runtime`，见「注意」）。`desktopNodeRuntime()` 的返回值从字符串变成对象，所以 `tests/main-startup.spec.ts` 里 Host 的 `node` 断言同步改成对象 |
 | `0009-desktop-packaging-host-runtime.patch` | `scripts/dev.ts`、`scripts/smoke-{runtime,prepared-runtime,packaged-runtime}.ts`、`scripts/sign-primary-runtime.ts`、`tests/fixtures/{runtime-payload-smoke,pnpm-smoke}.mjs`、`tests/prepared-runtime-smoke.spec.ts` | 把 Host 运行时贯穿 dev / 打包 / 冒烟；payload smoke 的 Electron 专属断言改为按平台判断 |
 | `0010-desktop-linux-policy-opt-out.patch` | `desktop-policy-environment.{mjs,d.mts}`、`tests/desktop-policy-environment.spec.ts` | 新增 `desktopPlatformEmbedsPolicy()`：策略服务只认 `desktop-win` / `desktop-mac`，Linux 不参与 |
 
@@ -112,7 +112,7 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 | `0012-desktop-build-commit-release-archive.patch` | `desktop-build-commit.{mjs,d.mts}`、`tests/desktop-build-commit.spec.ts` | `readDesktopBuildCommit()` 先认环境里记下的 `DSH_DESKTOP_BUILD_COMMIT` / `_DIRTY`（打包入口读一次、再传给每个子进程，子进程跑在构建树上），没有才读 git checkout，两者都没有才报错。上游从 checkout 构建，distro 打包从 release 源码包构建，后者没有 `.git`，而它的构建树常常就落在打包仓库自己的工作树里（见「注意」） |
 
 `0003` 消费 `0011`，`0005` 也消费 `0011`：格式选择和包元数据的**规则**只有一份（`0011`），
-`0003` 拿去配 electron-builder，`0005` 拿去做打包最前面的预检。按「一个文件只属于一个补丁」，
+`0003` 拿去配 electron-builder，`0005` 拿去做打包最前面的预检。按「一条改动只属于一个补丁」，
 规则本身单独成一个补丁。
 
 ## 让 Linux 也有托盘（0013）
@@ -131,7 +131,7 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0015-desktop-linux-hidden-overlay-reveal.patch` | `src/update-overlay.ts` | 提示浮层是 `transparent: true` + `show: false` 的子窗口，只在 `ready-to-show` 里 `show()`；而这种窗口在 Wayland 下不报告首帧，于是浮层建好了、内容也渲染对了，却始终 `isVisible() === false` —— 用户既看不到也点不到，关窗看起来像卡住。Linux 上再用 `did-finish-load` 兜一次 `reveal()`；Windows/macOS 的 `ready-to-show` 行为一字未动 |
+| `0015-desktop-linux-hidden-overlay-reveal.patch` | `src/update-overlay.ts`、`tests/update-overlay.spec.ts` | 提示浮层是 `transparent: true` + `show: false` 的子窗口，只在 `ready-to-show` 里 `show()`；而这种窗口在 Wayland 下不报告首帧，于是浮层建好了、内容也渲染对了，却始终 `isVisible() === false` —— 用户既看不到也点不到，关窗看起来像卡住。Linux 上再用 `did-finish-load` 兜一次 `reveal()`；Windows/macOS 的 `ready-to-show` 行为一字未动。测试里那个假窗口的 `webContents` 补上 `once()`，否则 Linux 分支一调就抛 |
 
 `0015` 是 `0013` 的下游：Linux 的首次关窗提示是 `0013` 打开的，而它用的正是这个浮层。
 
@@ -139,7 +139,7 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0016-desktop-linux-caption.patch` | `src/main.ts`、`src/preload-windows.ts`、`src/welcome-window.ts` | Linux 借用 Windows 的 caption：`createWindow()` 里对 Linux 关掉原生菜单栏（`setMenuBarVisibility(false)`，application menu 仍挂着，所以菜单项与加速键都还在）；preload 的平台门从只认 `win32` 放宽到 `win32 \|\| linux`，页面因此拿到 `data-windows-titlebar` 并挂上「应用 / 编辑」两个自绘菜单按钮。这两个按钮点开的是原生弹窗，走 Windows 那条 `DESKTOP_IPC.windowsMenu`，所以那个 IPC 块与右键菜单的角色标签也一起放宽到 Linux —— 角色项（`undo` / `copy` / `selectAll` …）因此改用 DSH 字典里的标签，不再回落 Electron 内置的英文角色名。`windowsAppearance` 这个 handler 里真正碰 Electron API 的那一句（`setTitleBarOverlay`）**仍只归 Windows**：窗口的 `titleBarOverlay` 只在 `win32 && primary` 时创建，Linux 上调它必抛异常（见「注意」），所以只放宽菜单与语言同步，不放宽 overlay 上色。未登录的欢迎窗是另一条 `new BrowserWindow()` 路径（`welcome-window.ts`），那个窗口里没有页面内 caption 条，Linux 的原生菜单栏会在标题栏下面独自占一条，所以也一并关掉 |
+| `0016-desktop-linux-caption.patch` | `src/main.ts`、`src/preload-windows.ts`、`src/welcome-window.ts`、`tests/{main-startup,welcome-startup,welcome-window,preload-windows.client}.spec.ts` | Linux 借用 Windows 的 caption：`createWindow()` 里对 Linux 关掉原生菜单栏（`setMenuBarVisibility(false)`，application menu 仍挂着，所以菜单项与加速键都还在）；preload 的平台门从只认 `win32` 放宽到 `win32 \|\| linux`，页面因此拿到 `data-windows-titlebar` 并挂上「应用 / 编辑」两个自绘菜单按钮。这两个按钮点开的是原生弹窗，走 Windows 那条 `DESKTOP_IPC.windowsMenu`，所以那个 IPC 块与右键菜单的角色标签也一起放宽到 Linux —— 角色项（`undo` / `copy` / `selectAll` …）因此改用 DSH 字典里的标签，不再回落 Electron 内置的英文角色名。`windowsAppearance` 这个 handler 里真正碰 Electron API 的那一句（`setTitleBarOverlay`）**仍只归 Windows**：窗口的 `titleBarOverlay` 只在 `win32 && primary` 时创建，Linux 上调它必抛异常（见「注意」），所以只放宽菜单与语言同步，不放宽 overlay 上色。未登录的欢迎窗是另一条 `new BrowserWindow()` 路径（`welcome-window.ts`），那个窗口里没有页面内 caption 条，Linux 的原生菜单栏会在标题栏下面独自占一条，所以也一并关掉。测试上：Linux 分支会调 `setMenuBarVisibility()`，三处假窗口替身补上这个方法（`main-startup.spec.ts` 里那 5 个 Linux 用例原本会因此卡到 5 秒超时）；`preload-windows.client.spec.ts` 里「Linux 上不装 Windows 控件」的断言换成「Linux 装 caption 并上报取色」 |
 
 这是**半统一**：窗口装饰一律不动（KDE 是 KWin 的装饰插件、GNOME 是 Mutter 画的、平铺窗口管理器
 本来就没有装饰），只把网页内那一条 caption 对齐 Windows。Linux 的 in-page 菜单与 Windows 共用
@@ -182,18 +182,15 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 
 ## 注意
 
-- **上游自己的桌面单测在补丁态下会红 22 个用例，而上游基线零失败 —— 也就是说这 22 个全是我们造成的。**
-  实测 2026-10-14（alpha.3）：`/usr/bin/pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`
-  → 5 个文件 / 22 个用例失败、1577 通过；`git stash push` 掉全部补丁后同一条命令是 0 失败 / 1586 通过
-  （`stash pop` 后逐条比对 `git status --porcelain` 确认补丁态原样恢复）。原因是我们改了源码却没同步改
-  对应的上游 spec：`main-startup.spec.ts`（9 个，0008 把 `desktopNodeRuntime()` 的返回从字符串换成对象，
-  另有几个 Linux 分支超时）、`welcome-window.spec.ts`（7 个，0016 关掉菜单栏后 `window.setMenuBarVisibility`
-  不存在）、`update-overlay.spec.ts`（3 个，0015 的 reveal 路径）、`welcome-startup.spec.ts`（2 个）、
-  `preload-windows.client.spec.ts`（1 个，0016 的 caption）。alpha.2 与 alpha.3 下这一组**文件集合与
-  数量完全相同**。所以判断「某个补丁有没有引入回归」的办法是比对失败集合，而不是要求零失败；
-  `scripts/` 与 CI 都不跑上游单测。跑的时候注意两点：用 `/usr/bin/pnpm`（本机 `~/.npm-global/bin/pnpm`
-  是 9.15.4，会遮蔽它）；摘掉代理（`env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u http_proxy -u https_proxy
+- **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
+  实测 2026-10-15（alpha.3）：`/usr/bin/pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`
+  → 0 失败（1599 通过 / 61 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、`0015`、
+  `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI
+  都不跑上游单测。跑的时候注意两点：用 `/usr/bin/pnpm`（本机 `~/.npm-global/bin/pnpm` 是 9.15.4，
+  会遮蔽它）；摘掉代理（`env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u http_proxy -u https_proxy
   -u HTTP_PROXY -u HTTPS_PROXY`），否则 `host-process.spec.ts` 会因 `127.0.0.1` 也被代理接管而多红几个。
+- **同步上游时若某个 spec 的 hunk 合不上，允许先把它摘掉，让核心改动先过去。** 上游重写 `tests/*.spec.ts`
+  时，宁可回落到「单测红着、但行为改动完整」，也不要为了保住 hunk 而把行为改动丢掉或跳过。
 - **「构建用的 pnpm 入口必须是 JS」是上游遗留的写法，不是我们造成的，我们也没为它加补丁。**
   上游三处 desktop 脚本无条件 `node $npm_execpath`：`apps/desktop/scripts/package-target.ts`、
   `flock-entry.ts`、`dev.ts`。npm 与 corepack 装的 pnpm 入口是 `.mjs`，所以上游 CI 与本机都没事；
@@ -210,7 +207,7 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 - **`DSH_DESKTOP_NODE_ELECTRON` 的缺省值必须保持「Electron」**。调用方清空环境时不会带上
   这个变量，缺省若回落到 standalone，macOS / Windows 的包脚本会以 GUI 模式起 Electron。
 - `0003` 与 `0005` 都涉及策略：`0003` 决定「产物里嵌不嵌」，`0005` 决定「打包期要不要 origin」。
-  一个文件只属于一个补丁，所以这两半分在两处。
+  一条改动只属于一个补丁，所以这两半分在两处。
 - **`DSH_DESKTOP_TARGET_FORMATS` 刻意不进 `.env.linux` 白名单**。它是「这次构建打什么」的
   选择器（和 `DSH_DESKTOP_TARGET_PLATFORM` / `_ARCH` 同类），不是发布设置；进了文件反而会让
   `build.sh --deb` 被文件里的值盖掉。

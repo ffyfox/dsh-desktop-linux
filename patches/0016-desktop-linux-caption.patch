@@ -73,3 +73,92 @@ index 61fda9e..364f580 100644
    disposeActiveHandlers?.()
    let active = true
    const disposeHandlers = (): void => {
+diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
+index d9a8f310..30fe97c4 100644
+--- a/apps/desktop/tests/main-startup.spec.ts
++++ b/apps/desktop/tests/main-startup.spec.ts
+@@ -119,6 +119,7 @@ const harness = await vi.hoisted(async () => {
+     }
+     static getAllWindows() { return windows.filter(window => !window.destroyed) }
+     setMenu() {}
++    setMenuBarVisibility() {}
+     getContentBounds() { return { x: 0, y: 0, width: 900, height: 650 } }
+     setBounds() {}
+     setTitle = vi.fn()
+diff --git a/apps/desktop/tests/preload-windows.client.spec.ts b/apps/desktop/tests/preload-windows.client.spec.ts
+index e59b7ebb..735b77f9 100644
+--- a/apps/desktop/tests/preload-windows.client.spec.ts
++++ b/apps/desktop/tests/preload-windows.client.spec.ts
+@@ -17,16 +17,8 @@ afterEach(() => {
+   send.mockClear()
+ })
+ 
+-it.each(['darwin', 'linux'] as const)('does not install Windows controls on %s', (platform) => {
+-  vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
+-  syncWindowsAppearance()
+-  expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(false)
+-  expect(send).not.toHaveBeenCalled()
+-})
+-
+-it('synchronizes live language and palette changes and stops observing a closed document', async () => {
+-  vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+-  vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading')
++/** Stubs the computed colours and 2D canvas the caption reads to report an appearance. */
++function stubCaptionRendering(): void {
+   vi.spyOn(globalThis, 'getComputedStyle').mockImplementation(() => ({
+     backgroundColor: document.body.hasAttribute('data-ds-dark-theme') ? 'oklch(0.2 0 0)' : 'hsl(0 0% 100%)',
+     color: 'black',
+@@ -37,6 +29,29 @@ it('synchronizes live language and palette changes and stops observing a closed
+       ? [0, 0, 0, 255] : context.fillStyle.startsWith('oklch') ? [27, 27, 28, 255] : [255, 255, 255, 255]) }),
+   }
+   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
++}
++
++it('does not install Windows controls on darwin', () => {
++  vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin')
++  syncWindowsAppearance()
++  expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(false)
++  expect(send).not.toHaveBeenCalled()
++})
++
++it('installs the caption menubar and reports its appearance on linux', () => {
++  vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++  stubCaptionRendering()
++  document.documentElement.lang = 'en'
++  syncWindowsAppearance()
++  expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(true)
++  expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-height')).toBe('40px')
++  expect(send).toHaveBeenCalledWith(DESKTOP_IPC.windowsAppearance, 'en', 'rgba(255, 255, 255, 1)', 'rgba(0, 0, 0, 1)')
++})
++
++it('synchronizes live language and palette changes and stops observing a closed document', async () => {
++  vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
++  vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading')
++  stubCaptionRendering()
+   document.documentElement.lang = 'en'
+   syncWindowsAppearance()
+   expect(send).not.toHaveBeenCalled()
+diff --git a/apps/desktop/tests/welcome-startup.spec.ts b/apps/desktop/tests/welcome-startup.spec.ts
+index 79152482..2fb4f551 100644
+--- a/apps/desktop/tests/welcome-startup.spec.ts
++++ b/apps/desktop/tests/welcome-startup.spec.ts
+@@ -74,6 +74,7 @@ vi.mock('electron', () => ({
+     static getAllWindows() { return [] }
+     once(name: string, callback: () => void) { if (name === 'ready-to-show') this.ready = callback; return this }
+     on() { return this }
++    setMenuBarVisibility() {}
+     isDestroyed() { return false }
+     isMinimized() { return false }
+     restore = vi.fn()
+diff --git a/apps/desktop/tests/welcome-window.spec.ts b/apps/desktop/tests/welcome-window.spec.ts
+index 6d2807c4..2100de70 100644
+--- a/apps/desktop/tests/welcome-window.spec.ts
++++ b/apps/desktop/tests/welcome-window.spec.ts
+@@ -33,6 +33,7 @@ function createWindow() {
+     isDestroyed: vi.fn().mockReturnValue(false),
+     destroy: vi.fn(),
+     show: vi.fn(),
++    setMenuBarVisibility: vi.fn(),
+     once: vi.fn<(name: string, callback: () => void) => void>(),
+   }
+ }

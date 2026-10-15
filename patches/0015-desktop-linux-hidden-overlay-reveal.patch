@@ -15,3 +15,16 @@ index 7706982..d37782c 100644
      window.setMenu(null)
      window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
      return window
+diff --git a/apps/desktop/tests/update-overlay.spec.ts b/apps/desktop/tests/update-overlay.spec.ts
+index 56e49dfa..077048a3 100644
+--- a/apps/desktop/tests/update-overlay.spec.ts
++++ b/apps/desktop/tests/update-overlay.spec.ts
+@@ -18,7 +18,7 @@ function visibilityFixture(visible = true) {
+   })
+   const window = Object.assign(new EventEmitter(), {
+     destroyed: false,
+-    webContents: { setWindowOpenHandler: vi.fn() }, show: vi.fn(), focus: vi.fn(),
++    webContents: { setWindowOpenHandler: vi.fn(), once: vi.fn() }, show: vi.fn(), focus: vi.fn(),
+     setMenu: vi.fn(), setBounds: vi.fn(), isDestroyed: () => window.destroyed,
+   })
+   native.create.mockReturnValue(window)

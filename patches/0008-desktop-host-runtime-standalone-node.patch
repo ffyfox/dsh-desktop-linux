@@ -380,3 +380,37 @@ index 8640662..d8bd178 100644
          const { url } = await host.start()
          hostOrigin = new URL(url).origin
          let cookie = ''
+diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
+index d9a8f310..30fe97c4 100644
+--- a/apps/desktop/tests/main-startup.spec.ts
++++ b/apps/desktop/tests/main-startup.spec.ts
+@@ -447,7 +448,10 @@ describe('desktop main startup', () => {
+     harness.app.isPackaged = packaged
+     await readyForUpdate()
+     const host = harness.hosts[0]!
+-    expect(host.node).toBe(process.execPath)
++    expect(host.node).toEqual({
++      executable: process.execPath, electron: true,
++      ...(packaged ? { resourcesPath: 'desktop-test-resources' } : {}),
++    })
+     expect(host.primaryRuntime).toBe(packaged
+       ? join('desktop-test-resources', 'runtime', 'primary-runtime') : 'test-primary-runtime')
+     expect(host.packageManager).toMatchObject({
+@@ -2230,7 +2234,7 @@ describe('desktop main startup', () => {
+     await Promise.all([retry, secondRetry, harness.navigated.promise])
+     expect(harness.applyRelease).toHaveBeenCalledTimes(1)
+     expect(harness.hosts[0]).toMatchObject({
+-      node: process.execPath,
++      node: { executable: process.execPath, electron: true, resourcesPath: 'desktop-test-resources' },
+       runtime: join(harness.app.getAppPath(), 'dsh'),
+       primaryRuntime: join('desktop-test-resources', 'runtime', 'primary-runtime'),
+       profile: 'desktop-test-profile',
+@@ -2253,7 +2257,7 @@ describe('desktop main startup', () => {
+     harness.prepared.resolve()
+     await harness.hostStarted.promise
+     const project = join(harness.app.getAppPath(), '.desktop-build', 'development', 'project')
+-    expect(harness.hosts[0]).toMatchObject({ node: process.execPath, runtime: project,
++    expect(harness.hosts[0]).toMatchObject({ node: { executable: process.execPath, electron: true }, runtime: project,
+       primaryRuntime: 'test-primary-runtime', profile: 'desktop-test-profile' })
+     expect(harness.applyRelease).toHaveBeenCalledOnce()
+     harness.hosts[0]!.ready.resolve()
