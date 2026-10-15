@@ -140,7 +140,7 @@ index e577b1d..7953a96 100644
   * Resolve the paths owned by the target selected in a packaging environment.
   * @param {NodeJS.ProcessEnv} env - Packaging environment.
 diff --git a/apps/desktop/scripts/desktop-release-store.ts b/apps/desktop/scripts/desktop-release-store.ts
-index 1c9ff23..79f47bd 100644
+index c080272..83ec26c 100644
 --- a/apps/desktop/scripts/desktop-release-store.ts
 +++ b/apps/desktop/scripts/desktop-release-store.ts
 @@ -17,7 +17,7 @@ const sourceSchema = z.strictObject({

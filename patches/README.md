@@ -1,6 +1,6 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `2fbf435`（tag `dsh-v0.2.1-alpha.3`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `86a4022`（tag `dsh-v0.2.1-alpha.4`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -14,23 +14,24 @@ hunk 一起带进来。
 现有系列靠「按文件名顺序」恰好满足。重生这类补丁要走两阶段：先在「新基线 + 前置补丁」上重算，
 再叠它自己的增量。
 
-已验证（0.2.1-alpha.3）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-alpha.3`）上，
+已验证（0.2.1-alpha.4）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-alpha.4`）上，
 `patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）都干净通过（**无 fuzz、
-无 reject**，只在共用文件上留 offset 与那两份 `.orig`），53 个触及文件（49 个改动 + 4 个新增），
-`prepare()` 另外放置托盘 PNG。这一轮还核了三件事：重生后 `0010` / `0011` / `0015` 与仓库原版**逐字节
-相同**、`0012` 只差 `index` 行的缩写宽度（内容一字不差，因此保留原样不重写）；与同步前的开发工作树
-（alpha.2 + 15 个补丁）对照，33 个上游未改动的触及文件里 29 个逐字节相同，4 个不同正是 `0017` 的文件
-（那棵树铺于 PR #5 合并之前）；每个补丁的「新增行」与原版逐行相同，只有 `0005` 因上游重构而不同
-（`const path` → `let path`、判据改成调用方传入的 `accepts()`）。`pnpm install --frozen-lockfile`
-与整条打包流水线在这棵树上通过，`build.sh --all` 出齐 AppImage / deb / rpm
-（358 709 796 / 287 195 064 / 238 344 789 B，sha256 `490db362…` / `3c88cc95…` / `6cb30b8e…`），
+无 reject**，只在共用文件上留 offset 与那两份 `.orig`），58 个触及文件（54 个改动 + 4 个新增），
+`prepare()` 另外放置托盘 PNG；两条路打出来的这 58 个文件逐字节相同。这一轮只有 `0001` / `0006` 重生
+（上游动了它们的基线 blob），重生结果与原版**只差 `index` 那一行**、连字节数都相同，其余 14 份逐字节
+未动；offset 仍只出现在 `0013` / `0016` / `0017`，与 alpha.3 那一轮同因（系列内前置补丁推行的行号）。
+`makepkg --verifysource` 的 18 条校验和逐条 `Passed`。`pnpm install --frozen-lockfile`（只 +2 个包）与
+整条打包流水线在这棵树上通过，`build.sh --all` 出齐 AppImage / deb / rpm
+（358 836 976 / 287 298 372 / 238 725 566 B，sha256 `cab4f9ee…` / `0e7d7de8…` / `a0fa334f…`），
 连打包后的冒烟也过 —— payload 的 koffi / sharp /
 html / pty / pnpm / grep / glob 全在场、CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三种格式转 PDF。
-`verify.sh` 静态 20 项 + 活体 31 项全过（另 1 项因「3080 没在监听」跳过，`0 failed`）；`makepkg` 也整包
-构建成功（`dsh-desktop-linux-0.2.1alpha3-1`，346 634 413 B / 28037 个文件 —— 比 alpha.2 那份多约 4000 个，
-是上游这一版新增的发布/保留脚本与测试）。产物里 `resources/runtime/cli` 不存在、`versions.json` 记的是
-primary-runtime 的 Node 24.21.0、包内 `package.json` 的 `dshBuildCommit` 记的是上游
-`2fbf4359…`（不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与 0012 的「环境变量优先」
+`verify.sh` 静态 20 项 + 活体 31 项全过（4 项跳过：3 个 alpha.3 的旧产物按当前基线跳过，另 1 项是
+「3080 没在监听」，`0 failed`）；上游桌面单测在补丁态下**零失败**（150 个文件通过 / 5 跳过，
+1604 个用例通过 / 61 跳过）。`makepkg` 也整包构建成功（`dsh-desktop-linux-0.2.1alpha4-1`，
+347 760 852 B / 28671 个文件 —— 比 alpha.3 那份多 634 个，是上游这一版新增的插件市场）。
+产物里 `resources/runtime/cli` 不存在、`resources/runtime/versions.json` 记的是 primary-runtime 的
+Node 24.21.0 / pnpm 11.28.5、包内 `package.json` 的版本是 `0.2.1-alpha.4`、`dshBuildCommit` 记的是上游
+`86a40220…`（不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与 0012 的「环境变量优先」
 在起作用。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
@@ -73,6 +74,17 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 `TS2322`。它的注释本来就写着「Storage accepts every Desktop target」，所以是放宽 schema、不是加类型断言；
 这一处并进了 `0001`（同一个「目标模型加 linux-x64」的职责）。**教训：光看补丁触及的 52 个文件不够，
 上游新写的文件也会引用我们放宽过的类型**，同步后必须实跑一遍构建门。
+
+0.2.1-alpha.3 → 0.2.1-alpha.4 上游动了 89 个提交、831 个改动文件（+22232/−2044），主战场是新的插件市场：
+新增 `apps/plugin-market-generator/` 整个应用与 `packages/boot/plugin-market` 包，插件兼容性改按
+`engines.dsh` 判断（`packages/boot/app-boot/src/plugin-compatibility.ts` 重写），并给可选 bundle 名单
+加了 `@deepseek-ai/dsh-experimental-plugin-market-bundle`。`pnpm-lock.yaml` 与根 `package.json` 都改了，
+所以同步后 `pnpm install --frozen-lockfile` 必须重跑。补丁触及的 58 个文件里只有 2 个被改过：
+`apps/desktop/package.json` 只换了版本号，`apps/desktop/scripts/desktop-release-store.ts` 把 `sourceRef`
+的正则放宽成 `.min(1)` 并补了一条 production 专用的 `.refine(...)` —— 与我们改的 `target` 联合不在同一段，
+hunk 的上下文根本没碰到它。这版还有一处**正好落在 Linux 上**的上游修复：启动命令前的重复检查被砍掉，
+降低启动开销、改善较旧 systemd 环境的兼容性。**上游仍然没有 Linux**：目标联合类型还是
+`mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
 
 `0016` 启动实测（0.2.1-alpha.2 这份产物；用隔离 `DSH_HOME` + 独立 `--user-data-dir` 起，KWin 读
 `frameGeometry` / `clientGeometry`，CDP 读渲染视口）：主窗口 frame 1280x848、客户区 1280x820、
@@ -183,8 +195,8 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 ## 注意
 
 - **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
-  实测 2026-10-15（alpha.3）：`/usr/bin/pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`
-  → 0 失败（1599 通过 / 61 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、`0015`、
+  实测 2026-10-15（alpha.4）：`/usr/bin/pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`
+  → 0 失败（1604 通过 / 61 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、`0015`、
   `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI
   都不跑上游单测。跑的时候注意两点：用 `/usr/bin/pnpm`（本机 `~/.npm-global/bin/pnpm` 是 9.15.4，
   会遮蔽它）；摘掉代理（`env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u http_proxy -u https_proxy
