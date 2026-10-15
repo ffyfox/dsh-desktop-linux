@@ -38,18 +38,9 @@ for arg in "$@"; do
 done
 
 # --- pnpm 11 ---
-PNPM="$(command -v pnpm || true)"
-if [[ -z "$PNPM" || "$("$PNPM" --version)" != 11.* ]]; then
-  FALLBACK="$HOME/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm"
-  if [[ -x "$FALLBACK" ]]; then
-    PNPM="$FALLBACK"
-    echo "==> 系统 pnpm 不是 11.x，改用隔离版：$PNPM ($("$PNPM" --version))"
-  else
-    echo "==> 需要 pnpm 11.x。安装隔离版：" >&2
-    echo "    npm i --prefix ~/.local/share/dsh-pnpm-11 pnpm@11.28.5" >&2
-    exit 1
-  fi
-fi
+# 与 build.sh 同一份预检（版本 + 入口能被 node 执行），理由见 scripts/select-pnpm.sh。
+# shellcheck source=scripts/select-pnpm.sh
+source "$ROOT/scripts/select-pnpm.sh"
 
 [[ -d "$UPSTREAM/apps/desktop" ]] || { echo "找不到 $UPSTREAM，先跑 scripts/fetch-upstream.sh" >&2; exit 1; }
 [[ -d "$UPSTREAM/node_modules" ]] || { echo "依赖没装，先 cd upstream && pnpm install --frozen-lockfile" >&2; exit 1; }

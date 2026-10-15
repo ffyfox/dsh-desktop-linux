@@ -194,6 +194,15 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
   `scripts/` 与 CI 都不跑上游单测。跑的时候注意两点：用 `/usr/bin/pnpm`（本机 `~/.npm-global/bin/pnpm`
   是 9.15.4，会遮蔽它）；摘掉代理（`env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u http_proxy -u https_proxy
   -u HTTP_PROXY -u HTTPS_PROXY`），否则 `host-process.spec.ts` 会因 `127.0.0.1` 也被代理接管而多红几个。
+- **「构建用的 pnpm 入口必须是 JS」是上游遗留的写法，不是我们造成的，我们也没为它加补丁。**
+  上游三处 desktop 脚本无条件 `node $npm_execpath`：`apps/desktop/scripts/package-target.ts`、
+  `flock-entry.ts`、`dev.ts`。npm 与 corepack 装的 pnpm 入口是 `.mjs`，所以上游 CI 与本机都没事；
+  但**官方 standalone 安装器（pnpm.io 首推那条）与 Homebrew 给的是编译好的二进制**，那种 pnpm 交给
+  脚本的 `npm_execpath` 就是二进制本身，打包阶段会报 `SyntaxError: Invalid or unexpected token`
+  （2026-10-15 在 Ubuntu 26.04.1 的 live VM 里用真实 `build.sh --all` 复现过）。**不加补丁的理由**：
+  它不属于 Linux 移植，而且上游一旦自己修，我们的补丁就会变成重复改动、下次同步必然冲突。
+  挡在门口的是 `scripts/select-pnpm.sh`（`build.sh` / `dev-desktop.sh` 共用）：选 pnpm 时先照上游
+  那三处的写法探一次入口，不合用就退到 `~/.local/share/dsh-pnpm-11`，都没有再打印安装命令。
 - **dev 模式也需要 `0001`**——`dev.ts` 虽然不走 `package-target.ts`，
   但会调用 `resolveDesktopBuildTarget()`，Linux 上抛 `unsupported target linux-x64`。
 - 上游有手写的 `.d.mts` 声明文件，改 `.mjs` 的 JSDoc **不够**，类型联合必须同步改 `.d.mts`，
