@@ -86,6 +86,11 @@ pnpm 9 fails `pnpm install` with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`. The offici
 installer and Homebrew ship a compiled binary, and three upstream scripts then run
 `node $npm_execpath` and die with `SyntaxError`; `build.sh` falls back to the isolated copy and says so.
 
+**PKGBUILD runs the same check.** `build()` carries an inlined copy of that entry probe: if the
+system pnpm is not 11.x, or the entry it hands to scripts cannot be run by node, it falls back to
+`~/.local/share/dsh-pnpm-11`; if neither works it prints the install command and stops, instead of
+dying with `SyntaxError` in the middle of the packaging pipeline.
+
 ## Arch package
 
 The PKGBUILD consumes upstream's release tarball and does not depend on the

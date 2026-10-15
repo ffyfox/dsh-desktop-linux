@@ -74,6 +74,10 @@ deb / rpm 的 `Maintainer:` / `Homepage:` 来自 `upstream/apps/desktop/.env.lin
 `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`。官方 standalone 安装器与 Homebrew 给的是编译好的二进制，
 上游三处脚本会 `node $npm_execpath` 而报 `SyntaxError`；`build.sh` 碰到这种会退到隔离版并说明。
 
+**PKGBUILD 做同一套检查。** 它在 `build()` 里内联了同样的入口探测：系统 pnpm 不是 11.x、或它
+交给脚本的入口不能被 node 执行时，退到隔离版 `~/.local/share/dsh-pnpm-11`；两者都不可用则打印
+安装命令后停下，而不是以 `SyntaxError` 的形式炸在打包流水线中途。
+
 ## Arch 包
 
 PKGBUILD 直接吃上游的 release 源码包，不依赖 `./upstream` 检出：

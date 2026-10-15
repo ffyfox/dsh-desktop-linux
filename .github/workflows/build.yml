@@ -147,6 +147,14 @@ jobs:
           useradd -m builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
 
+      # PKGBUILD 的 pnpm 门会探「入口能不能被 node 执行」：容器里 pacman 装到的 pnpm 是 12.x，
+      # 版本自管理会把入口换成 @pnpm/exe（ELF），必然触发回退。所以先把回退位备好 ——
+      # 命令与 PKGBUILD 探不过时打印的那条提示一致：npm 装的 11.28.5 与 packageManager 同版本，
+      # 不会自管理，入口是 JS。（runuser -u 会把 HOME 设成 /home/builder，与 PKGBUILD 里
+      # $HOME/.local/share/dsh-pnpm-11 指同一处。）
+      - name: 准备隔离版 pnpm 11（PKGBUILD 的回退位）
+        run: runuser -u builder -- npm i --prefix /home/builder/.local/share/dsh-pnpm-11 pnpm@11.28.5
+
       # depends 里那套运行时库必须在场：上游 prepare-runtime.ts 会**真的执行 Electron** 去读
       # 它自带的 Node 版本（electron -p process.versions.node），缺一个就是动态链接器直接报
       # "error while loading shared libraries"（实测先在 libnspr4.so 上挂）。所以原先靠

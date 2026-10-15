@@ -119,11 +119,16 @@ prepare() {
 build() {
   cd "$_srcdirname"
 
-  # pnpm 12 的版本自管理按 PATH 顺序挑入口：交互 shell 常把 PNPM_HOME 的 shim 排在前面，
-  # 它自切换到 packageManager 声明的版本后，给 run-script 注入的 npm_execpath 指向
-  # package-manager-store 里的 @pnpm/exe —— 那是 ELF，而打包流水线用 `node $npm_execpath`
-  # 复起 pnpm（package-target.ts 的 runPnpm），node 加载 ELF 直接 SyntaxError。
-  # 把 /usr/bin 钉到最前，保证 npm_execpath 落在 Arch 的 JS 入口上。
+  # 上游三处脚本是无条件 `node $npm_execpath` 复起 pnpm（package-target.ts / flock-entry.ts /
+  # dev.ts），所以「它交给脚本的入口能不能被 node 执行」是硬前提。
+  #
+  # 光把 /usr/bin 钉在 PATH 最前**拦不住**：pnpm 的版本自管理在「运行版本 ≠ packageManager
+  # 声明版本」时会在 pnpm 内部把入口换成自己取的副本，pnpm 12 取的是 @pnpm/exe（ELF），
+  # node 加载它直接 SyntaxError —— 2026-10-15 的 CI arch job 就是这样挂的（容器里 pacman
+  # 装到 pnpm 12，自管理切到 store 里的 @pnpm/exe）。所以下面不只看版本，还要探一次入口，
+  # 探不过就退到隔离版（npm 装的 11.28.5，与声明版本一致、不会自管理，入口是 JS）。
+  # 探法与 scripts/select-pnpm.sh 同源 —— 那份给 build.sh / dev-desktop.sh 用，而 pkgbuild/
+  # 摊平目录里没有 scripts/，所以这里只能内联一份。
   export PATH="/usr/bin:$PATH"
 
   # 隔离的 dsh 数据目录：构建期 Host 会往这里写东西，绝不能落到用户真实的 ~/.dsh。
@@ -138,11 +143,54 @@ build() {
   export DSH_DESKTOP_BUILD_COMMIT="$_commit"
   export DSH_DESKTOP_BUILD_DIRTY=1
 
-  local pnpm_version
-  pnpm_version="$(pnpm --version)"
-  if (( ${pnpm_version%%.*} < 11 )); then
-    error "需要 pnpm 11 或更新版本，当前是 $pnpm_version（上游声明 packageManager: pnpm@11.28.5；pnpm 9 会报 ERR_PNPM_LOCKFILE_CONFIG_MISMATCH）"
-    return 1
+  # --- 挑一个合用的 pnpm：版本 11.x + 入口能被 node 执行（两条缺一不可）---
+
+  # 复刻上游那三处的调用方式：在钉了同一个 packageManager 的临时工程里跑一个脚本，让脚本
+  # 自己执行 `node $npm_execpath --version`（上游就是这么炸的）。
+  _dsh_pnpm_entry_runs_under_node() {
+    local probe rc=0
+    probe="$(mktemp -d)"
+    cat > "$probe/package.json" <<'JSON'
+{ "name": "pnpm-entry-probe", "private": true, "packageManager": "pnpm@11.28.5",
+  "scripts": { "probe": "node probe.cjs" } }
+JSON
+    cat > "$probe/probe.cjs" <<'JS'
+require('node:child_process').execFileSync(process.execPath, [process.env.npm_execpath, '--version'], { stdio: 'ignore' })
+JS
+    ( cd "$probe" && "$1" run --silent probe >/dev/null 2>&1 ) || rc=$?
+    rm -rf "$probe"
+    return "$rc"
+  }
+
+  _dsh_pnpm_usable() {
+    [[ -n "${1:-}" && -x "$1" ]] || return 1
+    [[ "$("$1" --version 2>/dev/null)" == 11.* ]] || return 1
+    _dsh_pnpm_entry_runs_under_node "$1"
+  }
+
+  local PNPM _pnpm_why="" _pnpm_version
+  PNPM="$(command -v pnpm || true)"
+  if [[ -z "$PNPM" ]]; then
+    _pnpm_why="系统里没有 pnpm"
+  else
+    _pnpm_version="$("$PNPM" --version 2>/dev/null || true)"
+    if [[ "$_pnpm_version" != 11.* ]]; then
+      _pnpm_why="版本不是 11.x（${_pnpm_version:-取不到版本}）—— 上游声明 packageManager: pnpm@11.28.5，pnpm 9 会报 ERR_PNPM_LOCKFILE_CONFIG_MISMATCH，pnpm 12 会自管理换入口"
+    elif ! _dsh_pnpm_entry_runs_under_node "$PNPM"; then
+      _pnpm_why="它交给脚本的入口不能被 node 执行（自管理换成了 @pnpm/exe 之类的二进制）"
+    fi
+  fi
+
+  if [[ -n "$_pnpm_why" ]]; then
+    local _pnpm_fallback="$HOME/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm"
+    if _dsh_pnpm_usable "$_pnpm_fallback"; then
+      PNPM="$_pnpm_fallback"
+      msg2 "系统的 pnpm 不合用（$_pnpm_why），改用隔离版：$PNPM ($("$PNPM" --version))"
+    else
+      error "系统的 pnpm 不合用：$_pnpm_why"
+      error "装一个隔离版后重试：npm i --prefix ~/.local/share/dsh-pnpm-11 pnpm@11.28.5"
+      return 1
+    fi
   fi
 
   # Linux 发布设置：APP_ID 必填。MAINTAINER/HOMEPAGE 只在打 deb/rpm 时要（fpm 的 control
@@ -161,7 +209,7 @@ EOF
     printf 'DSH_DESKTOP_NPM_REGISTRY=%s\n' "$DSH_DESKTOP_NPM_REGISTRY" >> apps/desktop/.env.linux
   fi
 
-  pnpm install --frozen-lockfile
+  "$PNPM" install --frozen-lockfile
 
   # 可选：复用一份已有的打包流水线下载缓存。流水线自己的缓存是树内的
   # apps/desktop/.desktop-build/downloads/（键 = 资产内容的 sha256，Electron 那条是下载 URL 的
@@ -185,7 +233,7 @@ EOF
   node apps/desktop/node_modules/electron/install.js
 
   # 只要未打包目录：Arch 包直接把 linux-unpacked 装进 /opt，不需要再套一层 AppImage/deb/rpm。
-  pnpm --dir apps/desktop run package:linux:x64:dir
+  "$PNPM" --dir apps/desktop run package:linux:x64:dir
 }
 
 package() {
