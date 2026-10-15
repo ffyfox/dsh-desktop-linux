@@ -45,7 +45,7 @@ installed, `dsh://` links are handed to it.
 
 ## Building from source
 
-Requirements: Node 22.19+ or 24+, **pnpm 11**, and git.
+Requirements: Node 22.19+ or 24+ (**not your distro's Node 22** — see below), **pnpm 11**, and git.
 Building the rpm additionally needs `rpmbuild` on the system.
 
 ```bash
@@ -72,11 +72,19 @@ The deb / rpm `Maintainer:` / `Homepage:` come from `upstream/apps/desktop/.env.
 To change them, edit that file: **the same-named environment variables are filtered out by
 upstream**, so `DSH_DESKTOP_LINUX_MAINTAINER=… build.sh --deb` is silently ignored.
 
-### Hard requirement
+### Hard requirements
 
-**pnpm 11 is required.** The upstream repository declares
+**Node must have TypeScript type stripping enabled.** Release builds from nodejs.org do, for both
+22.19+ and 24+, but distro packages may not: Ubuntu 26.04.1's `nodejs 22.22.1` reports
+`process.features.typescript === false`, and `--experimental-strip-types` does not help either, so the
+build dies in its first step (`build:official`) with
+`build: Node.js TypeScript type stripping is unavailable`. Use Node from nodejs.org; CI pins Node 24.
+
+**pnpm 11 is required, installed via npm or corepack.** The upstream repository declares
 `packageManager: pnpm@11.28.5`, and pnpm 11 switches to that version by itself.
-pnpm 9 fails `pnpm install` with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`.
+pnpm 9 fails `pnpm install` with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`. The official standalone
+installer and Homebrew ship a compiled binary, and three upstream scripts then run
+`node $npm_execpath` and die with `SyntaxError`; `build.sh` falls back to the isolated copy and says so.
 
 ## Arch package
 
@@ -112,13 +120,12 @@ Three design points worth knowing:
 - **The profile is exclusive.** The desktop uses `$DSH_HOME/profiles/desktop`, and
   the CLI rejects that profile at the argument layer
   (`error: profile "desktop" is managed exclusively by the Electron application`).
-  Sessions, settings, and credentials still live at the root of `$DSH_HOME`,
-  shared with the CLI.
-- **To reuse your web configuration, migrate it once**: quit the desktop app, then copy or rename
-  `$DSH_HOME/profiles/web` into place, and let the two evolve separately afterwards. Sharing a single
-  directory through a symlink works in practice, but the two sides overwrite each other, and the
-  desktop's startup recovery acts on that shared directory as well — unknown problems may appear
-  once the two sides diverge in version.
+  Sessions, settings, and credentials still live at the root of `$DSH_HOME`, shared
+  with the CLI. To reuse your web configuration, migrate it once: quit the desktop app,
+  then copy or rename `$DSH_HOME/profiles/web` into place and let the two evolve
+  separately afterwards; sharing a single directory through a symlink works in practice,
+  but the two sides overwrite each other, the desktop's startup recovery acts on that
+  shared directory as well, and unknown problems may appear once the two sides diverge.
 - **Sandboxing.** Where the kernel supports unprivileged user namespaces, the
   renderer runs in a namespace sandbox (separate user namespace + seccomp); only
   where it does not does it fall back to a setuid `chrome-sandbox`. The AppImage

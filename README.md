@@ -39,7 +39,7 @@ release target."*）。本项目补的就是这一块：让官方打包流水线
 
 ## 从源码构建
 
-依赖：Node 22.19+ 或 24+、**pnpm 11**、git。
+依赖：Node 22.19+ 或 24+（**别用发行版打包的 Node 22**，见下）、**pnpm 11**、git。
 打 rpm 还需要系统有 `rpmbuild`。
 
 ```bash
@@ -64,8 +64,15 @@ deb / rpm 的 `Maintainer:` / `Homepage:` 来自 `upstream/apps/desktop/.env.lin
 
 ### 硬性前提
 
-**必须用 pnpm 11。** 上游仓库声明 `packageManager: pnpm@11.28.5`，pnpm 11 会自己切到该版本；
-pnpm 9 会在 `pnpm install` 报 `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`。
+**Node 要带 TypeScript 类型剥离。** nodejs.org 的官方包 22.19+ / 24+ 都有，但**发行版自己打的可能没有**
+（Ubuntu 26.04.1 的 `nodejs 22.22.1` 实测 `process.features.typescript` 为 `false`，加
+`--experimental-strip-types` 也仍是 `false`），构建会在第一步 `build:official` 报
+`build: Node.js TypeScript type stripping is unavailable`。用官方 Node（我们 CI 钉的是 Node 24）。
+
+**必须用 pnpm 11，而且要是 npm 或 corepack 装的那种。** 上游仓库声明
+`packageManager: pnpm@11.28.5`，pnpm 11 会自己切到该版本；pnpm 9 会在 `pnpm install` 报
+`ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`。官方 standalone 安装器与 Homebrew 给的是编译好的二进制，
+上游三处脚本会 `node $npm_execpath` 而报 `SyntaxError`；`build.sh` 碰到这种会退到隔离版并说明。
 
 ## Arch 包
 
@@ -96,9 +103,9 @@ Arch 包只出未打包目录装进 `/opt/deepseek-harness-desktop`，`/usr/bin/
   （真 Node 读不了归档），这是 `linux-unpacked` 体积偏大的原因。
 - **profile 是独占的。** 桌面端用 `$DSH_HOME/profiles/desktop`，CLI 连参数层面都拒绝这个 profile
   （`error: profile "desktop" is managed exclusively by the Electron application`）。
-  会话、设置、凭据仍在 `$DSH_HOME` 根上，与 CLI 共享。
-- **想复用 web 的配置，建议做一次性迁移**：退出桌面端后，把 `$DSH_HOME/profiles/web` 复制或改名过去，之后两边各自演化。通过符号链接方式共用同一份目录
-  实测有效，但两边会互相改写，桌面端的启动恢复动作也会作用到这份共享目录，两边版本跨度较大等情况下可能出现未知问题。
+  会话、设置、凭据仍在 `$DSH_HOME` 根上，与 CLI 共享。想复用 web 的配置就做一次性迁移：退出桌面端后把
+  `$DSH_HOME/profiles/web` 复制或改名过去，之后两边各自演化；用符号链接共用同一份目录实测可行，但两边会
+  互相改写，桌面端的启动恢复动作也会作用到这份共享目录，两边版本跨度较大时可能出现未知问题。
 - **沙箱。** 内核支持非特权 user namespace 时走 namespace 沙箱（渲染进程在独立 user namespace + seccomp）；
   不支持才退回 setuid `chrome-sandbox`。AppImage 交给 AppRun 自己探测，deb / rpm / Arch 包在
   postinst 里做同样的判断。
