@@ -188,7 +188,7 @@ JS
       msg2 "系统的 pnpm 不合用（$_pnpm_why），改用隔离版：$PNPM ($("$PNPM" --version))"
     else
       error "系统的 pnpm 不合用：$_pnpm_why"
-      error "装一个隔离版后重试：npm i --prefix ~/.local/share/dsh-pnpm-11 pnpm@11.28.5"
+      error "装一个隔离版后重试（需要 npm；Arch 上 npm 是独立包）：npm i --prefix ~/.local/share/dsh-pnpm-11 pnpm@11.28.5"
       return 1
     fi
   fi

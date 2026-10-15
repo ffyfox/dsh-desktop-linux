@@ -134,8 +134,9 @@ jobs:
       # 必须在 checkout 之前：镜像里没有 git，而 actions/checkout 要调它。
       # 一次 -Syu 再装是 Arch 的正确姿势（避免部分升级）。git 依赖 shadow，
       # 所以 useradd 跟着就有；sudo / fakeroot 由 base-devel 带进来。
+      # npm 单独列出来：Arch 已经把它从 nodejs 里拆成独立包，而下面那一步要用它装 pnpm 11。
       - name: 装工具链
-        run: pacman -Syu --noconfirm --needed base-devel git nodejs pnpm python namcap
+        run: pacman -Syu --noconfirm --needed base-devel git nodejs npm pnpm python namcap
 
       - uses: actions/checkout@v6
         with:
@@ -153,7 +154,14 @@ jobs:
       # 不会自管理，入口是 JS。（runuser -u 会把 HOME 设成 /home/builder，与 PKGBUILD 里
       # $HOME/.local/share/dsh-pnpm-11 指同一处。）
       - name: 准备隔离版 pnpm 11（PKGBUILD 的回退位）
-        run: runuser -u builder -- npm i --prefix /home/builder/.local/share/dsh-pnpm-11 pnpm@11.28.5
+        run: |
+          command -v npm >/dev/null || {
+            echo "容器里没有 npm —— 检查上面「装工具链」的包列表（Arch 把 npm 拆成独立包了）" >&2
+            exit 1
+          }
+          runuser -u builder -- npm i --no-fund --no-audit --loglevel=error \
+            --prefix /home/builder/.local/share/dsh-pnpm-11 pnpm@11.28.5
+          runuser -u builder -- /home/builder/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm --version
 
       # depends 里那套运行时库必须在场：上游 prepare-runtime.ts 会**真的执行 Electron** 去读
       # 它自带的 Node 版本（electron -p process.versions.node），缺一个就是动态链接器直接报
