@@ -1,6 +1,6 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `86a4022`（tag `dsh-v0.2.1-alpha.4`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `1517a4d`（tag `dsh-v0.2.1-alpha.5`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -14,25 +14,32 @@ hunk 一起带进来。
 现有系列靠「按文件名顺序」恰好满足。重生这类补丁要走两阶段：先在「新基线 + 前置补丁」上重算，
 再叠它自己的增量。
 
-已验证（0.2.1-alpha.4）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-alpha.4`）上，
+已验证（0.2.1-alpha.5）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-alpha.5`）上，
 `patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）都干净通过（**无 fuzz、
 无 reject**，只在共用文件上留 offset 与那两份 `.orig`），58 个触及文件（54 个改动 + 4 个新增），
-`prepare()` 另外放置托盘 PNG；两条路打出来的这 58 个文件逐字节相同。这一轮只有 `0001` / `0006` 重生
-（上游动了它们的基线 blob），重生结果与原版**只差 `index` 那一行**、连字节数都相同，其余 14 份逐字节
-未动；offset 仍只出现在 `0013` / `0016` / `0017`，与 alpha.3 那一轮同因（系列内前置补丁推行的行号）。
-`makepkg --verifysource` 的 18 条校验和逐条 `Passed`。`pnpm install --frozen-lockfile`（只 +2 个包）与
-整条打包流水线在这棵树上通过，`build.sh --all` 出齐 AppImage / deb / rpm
-（358 836 976 / 287 298 372 / 238 725 566 B，sha256 `cab4f9ee…` / `0e7d7de8…` / `a0fa334f…`），
-连打包后的冒烟也过 —— payload 的 koffi / sharp /
-html / pty / pnpm / grep / glob 全在场、CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三种格式转 PDF。
-`verify.sh` 静态 20 项 + 活体 31 项全过（4 项跳过：3 个 alpha.3 的旧产物按当前基线跳过，另 1 项是
-「3080 没在监听」，`0 failed`）；上游桌面单测在补丁态下**零失败**（150 个文件通过 / 5 跳过，
-1604 个用例通过 / 61 跳过）。`makepkg` 也整包构建成功（`dsh-desktop-linux-0.2.1alpha4-1`，
-347 760 852 B / 28671 个文件 —— 比 alpha.3 那份多 634 个，是上游这一版新增的插件市场）。
-产物里 `resources/runtime/cli` 不存在、`resources/runtime/versions.json` 记的是 primary-runtime 的
-Node 24.21.0 / pnpm 11.28.5、包内 `package.json` 的版本是 `0.2.1-alpha.4`、`dshBuildCommit` 记的是上游
-`86a40220…`（不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与 0012 的「环境变量优先」
-在起作用。
+`prepare()` 另外放置托盘 PNG；两条路打出来的这 58 个文件逐字节相同。这一轮只有 `0006` 重生（上游动了
+它的基线 blob），重生结果与原版**只差 `index` 那一行**、连字节数都相同（767 B），其余 15 份逐字节未动；
+offset 仍只出现在 `0013` / `0016` / `0017`，与 alpha.3 / alpha.4 那两轮同因（系列内前置补丁推行的行号）。
+`makepkg --verifysource` 的 18 条校验和逐条 `Passed`。`pnpm install --frozen-lockfile` 报
+`Already up to date` —— 上游这一版没动 `pnpm-lock.yaml`，一个包也没新增，1725 条供应链策略全过。
+`pnpm run build:official` 的 9 道门（native addon / host compiler / Host bundle / host aggregate check /
+Desktop bundle / client compiler / Client bundle / client aggregate check / Web build）**9 通过 0 失败**，
+86.09 秒。上游桌面单测在补丁态下**零失败**（156 个文件：151 通过 / 5 跳过；1680 个用例：1619 通过 /
+61 跳过）。`makepkg` 整包构建成功（`dsh-desktop-linux-0.2.1alpha5-1`，347 757 687 B / 28672 个文件 ——
+比 alpha.4 那份多 1 个）。`build.sh --all` 12 分 18 秒出齐三件套：AppImage 358 845 207 B（sha256
+`6876915b…`）、deb 287 302 972 B（`e0a63ae8…`）、rpm 238 752 118 B（`1b86ce28…`），连打包后的冒烟也过
+—— payload 探针报 `koffi / sharp / html / pty / pnpm / grep / glob` 全在场、CLI 离线装插件与卸载、
+`dsh web:` 起得来、Office 三种格式（DOCX / XLSX / PPTX）转 PDF 与技能 CLI 发现。`verify.sh` 静态
+**20 通过 / 0 失败 / 8 跳过**（6 个是 alpha.3 与 alpha.4 的旧产物按当前基线跳过，另 2 个是「没给
+`--runtime`」与「3080 没在监听」）；`verify.sh --runtime` **31 通过 / 0 失败 / 7 跳过**（同上 6 个旧产物
+与 3080），活体部分实测：与在跑的桌面端并存（隔离 userData），Host 在 127.0.0.1:41763 监听、`dsh-app://`
+出 UI（388 个 DOM 节点）、Host 跑在 primary-runtime 的真 Node 上、2 个渲染进程都在独立 user namespace
+且 seccomp 生效、托盘注册且菜单读到 2 个带产品名的条目、`profiles/desktop` 已建立、共享根出现工作区
+存储与凭据、`profiles/web` 哨兵未被触碰、真实 `~/.dsh/profiles/desktop` 未被改动。产物里
+`resources/runtime/cli` 不存在、`resources/runtime/versions.json` 记的是
+primary-runtime 的 Node 24.21.0 / pnpm 11.28.5、包内 `package.json` 的版本是 `0.2.1-alpha.5`、
+`dshBuildCommit` 记的是上游 `1517a4db…`（不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时
+选择与 0012 的「环境变量优先」在起作用。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -85,6 +92,18 @@ unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「
 hunk 的上下文根本没碰到它。这版还有一处**正好落在 Linux 上**的上游修复：启动命令前的重复检查被砍掉，
 降低启动开销、改善较旧 systemd 环境的兼容性。**上游仍然没有 Linux**：目标联合类型还是
 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
+
+0.2.1-alpha.4 → 0.2.1-alpha.5 上游动了 36 个提交、300 个改动文件（+2444/−597，22 个新增、0 个删除），
+`pnpm-lock.yaml` 没动 —— 依赖集合不变。大头是上游自己的 Windows/macOS 打包发布流水线：新增
+`desktop-publish-qualification.{mjs,d.mts}`、`preflight-desktop-publish.{mjs,d.mts}`、
+`windows-runner-task.ps1` / `run-windows-runner-task.ps1` 与一个新 spec
+（`desktop-publish-preflight.spec.ts`），并把「COS 桶必须未开版本化」
+写成发布前提。补丁触及的 58 个文件里只有 1 个被改过：`apps/desktop/package.json` 只换了版本号
+（第 4 行），而我们 `0006` 的 hunk 在第 35 行、上下文一行没碰 —— 所以这一轮只重生 `0006`，结果与
+原版**只差 `index` 那一行**、字节数相同（767 B），其余 15 份逐字节未动。这版还有一处**正好落在
+Linux 上**的上游修复：右侧栏收起时在输入框按 Page Up 会让整个界面向左偏移（Windows 和 Linux 都会）。
+**上游仍然没有 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由
+`0001` / `0002` 提供。
 
 `0016` 启动实测（0.2.1-alpha.2 这份产物；用隔离 `DSH_HOME` + 独立 `--user-data-dir` 起，KWin 读
 `frameGeometry` / `clientGeometry`，CDP 读渲染视口）：主窗口 frame 1280x848、客户区 1280x820、
@@ -195,8 +214,8 @@ hunk 的上下文根本没碰到它。这版还有一处**正好落在 Linux 上
 ## 注意
 
 - **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
-  实测 2026-10-15（alpha.4）：`/usr/bin/pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`
-  → 0 失败（1604 通过 / 61 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、`0015`、
+  实测 2026-10-16（alpha.5）：`/usr/bin/pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`
+  → 0 失败（156 个文件：151 通过 / 5 跳过；1680 个用例：1619 通过 / 61 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、`0015`、
   `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI
   都不跑上游单测。跑的时候注意两点：用 `/usr/bin/pnpm`（本机 `~/.npm-global/bin/pnpm` 是 9.15.4，
   会遮蔽它）；摘掉代理（`env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u http_proxy -u https_proxy
