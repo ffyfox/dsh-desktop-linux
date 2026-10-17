@@ -1,6 +1,6 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `1600d8a`（tag `dsh-v0.2.1-rc.1`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `687f282e`（tag `dsh-v0.2.1-rc.2`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -14,33 +14,37 @@ hunk 一起带进来。
 现有系列靠「按文件名顺序」恰好满足。重生这类补丁要走两阶段：先在「新基线 + 前置补丁」上重算，
 再叠它自己的增量。
 
-已验证（0.2.1-rc.1）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-rc.1`）上，
+已验证（0.2.1-rc.2）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-rc.2`）上，
 `patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）都干净通过（**无 fuzz、
 无 reject**，只在共用文件上留 offset 与那两份 `.orig`），58 个触及文件（54 个改动 + 4 个新增），
 `prepare()` 另外放置托盘 PNG；两条路打出来的这 58 个文件逐字节相同。这一轮只有 `0006` 重生（上游动了
 它的基线 blob），重生结果与原版**只差 `index` 那一行**、连字节数都相同（767 B），其余 15 份逐字节未动；
-offset 仍只出现在 `0013` / `0016` / `0017`，与 alpha.3 / alpha.4 / alpha.5 那几轮同因（系列内前置补丁
+offset 仍只出现在 `0013` / `0016` / `0017`，与 alpha.3 / alpha.4 / alpha.5 / rc.1 那几轮同因（系列内前置补丁
 推行的行号）。`makepkg --verifysource` 的 18 条校验和逐条 `Passed`。`pnpm install --frozen-lockfile` 报
-`Already up to date` —— 上游这一版没动 `pnpm-lock.yaml`，一个包也没新增。
+`Already up to date`，lockfile 通过供应链策略校验（1725 条、59.3 秒）—— 上游这一版没动
+`pnpm-lock.yaml`，外部依赖一个也没变。
 `pnpm run build:official` 的 9 道门（native addon / host compiler / Host bundle / host aggregate check /
 Desktop bundle / client compiler / Client bundle / client aggregate check / Web build）**9 通过 0 失败**，
-31.35 秒。上游桌面单测在补丁态下**零失败**（156 个文件：151 通过 / 5 跳过；1680 个用例：1619 通过 /
-61 跳过）。`makepkg` 整包构建成功（`dsh-desktop-linux-0.2.1rc1-1`，347 781 916 B / 28672 个文件 ——
-文件数与 alpha.5 那份相同），16 分 37 秒。`build.sh --all` 11 分 07 秒出齐三件套：AppImage
-358 841 013 B（sha256 `890f5223…`）、deb 287 305 016 B（`eef4452b…`）、rpm 238 732 863 B（`ef9300cf…`），
-连打包后的冒烟也过 —— payload 探针报 `koffi / sharp / html / pty / pnpm / grep / glob` 全在场、CLI 离线
-装插件与卸载、`dsh web:` 起得来、Office 三种格式（DOCX / XLSX / PPTX）转 PDF 与技能 CLI 发现。
-`verify.sh` 静态 **20 通过 / 0 失败 / 11 跳过**（9 个是 alpha.3～alpha.5 的旧产物按当前基线跳过，另 2 个
-是「没给 `--runtime`」与「3080 没在监听」）；`verify.sh --runtime` **31 通过 / 0 失败 / 10 跳过**（同上
-9 个旧产物与 3080），活体部分实测：与在跑的桌面端并存（隔离 userData），Host 在 127.0.0.1:37177 监听、
-`dsh-app://` 出 UI（388 个 DOM 节点）、Host 跑在 primary-runtime 的真 Node 上、2 个渲染进程都在独立
+104.37 秒（比 rc.1 的 31.35 秒长得多 —— 这一版真的动了客户端代码，client compiler 重编了 325 个产物）。
+上游桌面单测在补丁态下**零失败**（156 个文件：151 通过 / 5 跳过；1680 个用例：1619 通过 /
+61 跳过，与 rc.1 逐项相同）。`makepkg` 整包构建成功（`dsh-desktop-linux-0.2.1rc2-1`，347 692 699 B /
+28692 个文件 —— 比 rc.1 多 20 个，正是新加的两个客户端包），16 分 20 秒。`build.sh --all` 10 分 10 秒
+出齐三件套：AppImage 358 869 729 B（sha256 `d9dce5f9…`）、deb 287 297 792 B（`38f0edef…`）、
+rpm 238 759 519 B（`bb51af9f…`），连打包后的冒烟也过 —— payload 探针报 `koffi / sharp / html / pty /
+pnpm / grep / glob` 全在场、CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三种格式
+（DOCX / XLSX / PPTX）转 PDF 与技能 CLI 发现。
+`verify.sh` 静态 **20 通过 / 0 失败 / 14 跳过**（12 个是 alpha.3～rc.1 的旧产物按当前基线跳过，另 2 个
+是「没给 `--runtime`」与「3080 没在监听」）；`verify.sh --runtime` **31 通过 / 0 失败 / 13 跳过**（同上
+12 个旧产物与 3080），活体部分实测：与在跑的桌面端并存（隔离 userData），Host 在 127.0.0.1:34917 监听、
+`dsh-app://` 出 UI（390 个 DOM 节点）、Host 跑在 primary-runtime 的真 Node 上、2 个渲染进程都在独立
 user namespace 且 seccomp 生效、托盘注册且菜单读到 2 个带产品名的条目、`profiles/desktop` 已建立、
 共享根出现工作区存储与凭据、`profiles/web` 哨兵未被触碰、真实 `~/.dsh/profiles/desktop` 未被改动。
 产物里 `resources/runtime/cli` 不存在、`resources/runtime/versions.json` 记的是 primary-runtime 的
-Node 24.21.0 / pnpm 11.28.5、`resources/app/dsh/package.json` 的版本是 `0.2.1-rc.1`、`desktop-runtime.json`
-的 `release.version` 同样是 `0.2.1-rc.1`（vendor 包版本跟着上游升到 cordis 4.0.5 等）、`dshBuildCommit`
-记的是上游 `1600d8a1…`（不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与 0012 的
-「环境变量优先」在起作用。
+Node 24.21.0 / pnpm 11.28.5、`resources/app/dsh/package.json` 的版本是 `0.2.1-rc.2`、`desktop-runtime.json`
+的 `release.version` 同样是 `0.2.1-rc.2`（vendor 包版本与 rc.1 相同，cordis 4.0.5 等）、`dshBuildCommit`
+记的是上游 `687f282e…`（不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与 0012 的
+「环境变量优先」在起作用；这一版新增的 `@deepseek-ai/dsh-client-ui-deepseek-model-label-1017` 与
+`@deepseek-ai/dsh-web-deepseek-api` 也确实躺在 `resources/app/dsh/node_modules` 里，跟着桌面端一起发出去。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -115,6 +119,17 @@ logger-console 1.0.5、schemastery 3.18.5、timer 1.1.7）。**没有任何源�
 所以这一轮也只重生 `0006`，结果与原版**只差 `index` 那一行**、字节数相同（767 B），其余 15 份逐字节
 未动。这一版没有任何功能或修复改动，本质是上游把攒好的 0.2.1 内容收敛成候选版。**上游仍然没有
 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
+
+0.2.1-rc.1 → 0.2.1-rc.2 有真实内容：9 个提交、300 个文件（+2569/−651，26 个新增、0 个删除）。
+两处功能：DeepSeek-V4.1-Flash-1017 适配（含给 Flash 模型名加临时「1017」徽章的客户端包
+`packages/client/ui-deepseek-model-label-1017`），以及 DeepSeek Search / Fetch API（走「网页搜索」设置里
+的开关，`packages/web/web-deepseek-api` 挂进 base bundle）。设置卡片 `ui-settings-web-search` 的
+controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了两个槽位，docs 与 apps/web 的 e2e
+同步跟上。`pnpm-lock.yaml` 没动 —— 外部依赖一个没变，只多了两条 workspace 依赖。补丁触及的 58 个文件
+里只有 `apps/desktop/package.json` 变了（第 4 行版本号，`0006` 的 hunk 在第 35 行、上下文一行没碰），
+所以这一轮也只重生 `0006`，结果与原版**只差 `index` 那一行**、字节数相同（767 B），其余 15 份逐字节
+未动。**上游仍然没有 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由
+`0001` / `0002` 提供。
 
 `0016` 启动实测（0.2.1-alpha.2 这份产物；用隔离 `DSH_HOME` + 独立 `--user-data-dir` 起，KWin 读
 `frameGeometry` / `clientGeometry`，CDP 读渲染视口）：主窗口 frame 1280x848、客户区 1280x820、
@@ -225,11 +240,13 @@ Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64`
 ## 注意
 
 - **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
-  实测 2026-10-17（rc.1）：`/usr/bin/pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`
+  实测 2026-10-17（rc.2）：`/home/firefly/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
+  apps/desktop/tests apps/desktop-host/tests`
   → 0 失败（156 个文件：151 通过 / 5 跳过；1680 个用例：1619 通过 / 61 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、`0015`、
   `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI
-  都不跑上游单测。跑的时候注意三点：用 `/usr/bin/pnpm`（本机 `~/.npm-global/bin/pnpm` 是 9.15.4，
-  会遮蔽它）；摘掉代理（`env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u http_proxy -u https_proxy
+  都不跑上游单测。跑的时候注意三点：用隔离版 pnpm 11（`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm`，
+  本机 11.7.0；本机 `/usr/bin/pnpm` 已是 12.14.0 的 ELF、`~/.npm-global/bin/pnpm` 是 9.15.4，
+  两者都会遮蔽它）；摘掉代理（`env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u http_proxy -u https_proxy
   -u HTTP_PROXY -u HTTPS_PROXY`），否则 `host-process.spec.ts` 会因 `127.0.0.1` 也被代理接管而多红几个；
   **先确认 `native/system/packages/<host>/bin/` 里 `prebuilds.json` 声明的二进制都在**（linux-x64 是
   `landlock-run` + `glibc/system.node` + `musl/system.node`）—— `build:native-system` 带
