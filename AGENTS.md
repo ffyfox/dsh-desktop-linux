@@ -5,7 +5,7 @@
 
 ## 硬规则
 
-- 改代码或文档前先把方案给维护者过目；不要自行 commit、push、打 tag 或改 GitHub release。
+- 改代码或文档前先把方案给维护者过目；不要自行 push、打 tag 或改 GitHub release。
 - [README.md](README.md) 只写重点、不写过程；与 [README.en.md](README.en.md) 必须同步修改。
 
 ## 回家读
