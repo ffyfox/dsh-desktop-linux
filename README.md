@@ -132,6 +132,22 @@ Host 进程是独立 Node（见补丁 `0008`），没有 Electron 的 `process.r
 dsh-market 的宿主探测会落空；`0017` 把打包安装的 resources 根传给 Host 并回填，
 探测恢复，兼容性筛选与「更新到兼容版本」随之可用。
 
+### 玻璃模式
+
+想让侧栏呈现毛玻璃或半透明效果，加环境变量启动：
+
+```bash
+DSH_DESKTOP_GLASS=1 deepseek-harness
+```
+
+开启后窗口近似官方桌面端 macOS 版布局：
+
+- 原生菜单栏自动隐藏，按 `Alt` 才出现。
+- 侧栏浓度默认 40%（深色 50%），`DSH_DESKTOP_GLASS_TINT=0..100` 可调。
+- **有没有模糊取决于合成器**：Hyprland 能模糊（要开着 `decoration:blur`）；
+  niri 要自己在配置里开 `background-effect { blur true }`；
+  KDE 与 GNOME 不模糊，只是半透明——文字受背景干扰时可把浓度调高。
+
 ## 验证状态
 
 **当前实测环境较少，后续会尽可能拓展。** 下面两张表随反馈更新——欢迎在

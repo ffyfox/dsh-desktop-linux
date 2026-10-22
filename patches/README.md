@@ -7,20 +7,32 @@
 多个补丁触及**，此时必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的
 hunk 一起带进来。
 
-**`0017` 是这条约定的一个已知例外。** 它的 5 个文件（`src/node-environment.ts`、`src/main.ts`、
-`tests/host-process.spec.ts`、`tests/node-environment.spec.ts`、`desktop-host/src/index.ts`）全部也属于
-`0008`，而且它的 diff 上下文含 `0008` 新增的行（`resourcesPath?: string` 紧挨着 `0008` 加的
-`readonly electron: boolean`），所以它单独打在干净基线上会直接 reject，只有排在 `0008` 之后才成立 ——
-现有系列靠「按文件名顺序」恰好满足。重生这类补丁要走两阶段：先在「新基线 + 前置补丁」上重算，
-再叠它自己的增量。
+**`0017` 与 `0018` 是这条约定的两个已知例外。**
 
-已验证（0.2.1-rc.2）：16 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-rc.2`）上，
+`0017` 的 5 个文件（`src/node-environment.ts`、`src/main.ts`、`tests/host-process.spec.ts`、
+`tests/node-environment.spec.ts`、`desktop-host/src/index.ts`）全部也属于 `0008`，而且它的 diff 上下文含
+`0008` 新增的行（`resourcesPath?: string` 紧挨着 `0008` 加的 `readonly electron: boolean`），所以它单独
+打在干净基线上会直接 reject，只有排在 `0008` 之后才成立 —— 现有系列靠「按文件名顺序」恰好满足。
+重生这类补丁要走两阶段：先在「新基线 + 前置补丁」上重算，再叠它自己的增量。
+
+`0018` 同理但更轻：18 个文件里 4 个（`src/main.ts`、`src/preload-windows.ts`、`tests/main-startup.spec.ts`、
+`tests/preload-windows.client.spec.ts`）已属于 `0008` / `0016`，而 `preload-windows.ts` 的 hunk 正落在
+`0016` 放宽平台门的那几行上，所以它也只有排在 `0016` 之后才成立；另外 14 个是本系列第一次触及
+（`src/glass-mode.ts`、`src/glass-document.ts`、`src/web-document.ts`、`tests/glass-mode.spec.ts`、
+`tests/glass-document.spec.ts`、`tests/web-document.spec.ts`，以及 `packages/client/ui-layout` 的
+`AppFrame.tsx` / `AppFrame.module.css` / `tests/app-frame.client.spec.tsx`、`packages/client/ui-sidebar`
+的 `SidebarRoot.tsx` / `SidebarRoot.module.css` / `tests/sidebar-root.client.spec.tsx`，以及 `ui-plugin-manager` / `ui-schedule` 的两个页面样式表
+`src/client/PluginManagerPage.module.css` / `src/client/TaskManagerPage.module.css`），
+其中 4 个是新增文件。
+
+已验证（0.2.1-rc.2）：17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-rc.2`）上，
 `patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）都干净通过（**无 fuzz、
-无 reject**，只在共用文件上留 offset 与那两份 `.orig`），58 个触及文件（54 个改动 + 4 个新增），
-`prepare()` 另外放置托盘 PNG；两条路打出来的这 58 个文件逐字节相同。这一轮只有 `0006` 重生（上游动了
-它的基线 blob），重生结果与原版**只差 `index` 那一行**、连字节数都相同（767 B），其余 15 份逐字节未动；
-offset 仍只出现在 `0013` / `0016` / `0017`，与 alpha.3 / alpha.4 / alpha.5 / rc.1 那几轮同因（系列内前置补丁
-推行的行号）。`makepkg --verifysource` 的 18 条校验和逐条 `Passed`。`pnpm install --frozen-lockfile` 报
+无 reject**，只在共用文件上留 offset 与那两份 `.orig`），72 个触及文件（64 个改动 + 8 个新增），
+`prepare()` 另外放置托盘 PNG；两条路打出来的这 72 个文件逐字节相同。`0006` 是系列里唯一重生过的补丁
+（上游动了它的基线 blob），重生结果与原版**只差 `index` 那一行**、连字节数都相同（767 B），其余 16 份
+逐字节未动；玻璃模式的 `0018` 只加补丁、不重生。
+offset 仍只出现在 `0013` / `0016` / `0017`（`0018` 零 offset），与 alpha.3 / alpha.4 / alpha.5 / rc.1
+那几轮同因（系列内前置补丁推行的行号）。`makepkg --verifysource` 的 18 条校验和逐条 `Passed`。`pnpm install --frozen-lockfile` 报
 `Already up to date`，lockfile 通过供应链策略校验（1725 条、59.3 秒）—— 上游这一版没动
 `pnpm-lock.yaml`，外部依赖一个也没变。
 `pnpm run build:official` 的 9 道门（native addon / host compiler / Host bundle / host aggregate check /
@@ -211,6 +223,58 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 
 `0017` 的每个文件也属于 `0008`，且它的 diff 上下文含 `0008` 新增的行，所以**只有排在 `0008` 之后才成立**
 （见开头那条例外）。
+
+## 让 Linux 也用上「玻璃」布局（0018）
+
+| 补丁 | 覆盖文件 | 内容 |
+|---|---|---|
+| `0018-desktop-linux-glass-mode.patch` | `src/glass-mode.ts`（新增）、`src/glass-document.ts`（新增）、`src/main.ts`、`src/preload-windows.ts`、`src/web-document.ts`、`tests/{glass-mode,glass-document,main-startup,preload-windows.client,web-document}.spec.ts`、`packages/client/ui-layout/{src/client/AppFrame.tsx,src/client/AppFrame.module.css,tests/app-frame.client.spec.tsx}`、`packages/client/ui-sidebar/{src/client/SidebarRoot.tsx,src/client/SidebarRoot.module.css,tests/sidebar-root.client.spec.tsx}`、`packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css`、`packages/client/ui-schedule/src/client/TaskManagerPage.module.css` | `DSH_DESKTOP_GLASS=1` 时主窗口改成 `transparent: true` + `#00000000`，preload 通过 `additionalArguments` 拿到 `--dsh-desktop-glass` 后直接返回（不装 caption 标记，于是保持 Web 布局），主进程对 Linux 打开 `setAutoHideMenuBar(true)` 并关掉菜单栏（application menu 仍在，`Alt` 可唤出）。`dsh-app://app` 的文档多一条 `headInjection`：玻璃模式把 `glassDocument(tint)` 塞进 `<head>` —— 一条 `data-dsh-glass` 标记 + 一段 `<style>`：html/body/#root 与 grid frame 清成全透明，侧栏套用从 `packages/client/ui-layout/lib/client.js` 抄来的 macOS 材质（渐变 + `color-mix(… 40%/50%, transparent)`），内容区/右栏/底部保持 `--dsw-alias-bg-base` 实色，侧栏自己的面板与 New Session 按钮按 macOS 的做法重新上色；会话列表底部的渐隐遮罩（`[class$="_fade"]`）按 macOS 的做法隐藏 —— 它的渐变终点是不透明的侧栏填充色，压在透明栏上会变成一道实色带 |
+
+为什么玻璃材质整段走注入的 `<style>` 而不是客户端代码：UI 是打包好的客户端产物，类名是 CSS Module
+哈希，只能靠后缀与结构选择器命中（`[class*="sidebarCol"]`、`[class$="newSession"]`、
+`[class*="sidebarCol"] > div > [class*="_root"]`），换个客户端包就得跟一个补丁。只有侧栏半透明：整窗透明
+的文字可读性在 KDE / GNOME 上没有模糊兜底；**darwin 的视觉规则（vibrancy 材质、窗口拖拽）仍然不复用**。
+
+侧栏收起布局走的是另一条路：它属于**结构**而不是材质 —— 列宽写在 frame 的 `grid-template-columns` 上，
+座位由 React 条件挂载，注入 CSS 两头都够不着。所以在 `ui-layout` / `ui-sidebar` 里加
+`data-platform='linux'` 分支，条件是「linux 且没有 `data-windows-titlebar` 标记」，也就是玻璃模式
+（普通模式由 `0016` 打这个标记，因此完全不受影响）。
+
+收起照官方 macOS 端：整列消失。条内锚点也照 macOS 窗口态：`.topStrip` 在 darwin
+下是 `justify-content: flex-end`（红绿灯占左端、切换钮在右端），玻璃模式不加覆盖、沿用同一锚点 —— Linux
+没有红绿灯，于是条的左端空着。上游那条「全屏时切换钮挪到条左端」（`[data-fullscreen] .topStrip`）只在红绿灯
+被隐藏时成立，玻璃模式不用它。收起时窗口 chrome 换到左端座椅，同样与 macOS 一致。
+
+实测几何（1280×820，KDE Plasma 6 / Wayland，DPR 2）：
+
+| 状态 | 几何 |
+|---|---|
+| 展开 | 侧栏列 280px；顶部 52px 条（`.topStrip`，`margin-top:-6px` 抵消根内边距），28px 切换钮落在条的右端 `(240,11)`、中心 y25（与 macOS 窗口态同一锚点）；wordmark 经 `-12px` 回缩落在 y58–82（比原布局低 34px） |
+| 收起 | grid `0px …`：侧栏列 0 宽、内容区直达窗口左缘；`shell.leading` 座椅挂载，两个 28px 按钮在 `(12,11)` / `(48,11)`，中心 y25 —— 纵向与展开态切换钮同一水平线，横向换到窗口左端（红绿灯那一侧留给座椅，与 macOS 同） |
+| 让位 | 收起态发布 `--dsh-frame-leading-clearance: 84px`（会话标题左侧留白）；`--dsh-frame-top-clearance: 48px` 与 `--dsh-frame-overlay-top: 68px` 则**不分展开/收起**，与 darwin 同（见下）；列宽 0，分隔线不画 |
+
+入口页与弹窗的让位照 darwin 的写法补齐：`--dsh-frame-top-clearance: 48px` 与
+`--dsh-frame-overlay-top: calc(var(--dsh-frame-top-clearance) + 20px)`（= 68px）在
+`html[data-platform='linux']:not([data-windows-titlebar])` 上**无条件**发布，两个消费者的选择器也放行
+同一条件（`PluginManagerPage.module.css` 的 `.pageHead`、`TaskManagerPage.module.css` 的 `.pageHeading`）——
+于是插件市场 / 任务计划页的标题在两种侧栏状态下都是 28 + 48 = 76px（不上下跳），弹窗顶部安全距 68px，
+与 macOS 逐值相同。变量声明在 `html` 上（不是 frame），portal 到 `body` 的弹窗、菜单同样继承。
+
+对照：普通模式（Windows 版样式）收起也是 0 宽 + 页面内标题行的固定控件 `(12,6)` / `(48,6)`。
+
+浓度默认为 macOS 的两个值（浅色 40% / 深色 50%），`DSH_DESKTOP_GLASS_TINT=0..100` 同时覆盖两种主题
+（`^\d{1,3}$` 校验，越界或非法回落默认）；`prefers-reduced-transparency: reduce` 时下限 90%。
+
+实测：KDE Plasma 6 / Wayland 上视口 820→791→820（`Alt` 按下与再按一次），
+GNOME 50（Ubuntu 26.04.1）、GNOME 48（Debian 13）、GNOME 50（Fedora 44）都是 783→754→783，普通模式
+`Alt` 无效且 caption 仍是 40px；计算样式读数侧栏浅色 `color(srgb 0.9615… / 0.4)`、深色 `/ 0.5`、
+`DSH_DESKTOP_GLASS_TINT=80` 为 `/ 0.8`，侧栏面板 `rgba(0,0,0,0)`、内容区 `rgb(255,255,255)`（深色
+`rgb(21,21,23)`）、New Session `rgba(255,255,255,0.55)`，「降低透明度」下变成 `/ 0.9`。Hyprland 边缘
+能量 A/B：模糊开 1 349 291 vs 关 1 963 868（约 −31%），说明真模糊确实在起作用。上游桌面单测在补丁态下
+零失败（1635 通过 / 61 跳过），`build.sh --dir` 与 `--all` 均成功。收起与让位（1280×820，KDE Plasma 6 /
+Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（条右端）中心 y25；收起 grid `0px …`、
+座椅 `(12,11)`+`(48,11)` 中心 y25、侧栏列宽 0、内容区从 x0 开始；普通模式不受影响（caption 40px、收起
+`0px`、控件仍在 `(12,6)`/`(48,6)`）。
 
 ## Arch 包与 deb/rpm 构建树的差异（无害）
 

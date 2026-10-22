@@ -159,6 +159,24 @@ The plugin market reads the host version correctly ("Host version unknown" is fi
 resources root to the Host and republishes it there; the lookup works again, and so do the
 compatibility filter and "update to a compatible version".
 
+### Glass mode
+
+To get a frosted-glass or translucent sidebar, start the application with an
+environment variable:
+
+```bash
+DSH_DESKTOP_GLASS=1 deepseek-harness
+```
+
+The window then follows the official desktop app's macOS layout:
+
+- The native menu bar auto-hides and appears on `Alt`.
+- Sidebar fill defaults to 40% (50% in dark theme); `DSH_DESKTOP_GLASS_TINT=0..100` overrides it.
+- **Blur is up to the compositor**: Hyprland blurs (with `decoration:blur` enabled);
+  niri needs `background-effect { blur true }` in its own configuration;
+  KDE and GNOME do not blur — the sidebar is merely translucent, so raise the fill
+  when text gets hard to read.
+
 ## Validation status
 
 **Only a few environments have been tested so far, and we intend to widen that coverage.**
