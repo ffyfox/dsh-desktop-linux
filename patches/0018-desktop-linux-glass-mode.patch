@@ -1,10 +1,19 @@
 diff --git a/apps/desktop/src/glass-document.ts b/apps/desktop/src/glass-document.ts
 new file mode 100644
-index 000000000..9cb9b455b
+index 000000000..e1ecf93e4
 --- /dev/null
 +++ b/apps/desktop/src/glass-document.ts
-@@ -0,0 +1,86 @@
-+/** Glass-mode document injection for the Linux primary window. */
+@@ -0,0 +1,113 @@
++/**
++ * Glass-mode document injection for the Linux primary window.
++ *
++ * The route — a transparent window whose document carries the glass stylesheet in <head> — follows
++ * the Linux glass patch first published in Mooling0602/nix-packages (`desktop-window-glass.mjs`,
++ * raised in issue #6). Only the route is shared: that patch clears the whole frame and the composer
++ * seat, while this one keeps content, right bar, and bottom row opaque and paints only the sidebar
++ * with upstream's darwin material. The layout work (zero-width collapse, leading seat, clearance)
++ * is this port's own.
++ */
 +
 +/** Sidebar fill percentages of the macOS material, used when the user sets no tint. */
 +const MACOS_LIGHT_TINT = 40
@@ -38,8 +47,26 @@ index 000000000..9cb9b455b
 +}
 +html[data-dsh-glass] body { isolation: isolate; }
 +
-+/* The grid frame must not paint the theme background. */
-+html[data-dsh-glass] [class*="_frame"] { background: transparent; }
++/* The grid frame must not paint the theme background. Match it structurally: every CSS Module in
++   this tree ends in "_frame", so a substring match would also strip the attachment, subagent, and
++   sidebar-browser frames. */
++html[data-dsh-glass] div:has(> [class*="sidebarCol"]) { background: transparent; }
++
++/* Chromium cannot blur a menu over a transparent window: without an opaque backing the menu's
++   translucent fill shows the sidebar text straight through it. macOS ships this backing for the
++   same reason (MenuSurface, darwin only), so glass mode shows it too. */
++html[data-dsh-glass] [data-menu-backing] {
++  display: block;
++  position: fixed;
++  position-anchor: var(--dsh-menu-anchor);
++  top: anchor(top);
++  left: anchor(left);
++  width: anchor-size(width, 0px);
++  height: anchor-size(height, 0px);
++  z-index: -1;
++  background: var(--dsw-alias-bg-base);
++  pointer-events: none;
++}
 +
 +/* Copied from the macOS sidebar material in ui-layout/lib/client.js. */
 +html[data-dsh-glass] [class*="sidebarCol"] {
@@ -231,10 +258,10 @@ index a74ea7c7e..0628f4e49 100644
    })
 diff --git a/apps/desktop/tests/glass-document.spec.ts b/apps/desktop/tests/glass-document.spec.ts
 new file mode 100644
-index 000000000..63896b71a
+index 000000000..bc1bba4d6
 --- /dev/null
 +++ b/apps/desktop/tests/glass-document.spec.ts
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,41 @@
 +import { describe, expect, it } from 'vitest'
 +import { glassDocument } from '../src/glass-document.ts'
 +
@@ -250,6 +277,18 @@ index 000000000..63896b71a
 +
 +  it('hides the opaque list-bottom fade over the translucent column', () => {
 +    expect(glassDocument(null)).toContain(FADE_RULE)
++  })
++
++  it('shows the opaque menu backing macOS uses to keep menus readable over glass', () => {
++    const markup = glassDocument(null)
++    expect(markup).toContain('html[data-dsh-glass] [data-menu-backing] {')
++    expect(markup).toContain('background: var(--dsw-alias-bg-base);')
++  })
++
++  it('clears only the grid frame, not every CSS Module whose name ends in "_frame"', () => {
++    const markup = glassDocument(null)
++    expect(markup).toContain('div:has(> [class*="sidebarCol"]) { background: transparent; }')
++    expect(markup).not.toContain('[class*="_frame"]')
 +  })
 +
 +  it('uses the macOS fills by default and one tint for both themes', () => {

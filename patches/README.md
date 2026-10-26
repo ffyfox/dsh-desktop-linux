@@ -249,6 +249,18 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 `[class*="sidebarCol"] > div > [class*="_root"]`），换个客户端包就得跟一个补丁。只有侧栏半透明：整窗透明
 的文字可读性在 KDE / GNOME 上没有模糊兜底；**darwin 的视觉规则（vibrancy 材质、窗口拖拽）仍然不复用**。
 
+布局 frame 用 `div:has(> [class*="sidebarCol"])` 定位，不用 `[class*="_frame"]` —— 后者会连附件缩略图、
+子代理卡片、右侧栏浏览器的同名后缀一起清掉。菜单也照 macOS：透明窗上 `backdrop-filter` 拿不到不透明底，
+45% 的填充会让侧栏文字直接透出来，所以把 darwin 才显示的 `[data-menu-backing]` 垫层放出来（CSS anchor
+定位到菜单矩形，背景 `--dsw-alias-bg-base`）。
+
+这条「透明窗 + 从 `serveWebDocument()` 往 `<head>` 注入样式 + 用子串选择器命中哈希类名」的路线，
+[issue #6](https://github.com/ffyfox/dsh-desktop-linux/issues/6) 里
+[Mooling0602 的 `desktop-window-glass.mjs`](https://github.com/Mooling0602/nix-packages/blob/main/pkgs/by-name/de/deepseek-harness-desktop/desktop-window-glass.mjs)
+先做过一版，本仓库评估玻璃模式时参考过它。本补丁只取了这三点。材质数值（40% / 50% / 90%）与渐隐遮罩的
+处理来自上游 darwin 规则，整页透明和 `composerSeat` 的清法没有采用，布局改造（收起列宽、座椅、顶部让位）
+也不在那一版里。
+
 侧栏收起布局走的是另一条路：它属于**结构**而不是材质 —— 列宽写在 frame 的 `grid-template-columns` 上，
 座位由 React 条件挂载，注入 CSS 两头都够不着。所以在 `ui-layout` / `ui-sidebar` 里加
 `data-platform='linux'` 分支，条件是「linux 且没有 `data-windows-titlebar` 标记」，也就是玻璃模式
