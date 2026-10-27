@@ -125,6 +125,33 @@ artifact_version() {
   sed -n 's/^deepseek-harness-\(.*\)-linux-\(x86_64\|amd64\)-unsigned\.\(AppImage\|deb\|rpm\)$/\1/p' <<<"$(basename "$1")"
 }
 
+# 补丁 → 由哪一层覆盖。新增补丁必须在这里登记，否则本脚本直接 FAIL ——
+# 0016/0017 落地后 verify.sh 还停在 10-09，就是没有这一步提醒它该更新。
+#   verify  = 本脚本的断言覆盖（静态或活体）
+#   tests   = 上游桌面单测（S5 跑，不在本脚本里）
+#   matrix  = 三发行版 VM 矩阵（本脚本不跑）
+#   pending = 已知欠账，尚未补断言（SKIP，不拦 CI）
+declare -A PATCH_COVERAGE=(
+  [0001]=verify [0002]=verify [0003]=verify [0004]=verify [0005]=verify
+  [0006]=verify [0007]=tests  [0008]=verify [0009]=verify [0010]=verify
+  [0011]=verify [0012]=verify [0013]=verify [0015]=verify [0016]=verify
+  [0017]=verify [0018]=matrix
+)
+
+echo "== 0. 补丁覆盖登记（防过期）=="
+while IFS= read -r patchfile; do
+  id="$(basename "$patchfile" | cut -c1-4)"
+  case "${PATCH_COVERAGE[$id]:-}" in
+    verify|tests|matrix) ;;
+    pending)  skip "补丁 $id 尚未有断言（登记为 pending，补上后改成 verify）" ;;
+    *)        bad  "补丁 $id 没有覆盖登记：verify.sh 可能过期（补断言或改 PATCH_COVERAGE）" ;;
+  esac
+done < <(find "$ROOT/patches" -maxdepth 1 -name '[0-9][0-9][0-9][0-9]-*.patch' | sort)
+# 反向：登记了但补丁已不存在（退役或改名后忘了删）。
+for id in "${!PATCH_COVERAGE[@]}"; do
+  compgen -G "$ROOT/patches/$id-*.patch" >/dev/null || skip "覆盖表里的 $id 已没有对应补丁（退役？）"
+done
+
 echo "== 1. 产物存在 =="
 mapfile -t artifacts < <(find "$OUT" -maxdepth 1 \
   \( -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \) 2>/dev/null)
@@ -165,6 +192,14 @@ if [[ -x "$UNPACKED/deepseek-harness" ]]; then
     ok "resources/app/dsh 是解包目录树（asar 已关闭）"
   else
     bad "resources/app/dsh 不是解包目录树——真 Node 读不了 asar"
+  fi
+  # 0017：Host 是独立 Node，没有 process.resourcesPath；壳把 resources 根经环境变量传下去。
+  # 静态判据是两件事同时成立：runtime 在 resources/ 下（真运行时），resources/app/runtime 不在
+  # （asar 关掉后 CLI 自己的推导会指向那里，0008/0017 修的就是这个）。
+  if [[ -d "$UNPACKED/resources/runtime" && ! -e "$UNPACKED/resources/app/runtime" ]]; then
+    ok "resources/runtime 在、resources/app/runtime 不在（0017 的落点正确）"
+  else
+    bad "resources 布局不符合 0017（resources/runtime=$( [[ -d "$UNPACKED/resources/runtime" ]] && echo 在 || echo 缺 )，resources/app/runtime=$( [[ -e "$UNPACKED/resources/app/runtime" ]] && echo 在 || echo 缺 )）"
   fi
   # 托盘图：补丁 0013 让 Linux 的托盘指向 resources/tray-linux.png，由 electron-builder 的
   # Linux extraResources 带进来；它不在补丁里（二进制），所以最可能在这里漏掉。
@@ -392,6 +427,43 @@ CDP
         bad "dsh-app:// 没有渲染出 UI（最后一次探测：${cdp_out:-无输出}）"
       fi
 
+      # 0016：Linux 用页内 caption 代替原生菜单栏。上游自己的单测断言的就是这个标记
+      # （tests/preload-windows.client.spec.ts 在 linux 上期望 data-windows-titlebar 为 true）。
+      # 菜单宿主 [data-windows-menu] 由 preload 动态创建，菜单本体在它的 shadow root 里。
+      cat >"$LIVE/eval.mjs" <<'CDP'
+const [port, expr] = process.argv.slice(2)
+const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()
+const page = list.find(t => t.type === 'page' && t.url.startsWith('dsh-app://app'))
+if (!page) process.exit(3)
+const ws = new WebSocket(page.webSocketDebuggerUrl)
+await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej })
+const value = await new Promise(res => {
+  ws.addEventListener('message', ev => {
+    const m = JSON.parse(ev.data)
+    if (m.id === 1) res(JSON.stringify(m.result?.result?.value))
+  })
+  ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true } }))
+})
+console.log(value)
+ws.close()
+CDP
+      cdp_eval() {
+        env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u http_proxy -u https_proxy \
+          -u HTTP_PROXY -u HTTPS_PROXY "$NODE" "$LIVE/eval.mjs" "$CDP_PORT" "$1" 2>/dev/null | tail -1
+      }
+      has_titlebar="$(cdp_eval 'document.documentElement.hasAttribute("data-windows-titlebar")')"
+      if [[ "$has_titlebar" == true ]]; then
+        ok "0016：Linux 自绘标题栏标记在场（data-windows-titlebar）"
+      else
+        bad "0016：主窗口没有 data-windows-titlebar（拿到 ${has_titlebar:-空}）"
+      fi
+      has_menu="$(cdp_eval 'Boolean(document.querySelector("[data-windows-menu]"))')"
+      if [[ "$has_menu" == true ]]; then
+        ok "0016：页内 caption 菜单宿主已挂载（[data-windows-menu]）"
+      else
+        bad "0016：页内 caption 菜单宿主缺失（原生菜单栏可能没被隐藏）"
+      fi
+
       # Host 必须跑在 primary-runtime 自带的真 Node 上（Electron 的 node 模式下 sharp 会段错误）。
       # 同样只认本次实例的后代：并发跑同构建的另一个实例时，它的 Host 也是这份 PRIMARY_NODE。
       host_pid=""
@@ -403,6 +475,14 @@ CDP
       done
       if [[ -n "$host_pid" ]]; then
         ok "Host 进程跑在 primary-runtime 的真 Node 上（pid $host_pid）"
+        # 0017：独立 Node 的 Host 没有 process.resourcesPath，壳通过 DSH_DESKTOP_RESOURCES_PATH
+        # 把安装树的 resources 根传下去。直接读 /proc/<pid>/environ，不依赖 UI 行为。
+        if tr '\0' '\n' <"/proc/$host_pid/environ" 2>/dev/null \
+             | grep -qxF "DSH_DESKTOP_RESOURCES_PATH=$UNPACKED/resources"; then
+          ok "0017：Host 收到了安装树的 resources 根"
+        else
+          bad "0017：Host 环境里没有 DSH_DESKTOP_RESOURCES_PATH=$UNPACKED/resources"
+        fi
       else
         bad "没有找到跑在 primary-runtime Node 上的 Host 进程"
       fi
