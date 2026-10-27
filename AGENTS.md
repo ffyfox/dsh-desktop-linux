@@ -8,6 +8,13 @@
 - 改代码或文档前先把方案给维护者过目；不要自行 push、打 tag 或改 GitHub release。
 - [README.md](README.md) 只写重点、不写过程；与 [README.en.md](README.en.md) 必须同步修改。
 
+## 发版流程
+
+从跟上游到发版走固定的 14 站（按 `AGENTS.local.md` 走）。两条必须守住：
+
+- **不跨站**：一站做完、判据过了才进下一站；「继续」只表示做完当前这一步。
+- **tag 铁律**：打 tag 前必须空跑一次 CI，全绿再打；tag 绝不重打。
+
 ## 回家读
 
 - 补丁系列的编号、每块在解决什么、有哪些约束：[patches/README.md](patches/README.md)
