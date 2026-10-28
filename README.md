@@ -12,7 +12,9 @@ AppImage / deb / rpm / Arch 包。
 release target."*）。本项目补的就是这一块：让官方打包流水线认得 `linux-x64` 并产出安装包。
 当前验证范围见[验证状态](#验证状态)。
 
-![DeepSeek Harness 桌面端界面](docs/screenshot.png)
+![DeepSeek Harness 桌面端普通模式界面（KDE）](docs/screenshot.png)
+
+![DeepSeek Harness 桌面端玻璃模式界面（Hyprland）](docs/screenshot-glass.png)
 
 ## 项目产物
 
@@ -143,7 +145,7 @@ DSH_DESKTOP_GLASS=1 deepseek-harness
 开启后窗口近似官方桌面端 macOS 版布局：
 
 - 原生菜单栏自动隐藏，按 `Alt` 才出现。
-- 侧栏浓度默认 40%（深色 50%），`DSH_DESKTOP_GLASS_TINT=0..100` 可调。
+- 侧栏浓度默认值：浅色主题 40%，深色主题 50%。可通过 `DSH_DESKTOP_GLASS_TINT=0..100` 调整。
 - **有没有模糊取决于合成器**：Hyprland 能模糊（要开着 `decoration:blur`）；
   niri 要自己在配置里开 `background-effect { blur true }`；
   KDE 与 GNOME 不模糊，只是半透明——文字受背景干扰时可把浓度调高。
@@ -159,11 +161,13 @@ DSH_DESKTOP_GLASS=1 deepseek-harness
 | 环境 | 状态 |
 |---|---|
 | Arch Linux · KDE Plasma 6 · Wayland · x86_64 | **已实测**，正常 |
+| Arch Linux · Hyprland 0.56 · Wayland · x86_64 | **已实测**，正常 |
+| Arch Linux · niri 26.04 · Wayland · x86_64 | **已实测**，正常 |
 | Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **已实测**，正常（托盘宿主 Ubuntu 自带） |
 | Debian 13 · GNOME 48 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
 | Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
 | 其他发行版（Linux Mint / CachyOS 等） | 未验证 |
-| 其他DE/WM（Xfce / Hyprland 等） | 未验证 |
+| 其他DE/WM（Xfce / Sway 等） | 未验证 |
 | X11 | 未验证 |
 | aarch64 | 未构建、未验证 |
 

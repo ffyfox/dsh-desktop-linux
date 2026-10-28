@@ -16,7 +16,9 @@ that gap: it teaches the official packaging pipeline about `linux-x64` and emits
 installable artifacts. See [Validation status](#validation-status) for what has
 actually been tested.
 
-![The DeepSeek Harness desktop application](docs/screenshot.png)
+![The DeepSeek Harness desktop interface in normal mode (KDE)](docs/screenshot.png)
+
+![The DeepSeek Harness desktop interface in glass mode (Hyprland)](docs/screenshot-glass.png)
 
 ## What this project produces
 
@@ -171,7 +173,7 @@ DSH_DESKTOP_GLASS=1 deepseek-harness
 The window then follows the official desktop app's macOS layout:
 
 - The native menu bar auto-hides and appears on `Alt`.
-- Sidebar fill defaults to 40% (50% in dark theme); `DSH_DESKTOP_GLASS_TINT=0..100` overrides it.
+- Sidebar fill defaults: 40% in the light theme, 50% in the dark theme. Override with `DSH_DESKTOP_GLASS_TINT=0..100`.
 - **Blur is up to the compositor**: Hyprland blurs (with `decoration:blur` enabled);
   niri needs `background-effect { blur true }` in its own configuration;
   KDE and GNOME do not blur — the sidebar is merely translucent, so raise the fill
@@ -188,11 +190,13 @@ Both tables below are kept up to date as reports come in — please tell us how 
 | Environment | Status |
 |---|---|
 | Arch Linux · KDE Plasma 6 · Wayland · x86_64 | **Tested**, works |
+| Arch Linux · Hyprland 0.56 · Wayland · x86_64 | **Tested**, works |
+| Arch Linux · niri 26.04 · Wayland · x86_64 | **Tested**, works |
 | Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **Tested**, works (Ubuntu ships the tray host) |
 | Debian 13 · GNOME 48 · Wayland · x86_64 | **Tested**, works (the tray needs an extra extension, see [Known limitations](#known-limitations)) |
 | Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **Tested**, works (the tray needs an extra extension, see [Known limitations](#known-limitations)) |
 | Other distributions (Linux Mint / CachyOS, …) | Not tested |
-| Other desktops / WMs (Xfce / Hyprland, …) | Not tested |
+| Other desktops / WMs (Xfce, Sway, …) | Not tested |
 | X11 | Not tested |
 | aarch64 | Not built, not tested |
 
