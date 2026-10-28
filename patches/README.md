@@ -1,6 +1,6 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `1f81c047`（tag `dsh-v0.2.1-rc.3`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `504a01a9`（tag `dsh-v0.2.1-rc.4`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -25,40 +25,38 @@ hunk 一起带进来。
 `src/client/PluginManagerPage.module.css` / `src/client/TaskManagerPage.module.css`），
 其中 4 个是新增文件。
 
-已验证（0.2.1-rc.3）：17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-rc.3`）上，
+已验证（0.2.1-rc.4）：这一轮是轻量同步 —— 上游只改了 `apps/desktop/package.json` 第 4 行的版本号
+（`0006` 的 hunk 在第 35 行、上下文一行没碰），**一个补丁都没有重生**，17 份与 rc.3 逐字节相同。
+17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-rc.4`）上，
 `patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）都干净通过（**无 fuzz、
 无 reject**，只在共用文件上留 offset 与那两份 `.orig`），72 个触及文件（64 个改动 + 8 个新增），
 `prepare()` 另外放置托盘 PNG；两条路打出来的这 72 个文件逐字节相同（`git write-tree` 得到同一个树对象）。
-offset 只出现在 `0013` / `0016` / `0017`（`0018` 零 offset），与 alpha.3 起那几轮同因（系列内前置补丁推行的
-行号）。这一轮重生两份：`0006`（上游动了它的基线 blob）与原版**只差 `index` 那一行**（767 B → 771 B，
-只是缩写哈希位宽变了），`0018` 则因为上游改写了同一个测试文件、那段 hunk 的上文被顶掉而要重取（见
-「上游同步记录」），其余 15 份逐字节未动。18 条校验和由 `makepkg` 在构建开头逐条验证通过。
-`pnpm install --frozen-lockfile` 报 `Already up to date`（这一版 `pnpm-lock.yaml` 动过 +69/−12，但依赖树
-已完全就位），lockfile 通过供应链策略校验（1725 条、7.3 秒）。
-`pnpm run build:official` 的 9 道门（native addon / host compiler / Host bundle / host aggregate check /
-Desktop bundle / client compiler / Client bundle / client aggregate check / Web build）**9 通过 0 失败**，
-92.15 秒，记下 327 个客户端产物（比 rc.2 多 2 个）。
-上游桌面单测在补丁态下**零失败**（158 个文件：153 通过 / 5 跳过；1699 个用例：1638 通过 / 61 跳过）——
+offset 只出现在 `0013`（2 处）/ `0016`（4 处）/ `0017`（1 处），与 rc.2、rc.3 两轮同因（系列内前置补丁
+推行的行号），`0018` 零 offset。19 条校验和由 `makepkg --verifysource` 逐条验证通过（这一轮本机不再
+整包 `makepkg`：Arch 包改由 CI 的 makepkg job 产出）。
+`pnpm-lock.yaml` 这一轮没动，外部依赖一个没变；`pnpm run build:official` 的 9 道门随 `build.sh --all`
+一起跑过（本轮没有单独记时）。
+上游桌面单测在补丁态下**零失败**（158 个文件：153 通过 / 5 跳过；1701 个用例：1640 通过 / 61 跳过）——
 **跑之前必须摘掉代理**，否则 `host-process.spec.ts` 里那条「Host 停掉后 fetch 该失败」会拿到代理的 502
-（见下「注意」）。`makepkg` 整包构建成功（`dsh-desktop-linux-0.2.1rc3-1`，347 838 395 B / 25 025 个文件，
-归档条目含目录共 28 576 个），10 分 56 秒。`build.sh --all` 8 分 34 秒出齐三件套：
-AppImage 358 890 324 B（sha256 `83f29895…`）、deb 287 427 316 B（`201f4227…`）、rpm 238 812 515 B
-（`218be6e5…`），连打包后的冒烟也过 —— payload 探针报 `koffi / sharp / html / pty / pnpm / grep / glob`
+（见下「注意」）。`build.sh --all` 10 分 46 秒出齐三件套：
+AppImage 358 935 216 B（sha256 `9a709b1a…`）、deb 287 336 452 B（`e4f53fbb…`）、rpm 238 816 435 B
+（`aaa3d692…`），打包后的冒烟也过 —— payload 探针报 `koffi / sharp / html / pty / pnpm / grep / glob`
 全在场、CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三种格式（DOCX / XLSX / PPTX）转 PDF 与技能
 CLI 发现。
-`verify.sh --runtime` **31 通过 / 0 失败 / 4 跳过**（3 个是 rc.2 的旧产物按当前基线跳过，1 个是 3080 没在
-监听），活体部分实测：与在跑的桌面端并存（隔离 userData），Host 在 127.0.0.1:41107 监听（`--port 0`，
-端口由系统分配）、`dsh-app://` 出 UI（400 个 DOM 节点）、Host 跑在 primary-runtime 的真 Node 上、2 个
-渲染进程都在独立 user namespace 且 seccomp 生效、托盘注册且菜单读到 2 个带产品名的条目、
-`profiles/desktop` 已建立、共享根出现工作区存储与凭据、`profiles/web` 哨兵未被触碰、
+`verify.sh --runtime` **35 通过 / 0 失败 / 7 跳过**（6 个是 rc.2 与 rc.3 的旧产物按当前基线跳过，
+1 个是 3080 没在监听），活体部分实测：与在跑的桌面端并存（隔离 userData），Host 在 127.0.0.1:43785
+监听（`--port 0`，端口由系统分配）、`dsh-app://` 出 UI（400 个 DOM 节点）、Linux 自绘标题栏与页内
+caption 菜单宿主都在场（`0016`）、Host 跑在 primary-runtime 的真 Node 上且收到了安装树的 resources 根
+（`0017`）、2 个渲染进程都在独立 user namespace 且 seccomp 生效、托盘注册且菜单读到 2 个带产品名的
+条目、`profiles/desktop` 已建立、共享根出现工作区存储与凭据、`profiles/web` 哨兵未被触碰、
 真实 `~/.dsh/profiles/desktop` 未被改动。
 产物里 `resources/runtime/cli` 不存在、`resources/runtime/versions.json` 记的是 primary-runtime 的
 Node 24.21.0 / pnpm 11.28.5、`resources/app/dsh/package.json` 与 `desktop-runtime.json` 的
-`release.version` 都是 `0.2.1-rc.3`（`hostProtocolVersion` 仍是 4）、`resources/app/package.json` 的
-`dshBuildCommit` 记的是上游 `1f81c047…`（`dshBuildDirty: true`，不是本仓库的提交），正是 0004 的
+`release.version` 都是 `0.2.1-rc.4`（`hostProtocolVersion` 仍是 4）、`resources/app/package.json` 的
+`dshBuildCommit` 记的是上游 `504a01a9…`（`dshBuildDirty: true`，不是本仓库的提交），正是 0004 的
 Linux 闸门、0008 的运行时选择与 0012 的「环境变量优先」在起作用；rc.3 那套「更多」菜单所在的
 `@deepseek-ai/dsh-client-ui-entry-customization` 确实躺在 `resources/app/dsh/node_modules` 里，
-跟着桌面端一起发出去。
+跟着桌面端一起发出去（rc.4 这一轮它没有变动）。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -155,6 +153,16 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 以及 `tests/sidebar-root.client.spec.tsx`。所以只重生 `0006`（与原版只差 `index` 那一行）与 `0018`：
 `0018` 的 18 个文件里 17 个原样落位，只有那个 spec 要重取 —— 上游在同一个 macOS 用例尾部插了
 `trackEntryClick` 断言，把玻璃用例那段 hunk 的上文顶掉了。**上游仍然没有 Linux**：目标联合类型还是
+`mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
+
+0.2.1-rc.3 → 0.2.1-rc.4 有 9 个提交、369 个文件（+596/−381，1 个新增、0 个删除、0 个重命名），其中 349 个
+是各个 `package.json` 的版本行。真正的内容只有两处：ACP 模式下 MCP 资源列表与 DeepSeek 账号目录的诊断
+输出不再混进 stdout（`packages/mcp/mcp-client/src/connection.ts`、`packages/llm/llm-deepseek-account/src/index.ts`，
+并新增 `apps/cli/tests/profiles/acp/tests/stdout.expected.e2e.ts` 159 行），以及会话视图的标签页 tooltip 只在
+标签被截断时出现（`packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx` +25/−2、
+`locales.ts` −2）。`pnpm-lock.yaml` 没动，外部依赖一个没变。补丁触及的 72 个文件里只有
+`apps/desktop/package.json`（第 4 行版本号）变了，`0006` 的 hunk 在第 35 行、上下文一行没碰，所以这一轮
+**一个补丁都没有重生**：17 份与 rc.3 逐字节相同。**上游仍然没有 Linux**：目标联合类型还是
 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
 
 `0016` 启动实测（0.2.1-alpha.2 这份产物；用隔离 `DSH_HOME` + 独立 `--user-data-dir` 起，KWin 读
