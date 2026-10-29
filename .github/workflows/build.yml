@@ -15,7 +15,8 @@ permissions:
 
 env:
   # 与上游自己的 CI 对齐（upstream/.github/workflows/ci.yml 的 PRIMARY_NODE_VERSION: '24'）。
-  # 仓库 engines 是 "^22.19.0 || >=24.0.0"，所以 22.19+ 也能跑，但没理由不跟上游同一条线。
+  # 仓库 engines 是 ">=24.9.0"（补丁 0001 抬的，旧的 22.19+ 已不支持），
+  # 所以 CI 只钉 Node 24，与上游自己 CI 的 PRIMARY_NODE_VERSION 同一条线。
   NODE_VERSION: '24'
   # 上游 CI 设这个，避免构建期跑到的 dsh 运行时往生产遥测端点上报。这是第三方重打包仓库，
   # 更不该往上游的遥测里灌数据。
