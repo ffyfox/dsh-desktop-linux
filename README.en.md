@@ -47,7 +47,7 @@ installed, `dsh://` links are handed to it.
 
 ## Building from source
 
-Requirements: Node 22.19+ or 24+ (**not your distro's Node 22** — see below), **pnpm 11**, and git.
+Requirements: Node 24.9+ (**not your distro's own Node** — see below), **pnpm 11**, and git.
 Building the rpm additionally needs `rpmbuild` on the system.
 
 ```bash
@@ -76,10 +76,8 @@ upstream**, so `DSH_DESKTOP_LINUX_MAINTAINER=… build.sh --deb` is silently ign
 
 ### Hard requirements
 
-**Node must have TypeScript type stripping enabled.** Release builds from nodejs.org do, for both
-22.19+ and 24+, but distro packages may not: Ubuntu 26.04.1's `nodejs 22.22.1` reports
-`process.features.typescript === false`, and `--experimental-strip-types` does not help either, so the
-build dies in its first step (`build:official`) with
+**Node must have TypeScript type stripping enabled.** Release builds from nodejs.org do, but
+distro packages may not, and the build then dies in its first step (`build:official`) with
 `build: Node.js TypeScript type stripping is unavailable`. Use Node from nodejs.org; CI pins Node 24.
 
 **pnpm 11 is required, installed via npm or corepack.** The upstream repository declares

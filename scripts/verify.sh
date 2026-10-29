@@ -134,8 +134,8 @@ artifact_version() {
 declare -A PATCH_COVERAGE=(
   [0001]=verify [0002]=verify [0003]=verify [0004]=verify [0005]=verify
   [0006]=verify [0007]=tests  [0008]=verify [0009]=verify [0010]=verify
-  [0011]=verify [0012]=verify [0013]=verify [0015]=verify [0016]=verify
-  [0017]=verify [0018]=matrix
+  [0011]=verify [0012]=verify [0013]=verify [0016]=verify [0017]=verify
+  [0018]=matrix
 )
 
 echo "== 0. 补丁覆盖登记（防过期）=="

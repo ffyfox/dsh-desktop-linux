@@ -15,18 +15,18 @@ index 9fbe629..5077021 100644
  
    it('uses Nightly metadata for stable and prerelease Desktop versions', () => {
 diff --git a/apps/desktop/tests/desktop-build-paths.spec.ts b/apps/desktop/tests/desktop-build-paths.spec.ts
-index ede5c5e..1fbbfa9 100644
+index f9891eb..1e9cadd 100644
 --- a/apps/desktop/tests/desktop-build-paths.spec.ts
 +++ b/apps/desktop/tests/desktop-build-paths.spec.ts
 @@ -1,6 +1,7 @@
- import { join, sep } from 'node:path'
+ import { join, resolve, sep } from 'node:path'
  import { describe, expect, it } from 'vitest'
  import {
 +  desktopElectronExecutablePath,
    desktopTargetBuildPaths,
    desktopTargetPlatform,
    developmentRuntimeDirectory,
-@@ -55,7 +56,7 @@ describe('desktop build paths', () => {
+@@ -79,7 +80,7 @@ describe('desktop build paths', () => {
      expect(desktopTargetPlatform('mac-arm64')).toEqual({ platform: 'darwin', arch: 'arm64' })
      expect(desktopTargetPlatform('mac-x64')).toEqual({ platform: 'darwin', arch: 'x64' })
      expect(desktopTargetPlatform('win-x64')).toEqual({ platform: 'win32', arch: 'x64' })
@@ -35,7 +35,7 @@ index ede5c5e..1fbbfa9 100644
    })
  
    it('resolves environment overrides and rejects unsupported targets', () => {
-@@ -64,7 +65,15 @@ describe('desktop build paths', () => {
+@@ -88,7 +89,15 @@ describe('desktop build paths', () => {
        DSH_DESKTOP_TARGET_ARCH: 'x64',
      }, 'darwin', 'arm64')).toBe('mac-x64')
      expect(resolveDesktopBuildTarget({}, 'win32', 'x64')).toBe('win-x64')

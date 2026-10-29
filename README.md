@@ -41,7 +41,7 @@ release target."*）。本项目补的就是这一块：让官方打包流水线
 
 ## 从源码构建
 
-依赖：Node 22.19+ 或 24+（**别用发行版打包的 Node 22**，见下）、**pnpm 11**、git。
+依赖：Node 24.9+（**别用发行版自己打的 Node**，见下）、**pnpm 11**、git。
 打 rpm 还需要系统有 `rpmbuild`。
 
 ```bash
@@ -66,9 +66,8 @@ deb / rpm 的 `Maintainer:` / `Homepage:` 来自 `upstream/apps/desktop/.env.lin
 
 ### 硬性前提
 
-**Node 要带 TypeScript 类型剥离。** nodejs.org 的官方包 22.19+ / 24+ 都有，但**发行版自己打的可能没有**
-（Ubuntu 26.04.1 的 `nodejs 22.22.1` 实测 `process.features.typescript` 为 `false`，加
-`--experimental-strip-types` 也仍是 `false`），构建会在第一步 `build:official` 报
+**Node 要带 TypeScript 类型剥离。** nodejs.org 的官方包 24 都有，但**发行版自己打的可能没有**，
+构建会在第一步 `build:official` 报
 `build: Node.js TypeScript type stripping is unavailable`。用官方 Node（我们 CI 钉的是 Node 24）。
 
 **必须用 pnpm 11，而且要是 npm 或 corepack 装的那种。** 上游仓库声明

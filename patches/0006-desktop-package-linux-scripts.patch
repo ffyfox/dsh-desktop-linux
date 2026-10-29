@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/package.json b/apps/desktop/package.json
-index 61a73769e..31bebc6ef 100644
+index 081a90e..faeba5b 100644
 --- a/apps/desktop/package.json
 +++ b/apps/desktop/package.json
-@@ -35,6 +35,8 @@
+@@ -38,6 +38,8 @@
      "package:win:x64": "tsx scripts/package-target.ts win-x64",
      "package:win:x64:unsigned": "tsx scripts/package-target.ts win-x64 --unsigned",
      "package:win:x64:dir": "tsx scripts/package-target.ts win-x64 --dir",

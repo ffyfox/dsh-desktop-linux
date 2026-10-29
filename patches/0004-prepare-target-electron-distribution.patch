@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
-index 9de39d3..d9d88a6 100644
+index a069888..b3f5c79 100644
 --- a/apps/desktop/scripts/prepare-dsh.ts
 +++ b/apps/desktop/scripts/prepare-dsh.ts
-@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
+@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
  import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
  import { tmpdir } from 'node:os'
  import { delimiter, join, relative, resolve } from 'node:path'
@@ -11,7 +11,7 @@ index 9de39d3..d9d88a6 100644
  import { createRuntimeProjectMetadata } from '../src/project-manager.ts'
  import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
  import { parseDesktopRelease, type DesktopRelease } from '../src/release.ts'
-@@ -31,19 +31,23 @@ import {
+@@ -32,19 +32,23 @@ import {
  import {
    signMacOSRuntime,
  } from './macos-runtime.ts'
@@ -25,7 +25,7 @@ index 9de39d3..d9d88a6 100644
 +const TARGET = resolveDesktopBuildTarget()
  const DSH_OUTPUT_ROOT = BUILD_PATHS.dsh
  const BUILD_ROOT = mkdtempSync(join(tmpdir(), 'dsh-desktop-runtime-'))
- const STORE_ROOT = join(BUILD_ROOT, 'store')
+ const STORE_ROOT = BUILD_PATHS.pnpmStore
  const RUNTIME_ROOT = BUILD_PATHS.runtime
  const PNPM_BUILD_STATE = BUILD_PATHS.dshPnpm
  const PACKAGE_SET_ROOT = BUILD_PATHS.packageSet
@@ -37,7 +37,7 @@ index 9de39d3..d9d88a6 100644
  const PNPM = join(RUNTIME_ROOT, 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs')
  
  function manifestVersion(path: string, subject: string): string {
-@@ -77,7 +81,7 @@ function runPnpm(args: readonly string[]): Promise<void> {
+@@ -78,7 +82,7 @@ function runPnpm(args: readonly string[]): Promise<void> {
      const userConfig = join(config, 'npmrc')
      mkdirSync(config, { recursive: true })
      writeFileSync(userConfig, '')
@@ -46,7 +46,7 @@ index 9de39d3..d9d88a6 100644
        '--expose-internals',
        PNPM,
        `--config.registry=${registry}`,
-@@ -95,7 +99,7 @@ function runPnpm(args: readonly string[]): Promise<void> {
+@@ -98,7 +102,7 @@ function runPnpm(args: readonly string[]): Promise<void> {
          NPM_CONFIG_REGISTRY: registry,
          NPM_CONFIG_STORE_DIR: STORE_ROOT,
          NPM_CONFIG_USERCONFIG: userConfig,
@@ -55,18 +55,8 @@ index 9de39d3..d9d88a6 100644
          PATH: `${join(RUNTIME_ROOT, 'bin')}${delimiter}${process.env.PATH ?? ''}`,
          XDG_CACHE_HOME: join(PNPM_BUILD_STATE, 'cache'),
          XDG_CONFIG_HOME: config,
-@@ -133,8 +137,7 @@ async function main(): Promise<void> {
-     )
-     await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:install', () => runPnpm(['install', '--prod', '--frozen-lockfile', '--trust-lockfile']))
-     const packageSet = readDesktopCorePackageSet(BUILD_ROOT, release.version)
--    const targetName = resolveDesktopBuildTarget()
--    const target = { platform: process.platform, arch: desktopTargetPlatform(targetName).arch }
-+    const target = desktopTargetPlatform(TARGET)
-     const modules = join(BUILD_ROOT, 'node_modules')
-     const officeManifest = JSON.parse(readFileSync(join(modules, '@deepseek-ai/libreoffice-kit/package.json'), 'utf8'))
-     const officeEngine = selectOfficeEngine(officeManifest, target)
-@@ -167,7 +170,7 @@ async function main(): Promise<void> {
-     await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:write-descriptor', async () => writeDesktopRuntime(DSH_OUTPUT_ROOT, release, packageSet.packages.map(entry => entry.name), target))
+@@ -176,7 +180,7 @@ async function main(): Promise<void> {
+     })
      const descriptor = await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:verify-before-smoke', () => verifyDesktopRuntime(DSH_OUTPUT_ROOT, release.version, target))
      if (!process.argv.includes('--defer-runtime-smoke')) {
 -      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:smoke', () => smokePreparedRuntime(DSH_OUTPUT_ROOT, NODE, RUNTIME_ROOT, descriptor))
@@ -75,7 +65,7 @@ index 9de39d3..d9d88a6 100644
      }
    } catch (error) {
 diff --git a/apps/desktop/scripts/prepare-runtime.ts b/apps/desktop/scripts/prepare-runtime.ts
-index ba92fef..e473f83 100644
+index 4e33853..f5e464d 100644
 --- a/apps/desktop/scripts/prepare-runtime.ts
 +++ b/apps/desktop/scripts/prepare-runtime.ts
 @@ -8,7 +8,8 @@ import { parseArgs } from 'node:util'
@@ -113,7 +103,7 @@ index ba92fef..e473f83 100644
    const cli = join(RUNTIME_ROOT, 'cli')
    prepareDesktopCli(cli, platform)
    if (platform === 'darwin') {
-@@ -50,15 +48,37 @@ function prepareCli({ platform, arch }: DesktopTarget): void {
+@@ -50,24 +48,46 @@ function prepareCli({ platform, arch }: DesktopTarget): void {
  
  async function main(): Promise<void> {
    const { values } = parseArgs({ options: { 'defer-primary-runtime-smoke': { type: 'boolean', default: false } } })
@@ -125,10 +115,24 @@ index ba92fef..e473f83 100644
 +  const electron = join(BUILD_PATHS.electron, desktopElectronExecutablePath(target))
    rmSync(RUNTIME_ROOT, { recursive: true, force: true })
    mkdirSync(RUNTIME_ROOT, { recursive: true })
--  const nodeVersion = await prepareElectron(target)
-+  const electronNodeVersion = await prepareElectron(resolved, electron)
-   await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'prepare:primary-runtime',
+   const preparePrimary = () => packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'prepare:primary-runtime',
      () => preparePrimaryRuntime({ deferSmoke: values['defer-primary-runtime-smoke'] }))
+-  let nodeVersion: string
+-  if (target.platform === 'win32') {
+-    const [electron, primary] = await Promise.allSettled([prepareElectron(target), preparePrimary()])
+-    if (electron.status === 'rejected') throw electron.reason
++  let electronNodeVersion: string
++  if (resolved.platform === 'win32') {
++    const [electronResult, primary] = await Promise.allSettled([prepareElectron(resolved, electron), preparePrimary()])
++    if (electronResult.status === 'rejected') throw electronResult.reason
+     if (primary.status === 'rejected') throw primary.reason
+-    nodeVersion = electron.value
++    electronNodeVersion = electronResult.value
+   } else {
+-    nodeVersion = await prepareElectron(target)
++    electronNodeVersion = await prepareElectron(resolved, electron)
+     await preparePrimary()
+   }
    const { pnpm } = await readPrimaryRuntime(join(RUNTIME_ROOT, 'primary-runtime'))
    if (pnpm === undefined) throw new Error('desktop runtime: primary-runtime manifest has no pnpm version')
 -  await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'prepare:cli', async () => { prepareCli(target) })

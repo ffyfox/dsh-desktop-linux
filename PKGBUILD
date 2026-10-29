@@ -16,10 +16,10 @@
 # pnpm 9 会报 ERR_PNPM_LOCKFILE_CONFIG_MISMATCH。
 
 pkgname=dsh-desktop-linux
-pkgver=0.2.1rc4
+pkgver=0.2.2alpha2
 pkgrel=1
-_tag='dsh-v0.2.1-rc.4'
-_commit='504a01a9578abc2c6f1fb896b1dc322c9fe24f66'
+_tag='dsh-v0.2.2-alpha.2'
+_commit='f3803c96974ad4a94195fb97e5c637e9c2a3afe3'
 # GitHub 源码包的顶层目录名 = <repo>-<tag>，tag 自带的 "v" 不剥（实测 dsh-v0.2.1-alpha.2）
 _srcdirname="deepseek-harness-$_tag"
 
@@ -66,31 +66,29 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harnes
         '0011-desktop-linux-package-metadata.patch'
         '0012-desktop-build-commit-release-archive.patch'
         '0013-desktop-linux-tray.patch'
-        '0015-desktop-linux-hidden-overlay-reveal.patch'
         '0016-desktop-linux-caption.patch'
         '0017-desktop-host-resources-path.patch'
         '0018-desktop-linux-glass-mode.patch'
         # 补丁系列是文本 diff，装不下托盘 PNG —— GNU patch（makepkg 与 PKGBUILD 都用它）
         # 不支持 git 的二进制补丁。所以这张图作为普通本地 source 平铺过来，由 prepare() 放进源码树。
         'tray-linux.png')
-sha256sums=('ba659c7393f5f411a4f53e703bce54238fea8c6ea883e8c5c0e07cbb3523f379'
-            'f201c9826fa2ab835b335785dc01063a3c173de29768e6ef253654d75dae1b42'
-            '2c551d85a71e27599d70a5f2dd36ce5536f28f113f2e9dd7145803abc4512356'
-            '67e1f95510ffb8f058365a6691561580e5c0874684d95bdbe968f9d8ab37bf6c'
-            '0d47d53b952a3e5e7a1e68e5db89199a2bc550f34867f30fef0867a96c79ace7'
-            'a70e694d28806f416e066e44571f03039ed433553648bcab582f95d4e788d03e'
-            '7d32c7a6930df872aa5a253cb9852592d6c9a4f440b4b26c0c3f848cb90cc023'
-            '25e433508b7c4c1ef48ec60b26ef2c5dd3a5f6bfe479d71f474fe1d0721af768'
-            'f42d4a7506837e73c2b01ad912873654fe7797fa6373f1c5f3352911d11f6504'
-            '006f028f9970922bb998e76a90d5f0e0d6ce885e95eeaccc69da9762cd9d4efb'
+sha256sums=('85f1af41532fe402af613db50d35b7b72224a25adc78682019830b12e4cf9788'
+            '9f4842ac88fa503319d5a18c007a3324f8471900275be56cf98b21ca152d5faa'
+            '740ce44d9ccb931e37ac31691c7d4fdfef01562c555f3f86daf13b25b1047d72'
+            '6c5f21088f37bf5c57c49f96758563ff531a0dce590ba749f14967847bbe5f77'
+            '86ce03a77b1d12570739328bed54a8575e301deed0f48d14c259a7b40c762ddc'
+            '5045677d943313cded259deda90b227338aa7d65b3b03beb98b87e6bf959a4ef'
+            'a20385cfa3d866e5b9cc03a415ca3e5c75196fa7d530aadd799b9f7cdfcefc62'
+            'f11fc8b32b1b650a3c8937e2289936833992c8505a4fa43119c0926af6422d7d'
+            '097b131978fc19c2d24a93e5782a9868fb7c91bc8fb6f23747bcf4638e510feb'
+            '03d27922696f9ed1a86e394c7f37f1e76c1913b30fcf0fb2a686e6559bee8fa1'
             'e1c9243ca4c39b22db972d4b848671e7f5e0e77485c578c7ced3dbea83c2867b'
             'a3ff4a524a4ebe28551797bd36dab7b7139516e668462f054e616e8a521e3e8f'
-            '2a48cc7e75591f89e5e26606b4ce34b6e00db4891c4725ec171287af1f84fc50'
-            '8ba2af41630bae288f995d93eee8252c152ffa2087bf584f3479f7ef8578f695'
-            '88f5c12d7a6257c8f56f0b7cfe4171b47c90aae8818f36549ee9d5bfcf7a3867'
-            '58100d6a91dbb969b32602d2db2f24422c4dbc356a84e2c6150bb2c0667afca0'
-            'fc071d3ab47457e81ffb44b45460f92b8f4744ebe10b678fe5edd70923395061'
-            '6e72997e02628ac827b9c853083f036d21faa4103211569d028b833119ad5ffe'
+            'ecf7ca3233077be8c1cb7da1dd49c525b6ac0e868242396e128dc60e8cbf6352'
+            'a5b99d1d1cc3cbfab409f9f5af9abab1e134f5a444da9169d8e044685f8db413'
+            'fdbab625b085c3e2d841e7f086cfecba75688c266d27e60b93c7c5b3674bffe4'
+            '46675846e3203a07fc77fa817c4f5670d14259cd3f9938a32e688c2b22670311'
+            '09271c5725c6dabde251781f51106f9234ca4fc3443c58af131cbd70fb014077'
             'd1153ab7bb1c61ca7f6568b4525f6c3f3c7bf9a9e29af1697f3c02da7dee5322')
 
 prepare() {

@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/desktop-auto-update-environment.d.mts b/apps/desktop/scripts/desktop-auto-update-environment.d.mts
-index f656f9b..2b4549d 100644
+index 4d42b3d..87b29de 100644
 --- a/apps/desktop/scripts/desktop-auto-update-environment.d.mts
 +++ b/apps/desktop/scripts/desktop-auto-update-environment.d.mts
 @@ -5,7 +5,7 @@ export const DESKTOP_AUTO_UPDATE_ENV: 'DSH_DESKTOP_AUTO_UPDATE_ENV'
@@ -9,10 +9,10 @@ index f656f9b..2b4549d 100644
 -export type DesktopAutoUpdateTarget = 'mac-arm64' | 'mac-x64' | 'win-x64'
 +export type DesktopAutoUpdateTarget = 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'
  
- /** Public updater URL and object prefixes for one release target. */
- export interface DesktopAutoUpdateConfig {
+ /**
+  * Name the fixed installer object shared by uploading and cache refresh.
 diff --git a/apps/desktop/scripts/desktop-auto-update-environment.mjs b/apps/desktop/scripts/desktop-auto-update-environment.mjs
-index a1973a9..dd11578 100644
+index 835bead..8cf84b3 100644
 --- a/apps/desktop/scripts/desktop-auto-update-environment.mjs
 +++ b/apps/desktop/scripts/desktop-auto-update-environment.mjs
 @@ -33,7 +33,7 @@ const UPDATE_ENVIRONMENTS = {
@@ -23,8 +23,8 @@ index a1973a9..dd11578 100644
 +const UPDATE_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64'])
  
  /**
-  * Resolve the update deployment, defaulting local release work to test.
-@@ -52,7 +52,7 @@ export function resolveDesktopAutoUpdateEnvironment(env) {
+  * Name the fixed installer object shared by uploading and cache refresh.
+@@ -63,7 +63,7 @@ export function resolveDesktopAutoUpdateEnvironment(env) {
   * Resolve one supported platform and architecture to its update directory.
   * @param {NodeJS.Platform} platform - Target Node.js platform.
   * @param {string} arch - Target Node.js architecture.
@@ -33,7 +33,7 @@ index a1973a9..dd11578 100644
   */
  export function resolveDesktopAutoUpdateTarget(platform, arch) {
    const os = platform === 'darwin' ? 'mac' : platform === 'win32' ? 'win' : platform
-@@ -65,7 +65,7 @@ export function resolveDesktopAutoUpdateTarget(platform, arch) {
+@@ -76,7 +76,7 @@ export function resolveDesktopAutoUpdateTarget(platform, arch) {
  
  /**
   * Return the local completion record filename for one packaged target.
@@ -43,10 +43,10 @@ index a1973a9..dd11578 100644
   */
  export function desktopBuildRecordFilename(target) {
 diff --git a/apps/desktop/scripts/desktop-build-paths.d.mts b/apps/desktop/scripts/desktop-build-paths.d.mts
-index c7b8173..4f88250 100644
+index 910f303..da063eb 100644
 --- a/apps/desktop/scripts/desktop-build-paths.d.mts
 +++ b/apps/desktop/scripts/desktop-build-paths.d.mts
-@@ -44,10 +44,17 @@ export function desktopTargetBuildPaths(target: DesktopAutoUpdateTarget): Deskto
+@@ -46,10 +46,17 @@ export function desktopTargetBuildPaths(target: DesktopAutoUpdateTarget, environ
   * @returns Platform and architecture of the prepared payload.
   */
  export function desktopTargetPlatform(target: DesktopAutoUpdateTarget): {
@@ -66,10 +66,10 @@ index c7b8173..4f88250 100644
   * Resolve the paths owned by the target selected in a packaging environment.
   * @param env - Packaging environment.
 diff --git a/apps/desktop/scripts/desktop-build-paths.mjs b/apps/desktop/scripts/desktop-build-paths.mjs
-index e577b1d..7953a96 100644
+index edfd9cd..f6ba9cb 100644
 --- a/apps/desktop/scripts/desktop-build-paths.mjs
 +++ b/apps/desktop/scripts/desktop-build-paths.mjs
-@@ -4,14 +4,14 @@ import { join, resolve } from 'node:path'
+@@ -4,14 +4,14 @@ import { isAbsolute, join, resolve } from 'node:path'
  
  const APP_ROOT = resolve(import.meta.dirname, '..')
  const BUILD_ROOT = join(APP_ROOT, '.desktop-build')
@@ -101,10 +101,10 @@ index e577b1d..7953a96 100644
   * Return the mutable preparation and artifact directories owned by one release target.
 - * @param {'mac-arm64' | 'mac-x64' | 'win-x64'} target - Supported Desktop target name.
 + * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'} target - Supported Desktop target name.
-  * @returns {{ root: string, artifacts: string, unsignedArtifacts: string, unnotarizedArtifacts: string, runtime: string, packageSet: string, dsh: string, dshPnpm: string, electron: string, packedDsh: string, packedVendor: string, packedLandlock: string, downloads: string }} Target paths plus the shared immutable download cache.
+  * @param {NodeJS.ProcessEnv} environment - Packaging environment with an optional absolute cache directory.
+  * @returns {{ root: string, artifacts: string, unsignedArtifacts: string, unnotarizedArtifacts: string, runtime: string, packageSet: string, dsh: string, dshPnpm: string, electron: string, packedDsh: string, packedVendor: string, packedLandlock: string, downloads: string, pnpmStore: string }} Target paths plus shared download and package caches.
   */
- export function desktopTargetBuildPaths(target) {
-@@ -64,17 +64,31 @@ export function desktopTargetBuildPaths(target) {
+@@ -70,8 +70,8 @@ export function desktopTargetBuildPaths(target, environment = process.env) {
  /**
   * Return the platform and architecture of the payload one release target prepares.
   * Windows is prepared as x64 only, so this differs from the build host on an arm64 Windows machine.
@@ -115,12 +115,13 @@ index e577b1d..7953a96 100644
   */
  export function desktopTargetPlatform(target) {
    assertSupportedTarget(target)
-   return {
--    platform: /** @type {'darwin' | 'win32'} */ (target === 'win-x64' ? 'win32' : 'darwin'),
-+    platform: /** @type {'darwin' | 'win32' | 'linux'} */ (
-+      target === 'win-x64' ? 'win32' : target === 'linux-x64' ? 'linux' : 'darwin'),
-     arch: /** @type {'arm64' | 'x64'} */ (target === 'mac-arm64' ? 'arm64' : 'x64'),
-   }
+@@ -79,10 +79,24 @@ export function desktopTargetPlatform(target) {
+     'mac-arm64': { platform: 'darwin', arch: 'arm64' },
+     'mac-x64': { platform: 'darwin', arch: 'x64' },
+     'win-x64': { platform: 'win32', arch: 'x64' },
++    'linux-x64': { platform: 'linux', arch: 'x64' },
+   })
+   return targets[target]
  }
  
 +/**

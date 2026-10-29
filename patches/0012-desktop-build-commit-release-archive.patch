@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/desktop-build-commit.d.mts b/apps/desktop/scripts/desktop-build-commit.d.mts
-index 82118e24..57a792cb 100644
+index 82118e2..57a792c 100644
 --- a/apps/desktop/scripts/desktop-build-commit.d.mts
 +++ b/apps/desktop/scripts/desktop-build-commit.d.mts
 @@ -11,7 +11,7 @@ export const DESKTOP_BUILD_COMMIT_ENV: 'DSH_DESKTOP_BUILD_COMMIT'
@@ -12,7 +12,7 @@ index 82118e24..57a792cb 100644
   * @returns The commit being packaged and whether its tree was modified.
   */
 diff --git a/apps/desktop/scripts/desktop-build-commit.mjs b/apps/desktop/scripts/desktop-build-commit.mjs
-index 28d7cda5..3cb19643 100644
+index 28d7cda..3cb1964 100644
 --- a/apps/desktop/scripts/desktop-build-commit.mjs
 +++ b/apps/desktop/scripts/desktop-build-commit.mjs
 @@ -7,7 +7,7 @@
@@ -56,7 +56,7 @@ index 28d7cda5..3cb19643 100644
    return {
      commit: git(['rev-parse', 'HEAD']),
 diff --git a/apps/desktop/tests/desktop-build-commit.spec.ts b/apps/desktop/tests/desktop-build-commit.spec.ts
-index 57016a5e..2c7dd460 100644
+index 57016a5..2c7dd46 100644
 --- a/apps/desktop/tests/desktop-build-commit.spec.ts
 +++ b/apps/desktop/tests/desktop-build-commit.spec.ts
 @@ -1,7 +1,7 @@

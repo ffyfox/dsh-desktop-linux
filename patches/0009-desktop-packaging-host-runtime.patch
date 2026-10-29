@@ -39,7 +39,7 @@ index 37515c2..bf23b40 100644
  }
  
 diff --git a/apps/desktop/scripts/sign-primary-runtime.ts b/apps/desktop/scripts/sign-primary-runtime.ts
-index d9a9b36..e3b8fc4 100644
+index a15e378..4dde1a7 100644
 --- a/apps/desktop/scripts/sign-primary-runtime.ts
 +++ b/apps/desktop/scripts/sign-primary-runtime.ts
 @@ -76,7 +76,8 @@ async function main(): Promise<void> {

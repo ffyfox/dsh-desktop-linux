@@ -1,6 +1,6 @@
 diff --git a/apps/desktop/src/glass-document.ts b/apps/desktop/src/glass-document.ts
 new file mode 100644
-index 000000000..e1ecf93e4
+index 0000000..e1ecf93
 --- /dev/null
 +++ b/apps/desktop/src/glass-document.ts
 @@ -0,0 +1,113 @@
@@ -119,7 +119,7 @@ index 000000000..e1ecf93e4
 +}
 diff --git a/apps/desktop/src/glass-mode.ts b/apps/desktop/src/glass-mode.ts
 new file mode 100644
-index 000000000..97512e740
+index 0000000..97512e7
 --- /dev/null
 +++ b/apps/desktop/src/glass-mode.ts
 @@ -0,0 +1,25 @@
@@ -149,10 +149,10 @@ index 000000000..97512e740
 +  return tint > 100 ? null : tint
 +}
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 8c1f6680c..aae974203 100644
+index 866f646..2333e65 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -31,6 +31,8 @@ import { installMicrophonePermissions } from './microphone-permissions.ts'
+@@ -32,6 +32,8 @@ import { installMicrophonePermissions } from './microphone-permissions.ts'
  import { DesktopBackendController } from './backend-controller.ts'
  import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
  import { readDeviceInfo } from './device-info.ts'
@@ -161,7 +161,7 @@ index 8c1f6680c..aae974203 100644
  import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
  import { claimDesktopSingleInstance } from './single-instance.ts'
  import { desktopUpdateChannel } from './update-channel.ts'
-@@ -210,12 +212,19 @@ function platformLoginUrl(authorizeUrl: string): string {
+@@ -260,12 +262,19 @@ function platformLoginUrl(authorizeUrl: string): string {
  }
  
  function createWindow(preload: string, show = false, primary = false): BrowserWindow {
@@ -181,7 +181,7 @@ index 8c1f6680c..aae974203 100644
      ...(process.platform === 'win32' && primary ? {
        titleBarStyle: 'hidden' as const,
        titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
-@@ -240,11 +249,16 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -290,11 +299,16 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        webSecurity: true,
        webviewTag: primary,
        devTools: true,
@@ -200,7 +200,7 @@ index 8c1f6680c..aae974203 100644
    window.webContents.setWindowOpenHandler(({ url }) => {
      if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
      return { action: 'deny' }
-@@ -687,7 +701,10 @@ async function main(): Promise<void> {
+@@ -782,7 +796,10 @@ async function main(): Promise<void> {
      if (url.hostname === 'app') {
        if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname.startsWith('/assets/')
          || ['/favicon.svg', '/manifest.webmanifest'].includes(url.pathname)) {
@@ -213,7 +213,7 @@ index 8c1f6680c..aae974203 100644
        if (backend.host === undefined || hostUrl === undefined || hostCookie === undefined) {
          return Promise.resolve(new Response(null, { status: 503 }))
 diff --git a/apps/desktop/src/preload-windows.ts b/apps/desktop/src/preload-windows.ts
-index f17cbdb60..aa938fca6 100644
+index f17cbdb..aa938fc 100644
 --- a/apps/desktop/src/preload-windows.ts
 +++ b/apps/desktop/src/preload-windows.ts
 @@ -1,4 +1,5 @@
@@ -232,7 +232,7 @@ index f17cbdb60..aa938fca6 100644
    // the same marker and appearance reporting as Windows.
    if (process.platform !== 'win32' && process.platform !== 'linux') return
 diff --git a/apps/desktop/src/web-document.ts b/apps/desktop/src/web-document.ts
-index a74ea7c7e..0628f4e49 100644
+index a74ea7c..0628f4e 100644
 --- a/apps/desktop/src/web-document.ts
 +++ b/apps/desktop/src/web-document.ts
 @@ -13,9 +13,10 @@ const BOOT = '<script>globalThis.__DSH_BOOT_READY__ = Promise.withResolvers()</s
@@ -258,7 +258,7 @@ index a74ea7c7e..0628f4e49 100644
    })
 diff --git a/apps/desktop/tests/glass-document.spec.ts b/apps/desktop/tests/glass-document.spec.ts
 new file mode 100644
-index 000000000..bc1bba4d6
+index 0000000..bc1bba4
 --- /dev/null
 +++ b/apps/desktop/tests/glass-document.spec.ts
 @@ -0,0 +1,41 @@
@@ -305,7 +305,7 @@ index 000000000..bc1bba4d6
 +})
 diff --git a/apps/desktop/tests/glass-mode.spec.ts b/apps/desktop/tests/glass-mode.spec.ts
 new file mode 100644
-index 000000000..cd8d2df75
+index 0000000..cd8d2df
 --- /dev/null
 +++ b/apps/desktop/tests/glass-mode.spec.ts
 @@ -0,0 +1,51 @@
@@ -361,10 +361,11 @@ index 000000000..cd8d2df75
 +  })
 +})
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index 30fe97c4e..261052003 100644
+index 954430a..de8b027 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -1,5 +1,7 @@
+@@ -2,6 +2,8 @@ import { parsePluginOperationRecord } from '@deepseek-ai/dsh-plugin-manager/diag
+ import type { DesktopHostProcess } from '../src/host-process.ts'
  import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
  import { WINDOWS_TITLEBAR_HEIGHT } from '../src/windows-layout.ts'
 +import { GLASS_ARGUMENT } from '../src/glass-mode.ts'
@@ -372,7 +373,7 @@ index 30fe97c4e..261052003 100644
  import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
  import type { IpcMainInvokeEvent } from 'electron'
  import { join } from 'node:path'
-@@ -119,7 +121,8 @@ const harness = await vi.hoisted(async () => {
+@@ -127,7 +129,8 @@ const harness = await vi.hoisted(async () => {
      }
      static getAllWindows() { return windows.filter(window => !window.destroyed) }
      setMenu() {}
@@ -382,7 +383,7 @@ index 30fe97c4e..261052003 100644
      getContentBounds() { return { x: 0, y: 0, width: 900, height: 650 } }
      setBounds() {}
      setTitle = vi.fn()
-@@ -847,6 +850,76 @@ describe('desktop main startup', () => {
+@@ -878,6 +881,76 @@ describe('desktop main startup', () => {
      expect(harness.hosts).toHaveLength(0)
    })
  
@@ -460,7 +461,7 @@ index 30fe97c4e..261052003 100644
      const { serveWebDocument } = await import('../src/web-document.ts')
      vi.mocked(serveWebDocument).mockResolvedValue(new Response('shell document'))
 diff --git a/apps/desktop/tests/preload-windows.client.spec.ts b/apps/desktop/tests/preload-windows.client.spec.ts
-index 735b77f9a..3b5069ea0 100644
+index 735b77f..3b5069e 100644
 --- a/apps/desktop/tests/preload-windows.client.spec.ts
 +++ b/apps/desktop/tests/preload-windows.client.spec.ts
 @@ -1,6 +1,7 @@
@@ -494,7 +495,7 @@ index 735b77f9a..3b5069ea0 100644
    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
    vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading')
 diff --git a/apps/desktop/tests/web-document.spec.ts b/apps/desktop/tests/web-document.spec.ts
-index 0fd9b591b..ef319603c 100644
+index 0fd9b59..ef31960 100644
 --- a/apps/desktop/tests/web-document.spec.ts
 +++ b/apps/desktop/tests/web-document.spec.ts
 @@ -27,6 +27,21 @@ it('serves the Web entry and assets without starting or contacting a Host', asyn
@@ -520,7 +521,7 @@ index 0fd9b591b..ef319603c 100644
    const fetch = vi.fn().mockResolvedValueOnce(new Response(null, { status: 303, headers: { 'set-cookie': 'session=owned; HttpOnly; SameSite=Strict' } }))
      .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
 diff --git a/packages/client/ui-layout/src/client/AppFrame.module.css b/packages/client/ui-layout/src/client/AppFrame.module.css
-index 5b71ebecf..2d2ffe49c 100644
+index 5b71ebe..2d2ffe4 100644
 --- a/packages/client/ui-layout/src/client/AppFrame.module.css
 +++ b/packages/client/ui-layout/src/client/AppFrame.module.css
 @@ -192,6 +192,30 @@
@@ -555,7 +556,7 @@ index 5b71ebecf..2d2ffe49c 100644
     over its own box (ui-web base.css holds the one rule; the ui-theme app-region
     gate lists the rows). The ordering rule that replaces the old "band first"
 diff --git a/packages/client/ui-layout/src/client/AppFrame.tsx b/packages/client/ui-layout/src/client/AppFrame.tsx
-index 561494744..70057eed5 100644
+index 5614947..70057ee 100644
 --- a/packages/client/ui-layout/src/client/AppFrame.tsx
 +++ b/packages/client/ui-layout/src/client/AppFrame.tsx
 @@ -163,10 +163,15 @@ export function AppFrame({
@@ -596,7 +597,7 @@ index 561494744..70057eed5 100644
    return (
      <div
 diff --git a/packages/client/ui-layout/tests/app-frame.client.spec.tsx b/packages/client/ui-layout/tests/app-frame.client.spec.tsx
-index 1dc7cc85b..306ec07a4 100644
+index 1dc7cc8..306ec07 100644
 --- a/packages/client/ui-layout/tests/app-frame.client.spec.tsx
 +++ b/packages/client/ui-layout/tests/app-frame.client.spec.tsx
 @@ -271,6 +271,32 @@ describe('AppFrame', () => {
@@ -633,10 +634,10 @@ index 1dc7cc85b..306ec07a4 100644
      selectedSessionTitle = 'Session title'
      const { instance, frame, slotCalls, getByTestId } = mountFrame()
 diff --git a/packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css b/packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css
-index efb3fb04f..473450fd3 100644
+index b9516b2..8f4d4c5 100644
 --- a/packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css
 +++ b/packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css
-@@ -35,8 +35,10 @@
+@@ -160,8 +160,10 @@
  /* macOS hiddenInset titlebar: the frame's top clearance keeps the head below
     the window's top strip in both sidebar states so it never jumps, and the head
     owns the window drag over its own box — clearance included — so this page's
@@ -646,11 +647,11 @@ index efb3fb04f..473450fd3 100644
 +   step (its sidebar strip stands in for the traffic lights), so it pads alike. */
 +:global([data-platform='darwin']) .pageHead,
 +:global(html[data-platform='linux']:not([data-windows-titlebar])) .pageHead {
-   padding-top: calc(28px + var(--dsh-frame-top-clearance, 0px));
+   padding-top: calc(var(--plugin-page-top-inset) + var(--dsh-frame-top-clearance, 0px));
  }
  
 diff --git a/packages/client/ui-schedule/src/client/TaskManagerPage.module.css b/packages/client/ui-schedule/src/client/TaskManagerPage.module.css
-index ba3ee2a03..23d1efa8b 100644
+index 7c4acf5..0e358a0 100644
 --- a/packages/client/ui-schedule/src/client/TaskManagerPage.module.css
 +++ b/packages/client/ui-schedule/src/client/TaskManagerPage.module.css
 @@ -59,8 +59,10 @@
@@ -667,10 +668,10 @@ index ba3ee2a03..23d1efa8b 100644
  }
  
 diff --git a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
-index f615b3c62..c88e8733b 100644
+index 2560e37..4fc88d9 100644
 --- a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
 +++ b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
-@@ -198,6 +198,11 @@
+@@ -204,6 +204,11 @@
    justify-content: flex-start;
  }
  
@@ -683,11 +684,11 @@ index f615b3c62..c88e8733b 100644
     tucks 12px back under it, still clear of the toggle (28px control centered
     in the strip ends at y 40). */
 diff --git a/packages/client/ui-sidebar/src/client/SidebarRoot.tsx b/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
-index 3f1369134..af8cbbc91 100644
+index c4083d2..248d3e8 100644
 --- a/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
 +++ b/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
-@@ -226,6 +226,13 @@ export function SidebarRoot({
-   const buildVersion = localBuildVersion()
+@@ -239,6 +239,13 @@ export function SidebarRoot({
+   }
  
    const darwinDesktop = isDarwinDesktop()
 +  // Linux glass mode (no Windows caption marker — normal mode installs it)
@@ -700,7 +701,7 @@ index 3f1369134..af8cbbc91 100644
    // Rail resting state is the whale mark; hovering swaps in the panel icon
    // (the expand affordance, figma sidebar-hover flow). Expanded it is a plain
    // panel icon.
-@@ -265,8 +272,11 @@ export function SidebarRoot({
+@@ -278,8 +285,11 @@ export function SidebarRoot({
        onPointerLeave={() => { armLinger() }}
      >
        {/* macOS hiddenInset titlebar: the strip shares the row with the
@@ -712,9 +713,9 @@ index 3f1369134..af8cbbc91 100644
 +          edge. */}
 +      {stripDesktop && <div className={css.topStrip} data-window-drag>{toggle}</div>}
        <div className={css.logoRow} data-window-drag>
-         {/* Expanded, the brand doubles as a New Session shortcut — except on
-             macOS, where it stays part of the logo row's window-drag surface
-@@ -306,7 +316,7 @@ export function SidebarRoot({
+         {/* Expanded, the brand doubles as a New Session shortcut while the
+             access snapshot allows `session/create` — except on
+@@ -328,7 +338,7 @@ export function SidebarRoot({
                </button>
              )
          })()}
@@ -724,10 +725,10 @@ index 3f1369134..af8cbbc91 100644
  
        {/* The label fades before the hover/focus shortcut, including on translucent backgrounds. */}
 diff --git a/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx b/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx
-index 658df42e0..d15e22d0f 100644
+index 4dedd71..c46ba33 100644
 --- a/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx
 +++ b/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx
-@@ -292,6 +292,17 @@ it('keeps the macOS sidebar toggle in its top strip', () => {
+@@ -386,6 +386,17 @@ it('keeps the macOS sidebar toggle in its top strip', () => {
    expect(shell.trackEntryClick).toHaveBeenCalledExactlyOnceWith({ menu_name: 'new_session', position: 'sidebar' })
  })
  

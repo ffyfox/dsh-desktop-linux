@@ -1,10 +1,10 @@
 diff --git a/apps/desktop-host/src/index.ts b/apps/desktop-host/src/index.ts
-index 410fd67..8d86505 100644
+index 1674f64..25a96dd 100644
 --- a/apps/desktop-host/src/index.ts
 +++ b/apps/desktop-host/src/index.ts
-@@ -15,6 +15,18 @@ import { installDesktopQuitInspection } from './quit-inspection.ts'
- import { installPlatformSessionPublisher } from './platform-session.ts'
+@@ -19,6 +19,18 @@ import { installPlatformSessionPublisher } from './platform-session.ts'
  import { installOfficeEngineResolution } from './office-engine.ts'
+ import { installOperationDiagnostics } from './operation-diagnostics.ts'
  
 +// An Electron process exposes its resources directory as `process.resourcesPath`; a standalone Node
 +// (the Linux Host runtime) has no such concept. The shell passes the packaged installation's
@@ -19,13 +19,13 @@ index 410fd67..8d86505 100644
 +}
 +
  async function main(): Promise<void> {
-   const runtimeDir = process.argv[2] as string
-   const projectDir = process.argv[3] as string
+   const runId = randomUUID() as PluginOperationRunId
+   if (process.connected) process.send?.({ type: 'starting', runId }, (error) => { if (error !== null) console.error(error) })
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 144d70e..52c5791 100644
+index fdc7e8e..866f646 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -148,6 +148,8 @@ interface RuntimeResources {
+@@ -198,6 +198,8 @@ interface RuntimeResources {
    readonly nodeBin: string
    /** Electron executable that runs this application. */
    readonly electron: string
@@ -34,7 +34,7 @@ index 144d70e..52c5791 100644
    readonly pnpm: string
    readonly dsh: string
  }
-@@ -161,7 +163,7 @@ function runtimeResources(): RuntimeResources {
+@@ -211,7 +213,7 @@ function runtimeResources(): RuntimeResources {
        : join(process.resourcesPath, 'runtime', 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs'))
    const dsh = (development ? process.env.DSH_DESKTOP_DSH_DIR : undefined)
      ?? (development ? join(app.getAppPath(), '.desktop-build', 'development', 'project') : join(app.getAppPath(), 'dsh'))
@@ -43,7 +43,7 @@ index 144d70e..52c5791 100644
  }
  
  function developmentPrimaryRuntime(): string {
-@@ -447,7 +449,14 @@ async function main(): Promise<void> {
+@@ -523,7 +525,14 @@ async function main(): Promise<void> {
    const backend = new DesktopBackendController((onFailure) => {
      const hostInspectPort = developmentHostInspectPort(development)
      const host = new DesktopHostProcess(
@@ -58,7 +58,7 @@ index 144d70e..52c5791 100644
 +      resources.dsh, activeProject,
        hostInspectPort, { ...hostEnvironment, DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
        primaryRuntime,
-       resources, (next) => { platformView.setSession(next) })
+       resources, (next) => { platformView.setSession(next) }, (record) => {
 diff --git a/apps/desktop/src/node-environment.ts b/apps/desktop/src/node-environment.ts
 index 63144b4..2b08e88 100644
 --- a/apps/desktop/src/node-environment.ts
@@ -89,10 +89,10 @@ index 63144b4..2b08e88 100644
        DSH_DESKTOP_NODE_EXECUTABLE: runtime.executable,
        PATH: `${bin}${delimiter}${environment.PATH ?? ''}`,
 diff --git a/apps/desktop/tests/host-process.spec.ts b/apps/desktop/tests/host-process.spec.ts
-index 4735e6a..15cbfc8 100644
+index 4be008c..21cbde6 100644
 --- a/apps/desktop/tests/host-process.spec.ts
 +++ b/apps/desktop/tests/host-process.spec.ts
-@@ -12,6 +12,7 @@ const hosts: DesktopHostProcess[] = []
+@@ -15,6 +15,7 @@ const hosts: DesktopHostProcess[] = []
  const HOST_RUNTIME = { executable: process.execPath, electron: true }
  
  const HTTP_HOST = `
@@ -100,7 +100,7 @@ index 4735e6a..15cbfc8 100644
  import { createServer } from 'node:http'
  import { writeFileSync } from 'node:fs'
  import { join } from 'node:path'
-@@ -28,7 +29,7 @@ const server = createServer((request, response) => {
+@@ -31,7 +32,7 @@ const server = createServer((request, response) => {
      return
    }
    response.setHeader('content-type', 'application/json')
@@ -109,7 +109,7 @@ index 4735e6a..15cbfc8 100644
  })
  server.listen(0, '127.0.0.1', () => {
    process.send({ type: 'ready', url: 'http://127.0.0.1:' + server.address().port + '/?token=fixture' })
-@@ -193,7 +194,26 @@ describe('desktop host process', () => {
+@@ -316,7 +317,26 @@ ${HTTP_HOST}`)
      })
      const { url } = await host.start()
      const response = await fetch(url)

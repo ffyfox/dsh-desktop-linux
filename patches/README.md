@@ -1,6 +1,6 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `504a01a9`（tag `dsh-v0.2.1-rc.4`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `f3803c96`（tag `dsh-v0.2.2-alpha.2`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -25,44 +25,47 @@ hunk 一起带进来。
 `src/client/PluginManagerPage.module.css` / `src/client/TaskManagerPage.module.css`），
 其中 4 个是新增文件。
 
-已验证（0.2.1-rc.4）：这一轮是轻量同步 —— 上游只改了 `apps/desktop/package.json` 第 4 行的版本号
-（`0006` 的 hunk 在第 35 行、上下文一行没碰），**一个补丁都没有重生**，17 份与 rc.3 逐字节相同。
-17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.1-rc.4`）上，
-`patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）都干净通过（**无 fuzz、
-无 reject**，只在共用文件上留 offset 与那两份 `.orig`），72 个触及文件（64 个改动 + 8 个新增），
-`prepare()` 另外放置托盘 PNG；两条路打出来的这 72 个文件逐字节相同（`git write-tree` 得到同一个树对象）。
-offset 只出现在 `0013`（2 处）/ `0016`（4 处）/ `0017`（1 处），与 rc.2、rc.3 两轮同因（系列内前置补丁
-推行的行号），`0018` 零 offset。19 条校验和由 `makepkg --verifysource` 逐条验证通过（这一轮本机不再
-整包 `makepkg`：Arch 包改由 CI 的 makepkg job 产出）。
-`pnpm-lock.yaml` 这一轮没动，外部依赖一个没变；`pnpm run build:official` 的 9 道门随 `build.sh --all`
-一起跑过（本轮没有单独记时）。
-上游桌面单测在补丁态下**零失败**（158 个文件：153 通过 / 5 跳过；1701 个用例：1640 通过 / 61 跳过）——
+已验证（0.2.2-alpha.2）：这一轮是完整同步 —— 上游从 rc.4 到这个 tag 走了 2161 个提交、6944 个改动文件
+（剔除 `.agents/notes` 之后：3454 新增 / 3430 修改 / 60 删除）。14 个补丁触及的文件被改过而重生；
+`0010` / `0011` 逐字节未动；`0012` 只差 `index` 行的缩写宽度（新树 7 位够用、旧树要 8 位，内容一字不差，
+保留原样）；`0015` 整条作废（见下方编号说明）。16 个补丁按序打在完整的上游 release 源码包
+（tag `dsh-v0.2.2-alpha.2`）上，`patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` /
+CI）都干净通过，两条路打出来的树与「新基线 + 逐补丁累加」的隔离树 `diff -r` 零差异；18 条校验和由
+`makepkg --verifysource` 逐条验证通过（Arch 包仍由 CI 的 makepkg job 产出，本机不整包）。
+`pnpm-lock.yaml` 这一轮被上游改过（31551 → 34022 行），`apps/desktop/package.json` 新增
+`dsh-official-bundles`、`dsh-plugin-manager`、`dsh-util-file-drag`、`zod`、`tencentcloud-sdk-nodejs-teo`
+五个依赖；根 `engines` 从 `^22.19.0 || >=24.0.0` 抬到 `>=24.9.0`，README 的 Node 门槛跟着改。
+`pnpm run build:official` 的 9 道门随 `build.sh --all` 一起跑过；其中 host aggregate check 曾因 `0008`
+漏改两处 spec 调用点报 `TS2345`，补上后复跑全绿。
+上游桌面单测在补丁态下**零失败**（182 个文件：177 通过 / 5 跳过；2115 个用例：2052 通过 / 63 跳过）——
 **跑之前必须摘掉代理**，否则 `host-process.spec.ts` 里那条「Host 停掉后 fetch 该失败」会拿到代理的 502
-（见下「注意」）。`build.sh --all` 10 分 46 秒出齐三件套：
-AppImage 358 935 216 B（sha256 `9a709b1a…`）、deb 287 336 452 B（`e4f53fbb…`）、rpm 238 816 435 B
-（`aaa3d692…`），打包后的冒烟也过 —— payload 探针报 `koffi / sharp / html / pty / pnpm / grep / glob`
-全在场、CLI 离线装插件与卸载、`dsh web:` 起得来、Office 三种格式（DOCX / XLSX / PPTX）转 PDF 与技能
-CLI 发现。
-`verify.sh --runtime` **35 通过 / 0 失败 / 7 跳过**（6 个是 rc.2 与 rc.3 的旧产物按当前基线跳过，
-1 个是 3080 没在监听），活体部分实测：与在跑的桌面端并存（隔离 userData），Host 在 127.0.0.1:43785
-监听（`--port 0`，端口由系统分配）、`dsh-app://` 出 UI（400 个 DOM 节点）、Linux 自绘标题栏与页内
-caption 菜单宿主都在场（`0016`）、Host 跑在 primary-runtime 的真 Node 上且收到了安装树的 resources 根
-（`0017`）、2 个渲染进程都在独立 user namespace 且 seccomp 生效、托盘注册且菜单读到 2 个带产品名的
-条目、`profiles/desktop` 已建立、共享根出现工作区存储与凭据、`profiles/web` 哨兵未被触碰、
-真实 `~/.dsh/profiles/desktop` 未被改动。
-产物里 `resources/runtime/cli` 不存在、`resources/runtime/versions.json` 记的是 primary-runtime 的
-Node 24.21.0 / pnpm 11.28.5、`resources/app/dsh/package.json` 与 `desktop-runtime.json` 的
-`release.version` 都是 `0.2.1-rc.4`（`hostProtocolVersion` 仍是 4）、`resources/app/package.json` 的
-`dshBuildCommit` 记的是上游 `504a01a9…`（`dshBuildDirty: true`，不是本仓库的提交），正是 0004 的
-Linux 闸门、0008 的运行时选择与 0012 的「环境变量优先」在起作用；rc.3 那套「更多」菜单所在的
-`@deepseek-ai/dsh-client-ui-entry-customization` 确实躺在 `resources/app/dsh/node_modules` 里，
-跟着桌面端一起发出去（rc.4 这一轮它没有变动）。
+（见下「注意」）。`build.sh --all` 4 分 30 秒出齐三件套：AppImage 361 945 562 B（sha256 `0748201c…`）、
+deb 291 689 160 B（`d0f96ab4…`）、rpm 241 742 603 B（`e330e7c3…`），打包后的冒烟也过 —— CLI 离线装插件
+与卸载、`dsh web:` 起得来、Office 三种格式（DOCX / XLSX / PPTX）转 PDF 与技能 CLI 发现。
+`verify.sh` 静态 **21 通过 / 0 失败 / 11 跳过**，`verify.sh --runtime` **35 通过 / 0 失败 / 10 跳过**
+（9 个是 rc.2 / rc.3 / rc.4 的旧产物按当前基线跳过，1 个是 3080 没在监听），活体部分实测：与在跑的桌面端
+并存（隔离 userData），Host 在 127.0.0.1:46399 监听（`--port 0`，端口由系统分配）、`dsh-app://` 出 UI
+（1069 个 DOM 节点）、Linux 自绘标题栏与页内 caption 菜单宿主都在场（`0016`）、Host 跑在 primary-runtime
+的真 Node 上且收到了安装树的 resources 根（`0017`）、2 个渲染进程都在独立 user namespace 且 seccomp 生效、
+托盘注册且菜单读到 2 个带产品名的条目、`profiles/desktop` 已建立、共享根出现工作区存储与凭据、
+`profiles/web` 哨兵未被触碰、真实 `~/.dsh/profiles/desktop` 未被改动。
+产物里 `resources/runtime/cli` 不存在、`resources/app/dsh/desktop-runtime.json` 的 `release.version` 是
+`0.2.2-alpha.2`（`hostProtocolVersion` 仍是 4）、`resources/app/package.json` 的 `dshBuildCommit` 记的是
+上游 `f3803c96…`（`dshBuildDirty: true`，不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与
+0012 的「环境变量优先」在起作用。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
 上游的 `^44.7.0` 也已经不允许 44.4.5 —— 留着不只是多余，还会让 `pnpm install --frozen-lockfile`
 直接失败。所以删掉它，`0015` / `0016` 的编号保持不动：已推送的历史（`e8a3fcd` 的标题与正文）里
 点名的就是 `0015`，重编号只会让发布出去的文字与工作树对不上。
+
+**编号 `0015` 也已作废（自 0.2.2-alpha.2 起），同样不复用。** 它原本给关窗提示浮层在 Wayland 下补一次
+`did-finish-load` 的 reveal：那时浮层是独立的 `transparent: true` + `show: false` 窗口，只在
+`ready-to-show` 里 `show()`，而 Wayland 下这种窗口不报首帧，浮层建好了却 `isVisible() === false`。
+0.2.2-alpha.2 把浮层换成挂在主窗口上的 `WebContentsView`（`setBackgroundColor('#00000000')` +
+`contentView.addChildView`），既没有窗口也没有 `show()` / `ready-to-show`，补丁对新结构是零改动，
+所以整条移除。
 
 上游同步记录：rc.2 → 0.2.1-alpha.1 只有 3 个文件变过（`pnpm-lock.yaml`、
 `apps/desktop-host/src/index.ts`、`apps/desktop/package.json`），对应 0006 / 0008 / 0014 三个补丁重生，
@@ -165,6 +168,22 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 **一个补丁都没有重生**：17 份与 rc.3 逐字节相同。**上游仍然没有 Linux**：目标联合类型还是
 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
 
+0.2.1-rc.4 → 0.2.2-alpha.2 是本系列最大的一次跳跃：2161 个提交、6944 个改动文件（3454 新增 / 3430 修改 /
+60 删除，已剔除上游 `.agents/notes`）。主战场是 `packages/experimental`（1452 个文件，新增「开发者工具 -
+统计」「变更请求与工作树」等实验插件）、`packages/client`（1325）、`apps/web`（226）与 `apps/desktop`（218）。
+补丁触及的 72 个文件里 29 个被改过，14 个补丁重生（0001 / 0002 / 0003 / 0004 / 0005 / 0006 / 0007 / 0008 /
+0009 / 0013 / 0016 / 0017 / 0018），0010 / 0011 逐字节未动，0012 只差 `index` 缩写；0015 因上游换实现整条作废。
+六处要语义裁定：`0001` 把 `linux-x64` 补进 `desktopTargetPlatform()` 新写的映射表；`0004` 的
+`prepareElectron()` 已被上游改成「函数内自己算可执行文件路径」，我们的 `(resolved, electron)` 参数顺着新签名
+与新的 Windows 并行分支重落（分支里 `electron` 被解构遮蔽，改名 `electronResult`），`prepare-dsh.ts` 那处
+直接取上游的 `resolveDesktopBuildTarget()` + `desktopTargetPlatform(targetName)`；`0005` 的上游正则多了
+`COMPRESSION_LEVEL` / `ZIP_COMPRESSION_LEVEL` / `DOWNLOAD_PROD_EO_ZONE_ID`，`LINUX_SETTING` 与新
+`|LINUX_.*` 重新合进去；`0008` 的上游 `host-process.ts` 多了一条 `parsePluginOperationRecord` 的 import，
+类型导入与之并行（另外上游新加的 operation-history 用例里有 2 处 `new DesktopHostProcess(process.execPath, …)`
+要跟着换成 `HOST_RUNTIME`，否则 host aggregate check 报 `TS2345`）；`0018` 的插件管理页把
+`calc(28px + …)` 换成 `var(--plugin-page-top-inset)`，Linux 选择器跟着改用该变量。**上游仍然没有 Linux**：
+目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
+
 `0016` 启动实测（0.2.1-alpha.2 这份产物；用隔离 `DSH_HOME` + 独立 `--user-data-dir` 起，KWin 读
 `frameGeometry` / `clientGeometry`，CDP 读渲染视口）：主窗口 frame 1280x848、客户区 1280x820、
 视口 820；欢迎窗 frame 600x757、客户区 600x729、视口 729。两个窗口的「客户区 − 视口」都是 0，
@@ -217,14 +236,6 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 （CI 与本地 `build.sh` 路线）。刷新它 = 在 `apps/desktop` 里跑 `pnpm run render:tray-icon`，
 再把输出的 `resources/tray-linux.png` 拷进 `assets/`（图和 Windows 托盘同源，都是
 `resources/icon-windows.svg`）。
-
-## 让关窗提示在 Wayland 下真的显示出来（0015）
-
-| 补丁 | 覆盖文件 | 内容 |
-|---|---|---|
-| `0015-desktop-linux-hidden-overlay-reveal.patch` | `src/update-overlay.ts`、`tests/update-overlay.spec.ts` | 提示浮层是 `transparent: true` + `show: false` 的子窗口，只在 `ready-to-show` 里 `show()`；而这种窗口在 Wayland 下不报告首帧，于是浮层建好了、内容也渲染对了，却始终 `isVisible() === false` —— 用户既看不到也点不到，关窗看起来像卡住。Linux 上再用 `did-finish-load` 兜一次 `reveal()`；Windows/macOS 的 `ready-to-show` 行为一字未动。测试里那个假窗口的 `webContents` 补上 `once()`，否则 Linux 分支一调就抛 |
-
-`0015` 是 `0013` 的下游：Linux 的首次关窗提示是 `0013` 打开的，而它用的正是这个浮层。
 
 ## 让 Linux 的标题栏与 Windows 一致（0016）
 
@@ -338,9 +349,9 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
 ## 注意
 
 - **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
-  实测 2026-10-24（rc.3）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
+  实测 2026-10-29（0.2.2-alpha.2）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
   apps/desktop/tests apps/desktop-host/tests`
-  → 0 失败（158 个文件：153 通过 / 5 跳过；1699 个用例：1638 通过 / 61 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、`0015`、
+  → 0 失败（182 个文件：177 通过 / 5 跳过；2115 个用例：2052 通过 / 63 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、
   `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI
   都不跑上游单测。跑的时候注意三点：用隔离版 pnpm 11（`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm`，
   本机 11.7.0；本机 `/usr/bin/pnpm` 已是 12.14.0 的 ELF、`~/.npm-global/bin/pnpm` 是 9.15.4，
@@ -405,11 +416,12 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
   所以非 asar 分支改为上一级找 `resources/runtime`。上游 0.2.1-alpha.2 新增的打包后冒烟
   （直接跑 `resources/app/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js plugin …`）
   正好踩在这个入口上，才把它暴露出来。
-- **`0015` 的根因是量出来的，不是猜的。** 用 `--remote-debugging-port=9222 --inspect=9229` 起应用，
-  从主进程读 `BrowserWindow.getAllWindows()`：关窗后浮层窗口存在、`modal: true`、内容与按钮位置都对，
-  但 `isVisible()` 是 `false`；手动 `show()` 一次即正常显示且可用鼠标点。Debian 13（GNOME 48.7）与
-  Ubuntu 26.04（GNOME 50.1）都如此，打上 `0015` 后两边都变成 `true`，鼠标点 Confirm 能写入 marker 并隐藏窗口。
-  整个桌面端只有这一个窗口依赖 `ready-to-show`，所以只修这一处。
+- **可见性问题先用 `isVisible()` 量，别先猜合成器（`0015` 留下的手法，该补丁已随 0.2.2-alpha.2 作废）。**
+  用 `--remote-debugging-port=9222 --inspect=9229` 起应用，从主进程读 `BrowserWindow.getAllWindows()`：
+  当年关窗后浮层窗口存在、`modal: true`、内容与按钮位置都对，但 `isVisible()` 是 `false`；手动 `show()`
+  一次即正常显示且可用鼠标点。Debian 13（GNOME 48.7）与 Ubuntu 26.04（GNOME 50.1）都如此 —— 结论是
+  Wayland 下不报首帧，补丁加了一次 `did-finish-load` 的兜底。0.2.2-alpha.2 上游把浮层换成
+  `WebContentsView`（挂在主窗口里、没有自己的窗口生命周期），这条路径整体消失，补丁因此作废。
 - **托盘的依赖问题全在 ELF 之外。** 实测（Electron 44 二进制）：Linux 托盘走进程内的
   StatusNotifierItem（二进制里有 `StatusIconLinuxDbus`、`org.kde.StatusNotifierWatcher`），
   全库没有 `appindicator` 字样，`ldd` / `NEEDED` 里也没有，所以**不需要** libappindicator。
