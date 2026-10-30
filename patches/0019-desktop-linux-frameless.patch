@@ -1,0 +1,367 @@
+diff --git a/apps/desktop/src/frameless-mode.ts b/apps/desktop/src/frameless-mode.ts
+new file mode 100644
+index 000000000..cb18b79a2
+--- /dev/null
++++ b/apps/desktop/src/frameless-mode.ts
+@@ -0,0 +1,10 @@
++/** Runtime opt-in for the Linux frameless window. */
++
++/**
++ * Whether the user requested the frameless window: Linux only, and only the exact value `1`.
++ * The frameless window supersedes glass mode, so the shell resolves both flags together.
++ * @returns true when the primary window keeps native controls without a window-manager title bar.
++ */
++export function desktopFrameless(): boolean {
++  return process.platform === 'linux' && process.env.DSH_DESKTOP_FRAMELESS === '1'
++}
+diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
+index 2333e6508..b881cb41b 100644
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -33,6 +33,7 @@ import { DesktopBackendController } from './backend-controller.ts'
+ import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
+ import { readDeviceInfo } from './device-info.ts'
+ import { GLASS_ARGUMENT, desktopGlass, glassTint } from './glass-mode.ts'
++import { desktopFrameless } from './frameless-mode.ts'
+ import { glassDocument } from './glass-document.ts'
+ import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
+ import { claimDesktopSingleInstance } from './single-instance.ts'
+@@ -261,8 +262,18 @@ function platformLoginUrl(authorizeUrl: string): string {
+   return url.href
+ }
+ 
++/**
++ * Whether the window paints the glass layout. The frameless window wins: its native controls
++ * need an opaque window, and a transparent Linux window gets no controls overlay at all.
++ * @returns true when glass mode is requested and frameless mode is not.
++ */
++function glassLayout(): boolean {
++  return desktopGlass() && !desktopFrameless()
++}
++
+ function createWindow(preload: string, show = false, primary = false): BrowserWindow {
+-  const glass = desktopGlass()
++  const frameless = desktopFrameless()
++  const glass = glassLayout()
+   const window = new BrowserWindow({
+     width: 1280,
+     height: 820,
+@@ -280,6 +291,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+       titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
+         symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115' },
+     } : {}),
++    // Frameless keeps the system window controls through the same overlay; the in-page caption
++    // (0016) supplies the rest of the strip.
++    ...(process.platform === 'linux' && primary && frameless ? {
++      titleBarStyle: 'hidden' as const,
++      titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
++        symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115' },
++    } : {}),
+     // hiddenInset places traffic lights inside the sidebar; sidebar vibrancy
+     // needs a transparent window background to show through the page.
+     ...(process.platform === 'darwin' ? {
+@@ -313,7 +331,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+     if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
+     return { action: 'deny' }
+   })
+-  if (process.platform === 'darwin' || process.platform === 'win32') {
++  if (process.platform === 'darwin' || process.platform === 'win32' || frameless) {
+     // Fullscreen hides native window controls; overlays drop their caption clearance.
+     const sendFullscreen = (): void => {
+       if (!window.isDestroyed()) window.webContents.send(DESKTOP_IPC.windowFullscreen, window.isFullScreen())
+@@ -387,6 +405,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+ }
+ 
+ async function main(): Promise<void> {
++  // Both layouts rewrite the same strip; frameless wins because a transparent window cannot keep
++  // the native controls overlay.
++  if (desktopGlass() && desktopFrameless()) {
++    console.error('dsh desktop: DSH_DESKTOP_FRAMELESS=1 takes precedence over DSH_DESKTOP_GLASS; glass mode is off')
++  }
+   const desktopSettings = readDesktopSettings(app.getPath('userData'))
+   void pruneCrashReports(app.getPath('logs'))
+   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
+@@ -797,7 +820,7 @@ async function main(): Promise<void> {
+       if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname.startsWith('/assets/')
+         || ['/favicon.svg', '/manifest.webmanifest'].includes(url.pathname)) {
+         const root = join(resources.dsh, 'node_modules', '@deepseek-ai', 'dsh-web-frontend', 'dist')
+-        return desktopGlass()
++        return glassLayout()
+           ? serveWebDocument(request, root, glassDocument(glassTint()))
+           : serveWebDocument(request, root)
+       }
+@@ -1191,8 +1214,10 @@ async function main(): Promise<void> {
+       // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
+       const validColor = (value: unknown): value is string => typeof value === 'string'
+         && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
+-      // The overlay exists only on Windows primary windows; Linux borrows the caption menubar alone.
+-      if (process.platform === 'win32' && validColor(color) && validColor(symbolColor)) mainWindow.setTitleBarOverlay({ color, symbolColor })
++      // The overlay exists only where the shell created one: Windows primary windows and the
++      // Linux frameless window. The Linux caption alone (0016) has no overlay to tint.
++      if ((process.platform === 'win32' || (process.platform === 'linux' && desktopFrameless()))
++        && validColor(color) && validColor(symbolColor)) mainWindow.setTitleBarOverlay({ color, symbolColor })
+     })
+   }
+ 
+diff --git a/apps/desktop/src/preload-menu.ts b/apps/desktop/src/preload-menu.ts
+index f7b881278..d8becd0a5 100644
+--- a/apps/desktop/src/preload-menu.ts
++++ b/apps/desktop/src/preload-menu.ts
+@@ -12,8 +12,10 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
+   host.dataset.windowsMenu = ''
+   const shadow = host.attachShadow({ mode: 'open' })
+   const style = document.createElement('style')
++  // The controls overlay owns its edge of the strip: when the system puts the buttons on the
++  // left, env(titlebar-area-x) moves the menus past them. It reads 0 on a decorated window.
+   style.textContent = `
+-    :host { position: fixed; top: 0; left: var(--dsh-windows-menu-start, 48px); z-index: 1100;
++    :host { position: fixed; top: 0; left: max(var(--dsh-windows-menu-start, 48px), env(titlebar-area-x, 0px)); z-index: 1100;
+       height: var(--dsh-windows-titlebar-height); display: flex; align-items: center;
+       font-family: var(--dsw-font-family); -webkit-app-region: no-drag; }
+     [role=menubar] { display: flex; gap: 2px; }
+diff --git a/apps/desktop/src/preload-platform.ts b/apps/desktop/src/preload-platform.ts
+index 1e197b0c7..83acc4e2f 100644
+--- a/apps/desktop/src/preload-platform.ts
++++ b/apps/desktop/src/preload-platform.ts
+@@ -17,13 +17,14 @@ export function markDocumentPlatform(): void {
+ }
+ 
+ /**
+- * Mirrors the window's macOS and Windows fullscreen state onto `<html data-fullscreen>` so
+- * CSS drops the clearance for hidden native window controls. The main
+- * process sends the state on every transition and after each load.
++ * Mirrors the window's fullscreen state onto `<html data-fullscreen>` so CSS drops the
++ * clearance for hidden native window controls. The main process sends the state on every
++ * transition and after each load on macOS, Windows, and the Linux frameless window.
+  */
+ export function syncWindowFullscreen(): void {
+-  // The main process sends this IPC only on macOS and Windows; other platforms need no listener.
+-  if (process.platform !== 'darwin' && process.platform !== 'win32') return
++  // Decorated and glass Linux windows never receive this IPC: they have no caption clearance
++  // to drop, so only the sender decides.
++  if (process.platform !== 'darwin' && process.platform !== 'win32' && process.platform !== 'linux') return
+   ipcRenderer.on(DESKTOP_IPC.windowFullscreen, (_event, fullscreen: boolean) => {
+     const root = document.documentElement as HTMLElement | null
+     if (root === null) return
+diff --git a/apps/desktop/src/welcome-window.ts b/apps/desktop/src/welcome-window.ts
+index 364f58058..4af11d4d3 100644
+--- a/apps/desktop/src/welcome-window.ts
++++ b/apps/desktop/src/welcome-window.ts
+@@ -4,6 +4,7 @@ import type { SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
+ import { join } from 'node:path'
+ import { fileURLToPath } from 'node:url'
+ import { app, BrowserWindow, ipcMain, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
++import { desktopFrameless } from './frameless-mode.ts'
+ import type { DesktopLocale } from './locale.ts'
+ import { WELCOME_IPC, type WelcomeOperations } from './welcome-api.ts'
+ 
+@@ -11,9 +12,10 @@ import { WELCOME_IPC, type WelcomeOperations } from './welcome-api.ts'
+  * Resolve the fixed-size welcome window's native material and controls.
+  * @param platform - operating system hosting Electron.
+  * @param locale - shell-owned localized copy.
++ * @param frameless - whether the Linux frameless window is requested.
+  * @returns sandboxed window options with a locale-only preload.
+  */
+-export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopLocale): BrowserWindowConstructorOptions {
++export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopLocale, frameless: boolean): BrowserWindowConstructorOptions {
+   return {
+     width: 600,
+     height: 700,
+@@ -36,6 +38,13 @@ export function welcomeWindowOptions(platform: NodeJS.Platform, locale: DesktopL
+       titleBarOverlay: { color: '#00000000', symbolColor: '#0F1115', height: 42 },
+       backgroundMaterial: 'acrylic',
+     } as const : {}),
++    // The same overlay as Windows keeps the native controls without a window-manager title bar.
++    // The glyph stays dark: the Linux window base is white, and the dark theme's 50% tint over
++    // it is mid grey, so a light glyph would wash out.
++    ...(platform === 'linux' && frameless ? {
++      titleBarStyle: 'hidden',
++      titleBarOverlay: { color: '#00000000', symbolColor: '#0F1115', height: 42 },
++    } as const : {}),
+     webPreferences: {
+       preload: fileURLToPath(new URL('./preload-welcome.cjs', import.meta.url)),
+       additionalArguments: [`--dsh-welcome-locale=${locale.id}`],
+@@ -57,7 +66,7 @@ let disposeActiveHandlers: (() => void) | undefined
+  * @returns the visible window; a failed load destroys it before rejecting.
+  */
+ export async function openWelcomeWindow(locale: DesktopLocale, operations: WelcomeOperations): Promise<BrowserWindow> {
+-  const options = welcomeWindowOptions(process.platform, locale)
++  const options = welcomeWindowOptions(process.platform, locale, desktopFrameless())
+   const window = new BrowserWindow(options)
+   // This window carries no caption menubar, so on Linux the native one would sit alone under the titlebar.
+   if (process.platform === 'linux') window.setMenuBarVisibility(false)
+diff --git a/apps/desktop/tests/frameless-mode.spec.ts b/apps/desktop/tests/frameless-mode.spec.ts
+new file mode 100644
+index 000000000..033f02d41
+--- /dev/null
++++ b/apps/desktop/tests/frameless-mode.spec.ts
+@@ -0,0 +1,25 @@
++import { afterEach, describe, expect, it, vi } from 'vitest'
++import { desktopFrameless } from '../src/frameless-mode.ts'
++
++afterEach(() => {
++  vi.restoreAllMocks()
++  vi.unstubAllEnvs()
++})
++
++describe('desktopFrameless', () => {
++  it('accepts only the exact value 1 on linux', () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    for (const value of [undefined, '', '0', 'true', 'yes', 'on', '2']) {
++      vi.stubEnv('DSH_DESKTOP_FRAMELESS', value)
++      expect(desktopFrameless()).toBe(false)
++    }
++    vi.stubEnv('DSH_DESKTOP_FRAMELESS', '1')
++    expect(desktopFrameless()).toBe(true)
++  })
++
++  it.each(['darwin', 'win32'] as const)('stays off on %s even with the variable set', (platform) => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
++    vi.stubEnv('DSH_DESKTOP_FRAMELESS', '1')
++    expect(desktopFrameless()).toBe(false)
++  })
++})
+diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
+index de8b02784..81ae40f59 100644
+--- a/apps/desktop/tests/main-startup.spec.ts
++++ b/apps/desktop/tests/main-startup.spec.ts
+@@ -951,6 +951,84 @@ describe('desktop main startup', () => {
+     expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
+   })
+ 
++  it('opens an opaque window with native controls in linux frameless mode', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    vi.stubEnv('DSH_DESKTOP_FRAMELESS', '1')
++    await import('../src/main.ts')
++    await harness.preparing.promise
++    const window = harness.windows[0]!
++    expect(window.options).toMatchObject({
++      titleBarStyle: 'hidden',
++      titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: '#f9fafb', symbolColor: '#0f1115' },
++    })
++    // The overlay needs an opaque window; glass mode's transparency would remove the controls.
++    expect(window.options).not.toHaveProperty('transparent')
++    expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
++    expect(window.setMenuBarVisibility).toHaveBeenCalledWith(false)
++    expect(window.setAutoHideMenuBar).not.toHaveBeenCalled()
++  })
++
++  it('lets the frameless window supersede glass mode with one warning', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    vi.stubEnv('DSH_DESKTOP_FRAMELESS', '1')
++    vi.stubEnv('DSH_DESKTOP_GLASS', '1')
++    await import('../src/main.ts')
++    await harness.preparing.promise
++    const window = harness.windows[0]!
++    expect(window.options).not.toHaveProperty('transparent')
++    expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
++    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('DSH_DESKTOP_FRAMELESS=1 takes precedence'))
++  })
++
++  it('serves the plain application document when the frameless window supersedes glass', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    vi.stubEnv('DSH_DESKTOP_FRAMELESS', '1')
++    vi.stubEnv('DSH_DESKTOP_GLASS', '1')
++    const { serveWebDocument } = await import('../src/web-document.ts')
++    await readyForUpdate()
++    const handler = harness.protocolHandle.mock.calls[0]![1]
++    await handler(new Request('dsh-app://app/'))
++    expect(vi.mocked(serveWebDocument).mock.lastCall).toHaveLength(2)
++  })
++
++  it('recolors the native controls of the linux frameless window', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    vi.stubEnv('DSH_DESKTOP_FRAMELESS', '1')
++    await import('../src/main.ts')
++    await harness.preparing.promise
++    const window = harness.windows[0]!
++    const listener = harness.ipcOn.mock.calls.find(([channel]) => channel === DESKTOP_IPC.windowsAppearance)![1]
++    listener({ sender: window.webContents, senderFrame: window.webContents.mainFrame }, 'en', 'rgb(249, 250, 251)', '#0f1115')
++    expect(window.setTitleBarOverlay).toHaveBeenCalledWith({ color: 'rgb(249, 250, 251)', symbolColor: '#0f1115' })
++  })
++
++  it('leaves the linux caption window without an overlay alone', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    await import('../src/main.ts')
++    await harness.preparing.promise
++    const window = harness.windows[0]!
++    const listener = harness.ipcOn.mock.calls.find(([channel]) => channel === DESKTOP_IPC.windowsAppearance)![1]
++    listener({ sender: window.webContents, senderFrame: window.webContents.mainFrame }, 'en', '#ffffff', '#000000')
++    expect(window.setTitleBarOverlay).not.toHaveBeenCalled()
++  })
++
++  it('relays the linux frameless fullscreen state on transitions and after each load', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    vi.stubEnv('DSH_DESKTOP_FRAMELESS', '1')
++    await import('../src/main.ts')
++    await harness.preparing.promise
++    const window = harness.windows[0]!
++    const sent = () => window.webContents.send.mock.calls.filter(([channel]) => channel === DESKTOP_IPC.windowFullscreen)
++    window.fullscreen = true
++    window.emit('enter-full-screen')
++    expect(sent().at(-1)).toEqual([DESKTOP_IPC.windowFullscreen, true])
++    window.webContents.emit('did-finish-load')
++    expect(sent().at(-1)).toEqual([DESKTOP_IPC.windowFullscreen, true])
++    window.fullscreen = false
++    window.emit('leave-full-screen')
++    expect(sent().at(-1)).toEqual([DESKTOP_IPC.windowFullscreen, false])
++  })
++
+   it('serves packaged shell documents instead of rejecting the shell origin', async () => {
+     const { serveWebDocument } = await import('../src/web-document.ts')
+     vi.mocked(serveWebDocument).mockResolvedValue(new Response('shell document'))
+diff --git a/apps/desktop/tests/preload-platform.client.spec.ts b/apps/desktop/tests/preload-platform.client.spec.ts
+index 5b876ab34..b8a747ce8 100644
+--- a/apps/desktop/tests/preload-platform.client.spec.ts
++++ b/apps/desktop/tests/preload-platform.client.spec.ts
+@@ -12,13 +12,7 @@ afterEach(() => {
+   on.mockClear()
+ })
+ 
+-it.each(['linux'] as const)('subscribes no fullscreen channel on %s', (platform) => {
+-  vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
+-  syncWindowFullscreen()
+-  expect(on).not.toHaveBeenCalled()
+-})
+-
+-it.each(['darwin', 'win32'] as const)('mirrors the sent fullscreen state onto html[data-fullscreen] on %s', (platform) => {
++it.each(['darwin', 'win32', 'linux'] as const)('mirrors the sent fullscreen state onto html[data-fullscreen] on %s', (platform) => {
+   vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
+   syncWindowFullscreen()
+   expect(on).toHaveBeenCalledExactlyOnceWith(DESKTOP_IPC.windowFullscreen, expect.any(Function))
+diff --git a/apps/desktop/tests/welcome-window.spec.ts b/apps/desktop/tests/welcome-window.spec.ts
+index 2100de70f..724ab3f42 100644
+--- a/apps/desktop/tests/welcome-window.spec.ts
++++ b/apps/desktop/tests/welcome-window.spec.ts
+@@ -52,7 +52,7 @@ const operations = {
+ 
+ describe('desktop welcome window', () => {
+   it.each(['darwin', 'win32', 'linux'] as const)('keeps the %s preview fixed-size and sandboxed', (platform) => {
+-    const options = welcomeWindowOptions(platform, resolveDesktopLocale('zh-CN'))
++    const options = welcomeWindowOptions(platform, resolveDesktopLocale('zh-CN'), false)
+     expect(options).toMatchObject({
+       width: 600, height: 700, useContentSize: true, center: true, show: false,
+       resizable: false, maximizable: false, fullscreenable: false,
+@@ -71,11 +71,22 @@ describe('desktop welcome window', () => {
+       expect(options.titleBarOverlay).toMatchObject({ height: 42 })
+     } else {
+       expect(options.backgroundColor).toBe('#FFFFFF')
++      expect(options.titleBarStyle).toBeUndefined()
+       expect(options.vibrancy).toBeUndefined()
+       expect(options.backgroundMaterial).toBeUndefined()
+     }
+   })
+ 
++  it('keeps native controls without a title bar in the linux frameless window', () => {
++    const options = welcomeWindowOptions('linux', resolveDesktopLocale('en'), true)
++    expect(options).toMatchObject({
++      backgroundColor: '#FFFFFF',
++      titleBarStyle: 'hidden',
++      titleBarOverlay: { height: 42, color: '#00000000', symbolColor: '#0F1115' },
++    })
++    expect(options.backgroundMaterial).toBeUndefined()
++  })
++
+   it('waits for its local document and blocks renderer navigation', async () => {
+     const window = createWindow()
+     const loaded = Promise.withResolvers<undefined>()

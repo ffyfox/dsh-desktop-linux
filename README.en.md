@@ -177,6 +177,30 @@ The window then follows the official desktop app's macOS layout:
   KDE and GNOME do not blur — the sidebar is merely translucent, so raise the fill
   when text gets hard to read.
 
+### Frameless window
+
+Start the application with this variable to drop the window-manager decorations and keep the
+native window controls:
+
+```bash
+DSH_DESKTOP_FRAMELESS=1 deepseek-harness
+```
+
+The main and welcome windows no longer have a window-manager title bar; the in-page 40px
+caption becomes the title strip, and the window buttons are drawn by Electron itself with
+freedesktop icons — they are not the desktop's own controls. The style follows the GTK theme
+(Breeze themes get a bare glyph that changes colour on hover), and the set and side follow the
+system GTK decoration layout (this machine says `:close`, hence a single close button).
+The caption is also the drag region: drag it to move the window, double-click to maximize or
+restore (a tiling window manager places the window itself).
+
+- **Exclusive with glass mode**: when both variables are `1`, frameless wins, glass mode turns
+  itself off, and one warning goes to stderr — a transparent window gets no native controls
+  overlay, so the two layouts cannot be stacked.
+- Button placement follows the GTK layout. When the system puts the buttons on the left, the
+  in-page menus move past them, but the sidebar toggle keeps its 48px seat; left-side layouts
+  are not fully adapted yet.
+
 ## Validation status
 
 **Only a few environments have been tested so far, and we intend to widen that coverage.**

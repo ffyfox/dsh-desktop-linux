@@ -321,6 +321,64 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
 座椅 `(12,11)`+`(48,11)` 中心 y25、侧栏列宽 0、内容区从 x0 开始；普通模式不受影响（caption 40px、收起
 `0px`、控件仍在 `(12,6)`/`(48,6)`）。
 
+## 让 Linux 走无边框窗口（0019）
+
+| 补丁 | 覆盖文件 | 内容 |
+|---|---|---|
+| `0019-desktop-linux-frameless.patch` | `src/frameless-mode.ts`（新增）、`src/main.ts`、`src/preload-platform.ts`、`src/preload-menu.ts`、`src/welcome-window.ts`、`tests/{frameless-mode,main-startup,welcome-window,preload-platform.client}.spec.ts` | `DSH_DESKTOP_FRAMELESS=1` 时主窗口加 `titleBarStyle: 'hidden'` + `titleBarOverlay`（高度 40、初始色取 `chromeFallbackFill()`），原生按钮由 Electron 自绘（见下），标题区其余部分仍由 0016 的页内 caption 提供；`windowsAppearance` 里 `setTitleBarOverlay` 的门从「只 Windows」放宽到「Windows 或 Linux 无边框」，页面实测出来的侧栏色因此也能刷到原生条上。全屏事件与 preload 的 `data-fullscreen` 监听一并放行到 Linux 无边框（全屏时原生按钮隐藏，caption 要给内容让位）。欢迎窗走同一套覆盖层（高度 42）。`preload-menu.ts` 的菜单起点改成 `max(--dsh-windows-menu-start, env(titlebar-area-x))`，系统把按钮放左侧时菜单跟着安全区右移 |
+
+**为什么不是 `frame: false`**：Electron 的 `IsWindowControlsOverlayEnabled()` 要求
+`titleBarStyle === 'hidden'` **且** 创建时就带 `titleBarOverlay`。`frame: false` 单独用（不带
+`titleBarStyle`）覆盖层是关的，`setTitleBarOverlay()` 直接抛
+`TypeError: Titlebar overlay is not enabled`；只有成对用才会生成 `env(titlebar-area-*)` 和原生按钮。
+
+**为什么无边框压过玻璃**：Linux 上 `transparent: true` 的窗口拿不到控件覆盖层 —— 电子层的
+frame 布局对透明窗不建 client frame，`env(titlebar-area-width)` 读出来是 0，`setTitleBarOverlay()`
+静默不生效。两者叠起来就是「无边框但没有关闭按钮」，所以两个变量同设时玻璃整条让位（`main.ts`
+里的 `glassLayout()`），并在 stderr 打一条警告。0016 那句「窗口装饰一律不动」到这里有了例外：
+只有 `DSH_DESKTOP_FRAMELESS=1` 时才由我们接管整条标题区。
+
+**欢迎窗的字色**：固定 `#0F1115`，与 Windows 分支一致。Linux 欢迎窗底色固定 `#FFFFFF`，
+深色主题下叠上去的是 50% 深色 tint（中灰），浅色字反而看不清；要改成跟随主题得连底色一起改，
+不在这条补丁里。
+
+**按钮是谁画的**：Electron 44 在 Linux 上自绘 WCO 按钮（`FreedesktopNavButtonProvider`：图标取自
+freedesktop 图标主题，样式按 GTK 主题名选 —— `Breeze*` → Breeze 风格（18px、静止无底、悬停反色），
+其它（含读不到）→ Adwaita 风格（24px 圆盘）），**不是** KWin / GNOME 自己那套控件。数量与位置取
+系统的 GTK 装饰布局（Chromium 的 `NavButtonProvider`），本机 `gtk-decoration-layout=:close` →
+只有一个关闭钮，KWin 自己的 `SE`/`HX` 不参与。
+
+**测试时的坑**：主题名走 `GtkSymbolicIconProvider::GetThemeName()`（读 `gtk-theme-name`）。给实例
+隔离 `XDG_CONFIG_HOME` 会把 GTK 配置一起隔离 —— 目录里没有 `gtk-3.0/settings.ini` 时主题名回落
+Adwaita，按钮从「无底 ✕」变成「24px 圆盘」。2026-10-30 用同版本 Electron 探针做过 A/B：真实
+`XDG_CONFIG_HOME` 下是 Breeze 风格无底 ✕，空目录下是 Adwaita 圆盘；所以验按钮样式时不要隔离
+`XDG_CONFIG_HOME`（只隔离 userData 可以用 `--user-data-dir`）。
+
+**已知限制**：按钮位置跟 GTK 布局走，但只有页面内菜单会避让 `env(titlebar-area-x)`；
+左侧布局（用户自定义）下，侧栏顶部的切换钮仍会落在按钮下面。
+
+本机实测（Hyprland 0.56.2 / Wayland，DPR 2，显示器 3072×1920；1280×820 的主窗被平铺成 757×903）：
+
+| 场景 | 读数 |
+|---|---|
+| 无边框主窗 | `data-windows-titlebar` 在、`data-dsh-glass` 不在、`env(titlebar-area-width)` = 718 / 内宽 757（右侧 39px 留给原生关闭钮）、`.frame` 的 `padding-top` = 40px；侧栏收起态下 New Session 在 x=48、菜单从 x=84 起 |
+| 全屏（合成器发 xdg_toplevel fullscreen） | `html[data-fullscreen]` 出现、视口 1536×960；退出后标记消失、视口回到 757×903 |
+| 两个变量同设 | stderr 一条 `dsh desktop: DSH_DESKTOP_FRAMELESS=1 takes precedence over DSH_DESKTOP_GLASS; glass mode is off`；`data-dsh-glass` 不在、覆盖层宽度仍是 718 |
+| 只设玻璃 | 与改前一致：`data-dsh-glass` 在、`data-windows-titlebar` 不在、覆盖层宽度 0、侧栏 `color(srgb … / 0.4)` |
+| 欢迎窗 | 620×720，右上角有原生关闭钮；同一窗口的普通模式是 600×729、没有关闭钮（Hyprland 不画标题栏，这正是 issue #9 的场景） |
+
+KDE Plasma 6（kwin_wayland / Wayland，DPR 2，1536×960）上复核了同一份 `--dir` 产物：
+
+| 场景 | 读数 |
+|---|---|
+| 主窗 | frame = client = 1280×820（普通模式同一窗口的 frame 比 client 高 28px，那 28px 就是原生标题栏）、`env(titlebar-area-width)` = 1241 / 1280、caption `padding-top` 40px |
+| 双击 caption 条 | 最大化到 1536×914（面板占 46px），覆盖层随之变 1497；再双击回到 1280×820 |
+| 拖拽 caption 条 | 窗口跟着指针走（128,47 → −16,232），说明 `-webkit-app-region: drag` 在 KDE 下也生效 |
+| 欢迎窗 | 恰好 600×700（与 `useContentSize` 的请求一致），右上角有原生关闭钮，`env(titlebar-area-width)` = 561 / 600 |
+
+Hyprland 那张表里欢迎窗是 620×720、KDE 是 600×700 —— 同一个 `useContentSize`，两边的边框计算不同，都不影响布局。
+GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩阵）；左置按钮布局仍未验证。
+
 ## Arch 包与 deb/rpm 构建树的差异（无害）
 
 同一份上游代码、两套构建入口（`build.sh` 在 `upstream/` 里出 AppImage / deb / rpm，`makepkg` 在
