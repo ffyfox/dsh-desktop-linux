@@ -201,6 +201,34 @@ if [[ -x "$UNPACKED/deepseek-harness" ]]; then
   else
     bad "resources 布局不符合 0017（resources/runtime=$( [[ -d "$UNPACKED/resources/runtime" ]] && echo 在 || echo 缺 )，resources/app/runtime=$( [[ -e "$UNPACKED/resources/app/runtime" ]] && echo 在 || echo 缺 )）"
   fi
+  # 0008 的 node shim：缺 DSH_DESKTOP_NODE_EXECUTABLE 时必须报错退出，不能再静默 exec 空路径
+  # （那会打成 "line 6: exec: : not found"，看起来像安装坏了）。判据三层：文件在、守卫在、
+  # 行为对（缺值 78、给了真 Node 能跑）。转发那条用产物自带的 primary-runtime node，不依赖系统 node。
+  shim="$UNPACKED/resources/runtime/bin/node"
+  if [[ -x "$shim" ]]; then
+    ok "runtime/bin/node 存在且可执行"
+    has "$(cat "$shim")" 'exit 78' 'runtime/bin/node 带「缺 DSH_DESKTOP_NODE_EXECUTABLE 即报错」守卫'
+    shim_stderr="$(env -u DSH_DESKTOP_NODE_EXECUTABLE "$shim" -e 1 2>&1 >/dev/null)"
+    shim_rc=$?
+    if [[ "$shim_rc" -eq 78 ]]; then
+      ok "缺 DSH_DESKTOP_NODE_EXECUTABLE 时 shim 退出 78"
+    else
+      bad "缺 DSH_DESKTOP_NODE_EXECUTABLE 时 shim 退出 $shim_rc（应为 78）"
+    fi
+    has "$shim_stderr" 'DSH_DESKTOP_NODE_EXECUTABLE is not set' '缺值时 shim 在 stderr 说清原因'
+    if [[ -x "$PRIMARY_NODE" ]]; then
+      if env -u ELECTRON_RUN_AS_NODE -u DSH_DESKTOP_NODE_ELECTRON DSH_DESKTOP_NODE_EXECUTABLE="$PRIMARY_NODE" \
+           "$shim" -e 'process.exit(0)' >/dev/null 2>&1; then
+        ok "shim 把调用转发给 primary-runtime 的 node"
+      else
+        bad "shim 转发到 primary-runtime 的 node 失败"
+      fi
+    else
+      skip "没有 $PRIMARY_NODE，跳过 shim 转发断言"
+    fi
+  else
+    bad "runtime/bin/node 缺失或不可执行——0008 的 shim 没被打进产物"
+  fi
   # 托盘图：补丁 0013 让 Linux 的托盘指向 resources/tray-linux.png，由 electron-builder 的
   # Linux extraResources 带进来；它不在补丁里（二进制），所以最可能在这里漏掉。
   tray_png="$UNPACKED/resources/tray-linux.png"
