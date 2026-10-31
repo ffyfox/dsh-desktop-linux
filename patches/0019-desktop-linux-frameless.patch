@@ -1,6 +1,6 @@
 diff --git a/apps/desktop/src/frameless-mode.ts b/apps/desktop/src/frameless-mode.ts
 new file mode 100644
-index 000000000..cb18b79a2
+index 0000000..cb18b79
 --- /dev/null
 +++ b/apps/desktop/src/frameless-mode.ts
 @@ -0,0 +1,10 @@
@@ -15,18 +15,20 @@ index 000000000..cb18b79a2
 +  return process.platform === 'linux' && process.env.DSH_DESKTOP_FRAMELESS === '1'
 +}
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 2333e6508..b881cb41b 100644
+index 2333e65..1d33d29 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -33,6 +33,7 @@ import { DesktopBackendController } from './backend-controller.ts'
+@@ -33,7 +33,9 @@ import { DesktopBackendController } from './backend-controller.ts'
  import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
  import { readDeviceInfo } from './device-info.ts'
  import { GLASS_ARGUMENT, desktopGlass, glassTint } from './glass-mode.ts'
 +import { desktopFrameless } from './frameless-mode.ts'
  import { glassDocument } from './glass-document.ts'
++import { WAYLAND_CSD_ARGUMENT, markWaylandCsd, waylandClient } from './wayland-csd.ts'
  import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
  import { claimDesktopSingleInstance } from './single-instance.ts'
-@@ -261,8 +262,18 @@ function platformLoginUrl(authorizeUrl: string): string {
+ import { desktopUpdateChannel } from './update-channel.ts'
+@@ -261,8 +263,20 @@ function platformLoginUrl(authorizeUrl: string): string {
    return url.href
  }
  
@@ -43,10 +45,12 @@ index 2333e6508..b881cb41b 100644
 -  const glass = desktopGlass()
 +  const frameless = desktopFrameless()
 +  const glass = glassLayout()
++  // Chromium draws the client frame only around an opaque window; frameless already turned glass off.
++  const waylandFrame = primary && frameless && waylandClient(process.argv, process.env)
    const window = new BrowserWindow({
      width: 1280,
      height: 820,
-@@ -280,6 +291,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -280,6 +294,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
          symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115' },
      } : {}),
@@ -60,7 +64,21 @@ index 2333e6508..b881cb41b 100644
      // hiddenInset places traffic lights inside the sidebar; sidebar vibrancy
      // needs a transparent window background to show through the page.
      ...(process.platform === 'darwin' ? {
-@@ -313,7 +331,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -300,8 +321,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+       webviewTag: primary,
+       devTools: true,
+       ...(glass ? { additionalArguments: [GLASS_ARGUMENT] } : {}),
++      // The preload cannot read the environment: the argument marks the window whose caption
++      // overlay has to yield in fullscreen.
++      ...(primary && frameless ? { additionalArguments: [WAYLAND_CSD_ARGUMENT] } : {}),
+     },
+   })
++  // Subscribes before any overlay can attach: the frame trust gate needs the window's first move.
++  if (waylandFrame) markWaylandCsd(window)
+   // Linux draws the caption menubar inside the page; a native menu bar would double that strip.
+   // The application menu stays set so its accelerators keep working. Glass mode has no caption,
+   // so the menu bar auto-hides instead and Alt reveals it, keeping the menu out of the window's content.
+@@ -313,7 +339,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
      if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
      return { action: 'deny' }
    })
@@ -69,7 +87,7 @@ index 2333e6508..b881cb41b 100644
      // Fullscreen hides native window controls; overlays drop their caption clearance.
      const sendFullscreen = (): void => {
        if (!window.isDestroyed()) window.webContents.send(DESKTOP_IPC.windowFullscreen, window.isFullScreen())
-@@ -387,6 +405,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -387,6 +413,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
  }
  
  async function main(): Promise<void> {
@@ -81,7 +99,7 @@ index 2333e6508..b881cb41b 100644
    const desktopSettings = readDesktopSettings(app.getPath('userData'))
    void pruneCrashReports(app.getPath('logs'))
    const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
-@@ -797,7 +820,7 @@ async function main(): Promise<void> {
+@@ -797,7 +828,7 @@ async function main(): Promise<void> {
        if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname.startsWith('/assets/')
          || ['/favicon.svg', '/manifest.webmanifest'].includes(url.pathname)) {
          const root = join(resources.dsh, 'node_modules', '@deepseek-ai', 'dsh-web-frontend', 'dist')
@@ -90,7 +108,7 @@ index 2333e6508..b881cb41b 100644
            ? serveWebDocument(request, root, glassDocument(glassTint()))
            : serveWebDocument(request, root)
        }
-@@ -1191,8 +1214,10 @@ async function main(): Promise<void> {
+@@ -1191,8 +1222,10 @@ async function main(): Promise<void> {
        // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
        const validColor = (value: unknown): value is string => typeof value === 'string'
          && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
@@ -104,7 +122,7 @@ index 2333e6508..b881cb41b 100644
    }
  
 diff --git a/apps/desktop/src/preload-menu.ts b/apps/desktop/src/preload-menu.ts
-index f7b881278..d8becd0a5 100644
+index f7b8812..d8becd0 100644
 --- a/apps/desktop/src/preload-menu.ts
 +++ b/apps/desktop/src/preload-menu.ts
 @@ -12,8 +12,10 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
@@ -120,10 +138,18 @@ index f7b881278..d8becd0a5 100644
        font-family: var(--dsw-font-family); -webkit-app-region: no-drag; }
      [role=menubar] { display: flex; gap: 2px; }
 diff --git a/apps/desktop/src/preload-platform.ts b/apps/desktop/src/preload-platform.ts
-index 1e197b0c7..83acc4e2f 100644
+index 1e197b0..ab1f1cf 100644
 --- a/apps/desktop/src/preload-platform.ts
 +++ b/apps/desktop/src/preload-platform.ts
-@@ -17,13 +17,14 @@ export function markDocumentPlatform(): void {
+@@ -2,6 +2,7 @@
+ 
+ import { ipcRenderer } from 'electron'
+ import { DESKTOP_IPC } from './ipc.ts'
++import { WAYLAND_CSD_ARGUMENT } from './wayland-csd.ts'
+ 
+ /**
+  * Sets `data-platform` (e.g. `darwin`) on `<html>`, deferring to DOMContentLoaded
+@@ -17,13 +18,15 @@ export function markDocumentPlatform(): void {
  }
  
  /**
@@ -137,14 +163,191 @@ index 1e197b0c7..83acc4e2f 100644
  export function syncWindowFullscreen(): void {
 -  // The main process sends this IPC only on macOS and Windows; other platforms need no listener.
 -  if (process.platform !== 'darwin' && process.platform !== 'win32') return
-+  // Decorated and glass Linux windows never receive this IPC: they have no caption clearance
-+  // to drop, so only the sender decides.
-+  if (process.platform !== 'darwin' && process.platform !== 'win32' && process.platform !== 'linux') return
++  // The main process sends this IPC only on macOS, Windows, and the client-framed Linux window;
++  // decorated and glass Linux windows need no listener.
++  if (process.platform !== 'darwin' && process.platform !== 'win32'
++    && !(process.platform === 'linux' && process.argv.includes(WAYLAND_CSD_ARGUMENT))) return
    ipcRenderer.on(DESKTOP_IPC.windowFullscreen, (_event, fullscreen: boolean) => {
      const root = document.documentElement as HTMLElement | null
      if (root === null) return
+diff --git a/apps/desktop/src/update-overlay.ts b/apps/desktop/src/update-overlay.ts
+index 0de1246..caaaa83 100644
+--- a/apps/desktop/src/update-overlay.ts
++++ b/apps/desktop/src/update-overlay.ts
+@@ -2,6 +2,7 @@
+ import { WebContentsView, type BrowserWindow, type WebContents, type View } from 'electron'
+ import type { EventEmitter } from 'node:events'
+ import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
++import { onWaylandCsdLayout, waylandCsdFramed, waylandCsdRadius } from './wayland-csd.ts'
+ 
+ /** Main-owned document with no independent native window or activation state. */
+ export interface DesktopUpdateOverlay {
+@@ -16,10 +17,10 @@ export interface DesktopUpdateOverlay {
+   loadURL(url: string): Promise<void>
+ }
+ 
+-type UpdateOwner = Pick<BrowserWindow, 'getContentBounds' | 'isDestroyed' | 'isFocused'>
++type UpdateOwner = Pick<BrowserWindow, 'getContentBounds' | 'isDestroyed' | 'isFocused' | 'isMaximized' | 'isFullScreen'>
+   & Pick<EventEmitter, 'on' | 'once' | 'off'> & {
+     readonly webContents: Pick<EventEmitter, 'prependListener' | 'off'> & Pick<WebContents, 'focus'>
+-    readonly contentView: Pick<View, 'addChildView' | 'removeChildView'>
++    readonly contentView: Pick<View, 'addChildView' | 'removeChildView'> & Pick<EventEmitter, 'on' | 'off'>
+   }
+ 
+ /** Tracks isolated update views and each owner's keyboard-blocking revision. */
+@@ -46,18 +47,22 @@ export class DesktopUpdateOverlays {
+     const input = this.inputs.get(parent) ?? { revision: 0, active: 0, get blocked() { return this.active > 0 } }
+     this.inputs.set(parent, input)
+     input.active++; input.revision++
++    // The Wayland client frame clips only the owner's own web view, and its caption overlay must stay operable.
++    const framed = waylandCsdFramed(parent)
+     const resize = (): void => {
+       const { width, height } = parent.getContentBounds()
+-      const top = process.platform === 'win32' ? WINDOWS_TITLEBAR_HEIGHT : 0
++      const top = process.platform === 'win32' || framed ? WINDOWS_TITLEBAR_HEIGHT : 0
+       view.setBounds({ x: 0, y: top, width, height: Math.max(0, height - top) })
++      if (framed) view.setBorderRadius(waylandCsdRadius(parent))
+     }
+     const focus = (): void => {
+       if (!parent.isDestroyed() && parent.isFocused() && !contents.isDestroyed()) contents.focus()
+     }
+     const block = (event: Electron.Event): void => { event.preventDefault(); focus() }
+     const destroy = (): void => { if (!contents.isDestroyed()) contents.close({ waitForBeforeUnload: false }) }
++    let stopLayout = (): void => { parent.off('resize', resize) }
+     const release = (): void => {
+-      parent.off('resize', resize)
++      stopLayout()
+       parent.off('focus', focus)
+       parent.off('closed', destroy)
+       ownerContents.off('before-input-event', block)
+@@ -70,7 +75,8 @@ export class DesktopUpdateOverlays {
+     view.setBackgroundColor('#00000000')
+     parent.contentView.addChildView(view)
+     resize()
+-    parent.on('resize', resize)
++    if (framed) stopLayout = onWaylandCsdLayout(parent, resize)
++    else parent.on('resize', resize)
+     parent.on('focus', focus)
+     parent.once('closed', destroy)
+     ownerContents.prependListener('before-input-event', block)
+diff --git a/apps/desktop/src/wayland-csd.ts b/apps/desktop/src/wayland-csd.ts
+new file mode 100644
+index 0000000..090977d
+--- /dev/null
++++ b/apps/desktop/src/wayland-csd.ts
+@@ -0,0 +1,110 @@
++/** Chromium's client-drawn Wayland frame around the Linux caption. */
++
++/** Preload argument marking the window whose caption overlay yields in fullscreen. */
++export const WAYLAND_CSD_ARGUMENT = '--dsh-desktop-wayland-csd'
++
++/** Corner radius of Chromium's floating client frame; Electron exposes no value for it. */
++export const WAYLAND_CSD_RADIUS = 8
++
++/** A content origin this far in is a requested window position before the first move, not a frame inset. */
++const WAYLAND_CSD_INSET_MAX = 24
++
++const framed = new WeakSet<object>()
++const insetOrigin = new WeakSet<object>()
++
++/**
++ * Whether Electron runs as a Wayland client, resolved in Chromium's order: the platform switch,
++ * then the hint switch or `ELECTRON_OZONE_PLATFORM_HINT`, then the session (the default hint is `auto`).
++ * @param argv - main-process command line.
++ * @param env - main-process environment.
++ * @returns false for an explicit `x11` platform or hint even inside a Wayland session.
++ */
++export function waylandClient(argv: readonly string[], env: NodeJS.ProcessEnv): boolean {
++  const flag = (name: string): string | undefined => {
++    const prefix = `--${name}=`
++    let value: string | undefined
++    for (const argument of argv) if (argument.startsWith(prefix)) value = argument.slice(prefix.length)
++    return value === '' ? undefined : value
++  }
++  const platform = flag('ozone-platform')
++  if (platform !== undefined) return platform === 'wayland'
++  const hint = flag('ozone-platform-hint') ?? env.ELECTRON_OZONE_PLATFORM_HINT
++  if (hint === 'wayland') return true
++  if (hint === 'x11') return false
++  return env.XDG_SESSION_TYPE === 'wayland' || (env.WAYLAND_DISPLAY ?? '') !== ''
++}
++
++/**
++ * Whether the frame is tiled. Wayland reports no window position, so Chromium leaves the frame inset
++ * in the content origin: a floating frame's shadow falls downward (x differs from y), a tiled frame
++ * keeps equal resize borders, and a maximized or fullscreen window has none.
++ * @param origin - `window.getContentBounds()` origin.
++ * @returns true for equal, frame-sized insets.
++ */
++export function waylandCsdTiled(origin: { readonly x: number; readonly y: number }): boolean {
++  return origin.x === origin.y && origin.x > 0 && origin.x < WAYLAND_CSD_INSET_MAX
++}
++
++interface FramedWindow {
++  isMaximized(): boolean
++  isFullScreen(): boolean
++  getContentBounds(): { readonly x: number; readonly y: number }
++}
++
++interface MoveEmitter {
++  once(name: 'move', listener: () => void): unknown
++}
++
++/**
++ * Corner radius a sibling view needs to match the frame, which clips only the window's own web view.
++ * The window APIs report the requested position until the first move and the frame inset afterwards,
++ * so the origin is read only once `markWaylandCsd` has seen that move.
++ * @param window - framed window.
++ * @returns 8 while floating; 0 once the frame drops its corners.
++ */
++export function waylandCsdRadius(window: FramedWindow): number {
++  if (window.isMaximized() || window.isFullScreen()) return 0
++  return insetOrigin.has(window) && waylandCsdTiled(window.getContentBounds()) ? 0 : WAYLAND_CSD_RADIUS
++}
++
++interface LayoutEmitter {
++  on(name: string, listener: () => void): unknown
++  off(name: string, listener: () => void): unknown
++}
++
++/**
++ * Run `relayout` on every frame-state change. The first move switches the window bounds APIs from the
++ * requested position to the frame inset; a resize the application requested can still report the
++ * previous bounds, and the root view's `bounds-changed` then follows with the final ones.
++ * @param window - framed window.
++ * @param relayout - idempotent layout pass.
++ * @returns listener teardown.
++ */
++export function onWaylandCsdLayout(
++  window: LayoutEmitter & { readonly contentView: LayoutEmitter }, relayout: () => void,
++): () => void {
++  // Captured now: teardown can run after the window is destroyed, when its accessors throw.
++  const root = window.contentView
++  const events = ['move', 'resize', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen'] as const
++  for (const name of events) window.on(name, relayout)
++  root.on('bounds-changed', relayout)
++  return () => {
++    for (const name of events) window.off(name, relayout)
++    root.off('bounds-changed', relayout)
++  }
++}
++
++/**
++ * Remember a window created with the client-drawn frame, and trust its content origin once the first
++ * move has switched the window APIs from the requested position to the frame inset. The listener is
++ * installed at window creation because an overlay can attach after that first move.
++ * @param window - window created with the client-drawn frame.
++ */
++export function markWaylandCsd(window: object & MoveEmitter): void {
++  if (framed.has(window)) return
++  framed.add(window)
++  window.once('move', () => { insetOrigin.add(window) })
++}
++
++/** @param window - any window. @returns Whether it was created with the client-drawn frame. */
++export function waylandCsdFramed(window: object): boolean { return framed.has(window) }
 diff --git a/apps/desktop/src/welcome-window.ts b/apps/desktop/src/welcome-window.ts
-index 364f58058..4af11d4d3 100644
+index 364f580..4af11d4 100644
 --- a/apps/desktop/src/welcome-window.ts
 +++ b/apps/desktop/src/welcome-window.ts
 @@ -4,6 +4,7 @@ import type { SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
@@ -192,7 +395,7 @@ index 364f58058..4af11d4d3 100644
    if (process.platform === 'linux') window.setMenuBarVisibility(false)
 diff --git a/apps/desktop/tests/frameless-mode.spec.ts b/apps/desktop/tests/frameless-mode.spec.ts
 new file mode 100644
-index 000000000..033f02d41
+index 0000000..033f02d
 --- /dev/null
 +++ b/apps/desktop/tests/frameless-mode.spec.ts
 @@ -0,0 +1,25 @@
@@ -222,28 +425,71 @@ index 000000000..033f02d41
 +  })
 +})
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index de8b02784..81ae40f59 100644
+index de8b027..9286b4c 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -951,6 +951,84 @@ describe('desktop main startup', () => {
+@@ -3,6 +3,7 @@ import type { DesktopHostProcess } from '../src/host-process.ts'
+ import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
+ import { WINDOWS_TITLEBAR_HEIGHT } from '../src/windows-layout.ts'
+ import { GLASS_ARGUMENT } from '../src/glass-mode.ts'
++import { WAYLAND_CSD_ARGUMENT } from '../src/wayland-csd.ts'
+ import { glassDocument } from '../src/glass-document.ts'
+ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+ import type { IpcMainInvokeEvent } from 'electron'
+@@ -951,6 +952,120 @@ describe('desktop main startup', () => {
      expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
    })
  
 +  it('opens an opaque window with native controls in linux frameless mode', async () => {
 +    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
 +    vi.stubEnv('DSH_DESKTOP_FRAMELESS', '1')
++    vi.stubEnv('XDG_SESSION_TYPE', 'x11')
++    vi.stubEnv('WAYLAND_DISPLAY', '')
++    vi.stubEnv('ELECTRON_OZONE_PLATFORM_HINT', '')
 +    await import('../src/main.ts')
 +    await harness.preparing.promise
 +    const window = harness.windows[0]!
 +    expect(window.options).toMatchObject({
 +      titleBarStyle: 'hidden',
 +      titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: '#f9fafb', symbolColor: '#0f1115' },
++      // The preload cannot read the environment, so the window hands it the argument instead.
++      webPreferences: { additionalArguments: [WAYLAND_CSD_ARGUMENT] },
 +    })
 +    // The overlay needs an opaque window; glass mode's transparency would remove the controls.
 +    expect(window.options).not.toHaveProperty('transparent')
-+    expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
++    // X11 has no client frame to inset or round: nothing subscribes to the first move.
++    expect(window.eventNames()).not.toContain('move')
 +    expect(window.setMenuBarVisibility).toHaveBeenCalledWith(false)
 +    expect(window.setAutoHideMenuBar).not.toHaveBeenCalled()
++  })
++
++  it('subscribes to the client frame only as a Wayland client', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    vi.stubEnv('DSH_DESKTOP_FRAMELESS', '1')
++    vi.stubEnv('XDG_SESSION_TYPE', 'wayland')
++    vi.stubEnv('WAYLAND_DISPLAY', 'wayland-0')
++    vi.stubEnv('ELECTRON_OZONE_PLATFORM_HINT', '')
++    await import('../src/main.ts')
++    await harness.preparing.promise
++    const window = harness.windows[0]!
++    // The frame's shadow, outline, and corners are Chromium's; the window adds no option for them.
++    for (const option of ['frame', 'hasShadow', 'roundedCorners', 'backgroundColor', 'transparent']) {
++      expect(window.options).not.toHaveProperty(option)
++    }
++    expect(window.eventNames()).toContain('move')
++  })
++
++  it('keeps the decoration of the linux window without the frameless opt-in', async () => {
++    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++    vi.stubEnv('XDG_SESSION_TYPE', 'wayland')
++    vi.stubEnv('WAYLAND_DISPLAY', 'wayland-0')
++    vi.stubEnv('ELECTRON_OZONE_PLATFORM_HINT', '')
++    await import('../src/main.ts')
++    await harness.preparing.promise
++    const window = harness.windows[0]!
++    expect(window.options).not.toHaveProperty('titleBarOverlay')
++    expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
++    expect(window.eventNames()).not.toContain('move')
 +  })
 +
 +  it('lets the frameless window supersede glass mode with one warning', async () => {
@@ -254,7 +500,8 @@ index de8b02784..81ae40f59 100644
 +    await harness.preparing.promise
 +    const window = harness.windows[0]!
 +    expect(window.options).not.toHaveProperty('transparent')
-+    expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
++    // Glass yields its argument to the frameless window instead of stacking both.
++    expect(window.options).toMatchObject({ webPreferences: { additionalArguments: [WAYLAND_CSD_ARGUMENT] } })
 +    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('DSH_DESKTOP_FRAMELESS=1 takes precedence'))
 +  })
 +
@@ -311,26 +558,251 @@ index de8b02784..81ae40f59 100644
      const { serveWebDocument } = await import('../src/web-document.ts')
      vi.mocked(serveWebDocument).mockResolvedValue(new Response('shell document'))
 diff --git a/apps/desktop/tests/preload-platform.client.spec.ts b/apps/desktop/tests/preload-platform.client.spec.ts
-index 5b876ab34..b8a747ce8 100644
+index 5b876ab..13170e2 100644
 --- a/apps/desktop/tests/preload-platform.client.spec.ts
 +++ b/apps/desktop/tests/preload-platform.client.spec.ts
-@@ -12,13 +12,7 @@ afterEach(() => {
-   on.mockClear()
+@@ -2,6 +2,7 @@
+ import { afterEach, expect, it, vi } from 'vitest'
+ import { DESKTOP_IPC } from '../src/ipc.ts'
+ import { syncWindowFullscreen } from '../src/preload-platform.ts'
++import { WAYLAND_CSD_ARGUMENT } from '../src/wayland-csd.ts'
+ 
+ const on = vi.hoisted(() => vi.fn())
+ vi.mock('electron', () => ({ ipcRenderer: { on } }))
+@@ -18,8 +19,10 @@ it.each(['linux'] as const)('subscribes no fullscreen channel on %s', (platform)
+   expect(on).not.toHaveBeenCalled()
  })
  
--it.each(['linux'] as const)('subscribes no fullscreen channel on %s', (platform) => {
--  vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
--  syncWindowFullscreen()
--  expect(on).not.toHaveBeenCalled()
--})
--
 -it.each(['darwin', 'win32'] as const)('mirrors the sent fullscreen state onto html[data-fullscreen] on %s', (platform) => {
-+it.each(['darwin', 'win32', 'linux'] as const)('mirrors the sent fullscreen state onto html[data-fullscreen] on %s', (platform) => {
-   vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
+-  vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
++it.each(['darwin', 'win32', 'linux-wayland-csd'] as const)('mirrors the sent fullscreen state onto html[data-fullscreen] on %s', (platform) => {
++  vi.spyOn(process, 'platform', 'get').mockReturnValue(platform === 'linux-wayland-csd' ? 'linux' : platform)
++  // Fullscreen hides the Wayland client frame's caption overlay as it does on Windows.
++  if (platform === 'linux-wayland-csd') vi.spyOn(process, 'argv', 'get').mockReturnValue(['electron', WAYLAND_CSD_ARGUMENT])
    syncWindowFullscreen()
    expect(on).toHaveBeenCalledExactlyOnceWith(DESKTOP_IPC.windowFullscreen, expect.any(Function))
+   const handler = on.mock.calls[0]?.[1] as (event: unknown, fullscreen: boolean) => void
+diff --git a/apps/desktop/tests/update-overlay.spec.ts b/apps/desktop/tests/update-overlay.spec.ts
+index bd59d15..55c7cac 100644
+--- a/apps/desktop/tests/update-overlay.spec.ts
++++ b/apps/desktop/tests/update-overlay.spec.ts
+@@ -1,6 +1,7 @@
+ import { EventEmitter } from 'node:events'
+ import { afterEach, expect, it, vi } from 'vitest'
+ import { DesktopUpdateOverlays } from '../src/update-overlay.ts'
++import { markWaylandCsd } from '../src/wayland-csd.ts'
+ 
+ const native = vi.hoisted(() => ({ create: vi.fn<(options: object) => object>() }))
+ vi.mock('electron', () => ({ WebContentsView: function (options: object) { return native.create(options) } }))
+@@ -8,9 +9,10 @@ afterEach(() => { vi.restoreAllMocks() })
+ function fixture() {
+   let destroyed = false
+   const parent = Object.assign(new EventEmitter(), {
+-    getContentBounds: () => ({ x: 50, y: 40, width: 900, height: 650 }), isDestroyed: () => destroyed,
++    getContentBounds: vi.fn(() => ({ x: 50, y: 40, width: 900, height: 650 })), isDestroyed: () => destroyed,
+     isFocused: vi.fn(() => false), focus: vi.fn(), show: vi.fn(),
+-    contentView: { addChildView: vi.fn(), removeChildView: vi.fn() },
++    isMaximized: vi.fn(() => false), isFullScreen: vi.fn(() => false),
++    contentView: Object.assign(new EventEmitter(), { addChildView: vi.fn(), removeChildView: vi.fn() }),
+     webContents: Object.assign(new EventEmitter(), { focus: vi.fn() }),
+     destroy() { destroyed = true; parent.emit('closed') },
+   })
+@@ -22,7 +24,7 @@ function fixture() {
+       close: vi.fn(() => { if (!closed) { closed = true; webContents.emit('destroyed') } }),
+     })
+     return { get webContents() { if (closed) throw new Error('Destroyed native view'); return webContents },
+-      setBounds: vi.fn(), setBackgroundColor: vi.fn() }
++      setBounds: vi.fn(), setBackgroundColor: vi.fn(), setBorderRadius: vi.fn() }
+   }
+   native.create.mockImplementation(() => { const next = view(); views.push(next); return next })
+   const overlays = new DesktopUpdateOverlays()
+@@ -47,10 +49,60 @@ it.each(['darwin', 'win32'] as const)('fits inside the owner with native caption
+   const f = fixture(); const overlay = f.create(); const top = platform === 'win32' ? 40 : 0
+   expect(f.views[0]!.setBounds).toHaveBeenCalledWith({ x: 0, y: top, width: 900, height: 650 - top })
+   f.parent.emit('resize'); expect(f.views[0]!.setBounds).toHaveBeenCalledTimes(2)
++  expect(f.views[0]!.setBorderRadius).not.toHaveBeenCalled()
+   overlay.destroy()
+   expect(f.parent.listenerCount('resize')).toBe(0)
+ })
+ 
++it('does not round a Linux overlay outside the Wayland client frame', () => {
++  vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++  const f = fixture(); const overlay = f.create(); const view = f.views[0]!
++  expect(view.setBorderRadius).not.toHaveBeenCalled()
++  f.parent.emit('resize')
++  expect(view.setBounds).toHaveBeenCalledTimes(2)
++  expect(view.setBorderRadius).not.toHaveBeenCalled()
++  overlay.destroy()
++})
++
++it('clears the caption overlay and follows the Wayland client frame corners', () => {
++  vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++  const f = fixture(); markWaylandCsd(f.parent)
++  f.parent.getContentBounds.mockReturnValue({ x: 16, y: 10, width: 900, height: 650 })
++  const overlay = f.create(); const view = f.views[0]!
++  expect(view.setBounds).toHaveBeenCalledWith({ x: 0, y: 40, width: 900, height: 610 })
++  expect(view.setBorderRadius).toHaveBeenLastCalledWith(8)
++  // Before the first move, the origin is a requested position, even when it looks like an inset.
++  f.parent.getContentBounds.mockReturnValue({ x: 10, y: 10, width: 900, height: 650 })
++  f.parent.contentView.emit('bounds-changed')
++  expect(view.setBorderRadius).toHaveBeenLastCalledWith(8)
++  // The first move switches both bounds APIs to the frame inset.
++  f.parent.getContentBounds.mockReturnValue({ x: 16, y: 10, width: 900, height: 650 })
++  f.parent.emit('move')
++  expect(view.setBorderRadius).toHaveBeenLastCalledWith(8)
++  // Tiling changes only the frame inset and sends no resize.
++  f.parent.getContentBounds.mockReturnValue({ x: 10, y: 10, width: 900, height: 650 })
++  f.parent.contentView.emit('bounds-changed')
++  expect(view.setBorderRadius).toHaveBeenLastCalledWith(0)
++  f.parent.getContentBounds.mockReturnValue({ x: 16, y: 10, width: 900, height: 650 })
++  f.parent.isMaximized.mockReturnValue(true); f.parent.emit('maximize')
++  expect(view.setBorderRadius).toHaveBeenLastCalledWith(0)
++  f.parent.isMaximized.mockReturnValue(false); f.parent.emit('resize')
++  expect(view.setBorderRadius).toHaveBeenLastCalledWith(8)
++  overlay.destroy()
++  expect(f.parent.eventNames()).toEqual([])
++  expect(f.parent.contentView.eventNames()).toEqual([])
++})
++
++it('trusts the inset origin when the overlay attaches after the first move', () => {
++  vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
++  const f = fixture(); markWaylandCsd(f.parent)
++  f.parent.getContentBounds.mockReturnValue({ x: 10, y: 10, width: 900, height: 650 })
++  f.parent.emit('move')
++  const overlay = f.create()
++  expect(f.views[0]!.setBorderRadius).toHaveBeenLastCalledWith(0)
++  overlay.destroy()
++})
++
+ it('blocks keyboard input and redirects focus only while the owner is focused', () => {
+   const f = fixture(); const overlay = f.create(); const event = { preventDefault: vi.fn() }
+   f.parent.webContents.emit('before-input-event', event)
+diff --git a/apps/desktop/tests/wayland-csd.spec.ts b/apps/desktop/tests/wayland-csd.spec.ts
+new file mode 100644
+index 0000000..a699c41
+--- /dev/null
++++ b/apps/desktop/tests/wayland-csd.spec.ts
+@@ -0,0 +1,118 @@
++import { EventEmitter } from 'node:events'
++import { afterEach, describe, expect, it, vi } from 'vitest'
++import {
++  WAYLAND_CSD_ARGUMENT, WAYLAND_CSD_RADIUS, markWaylandCsd, onWaylandCsdLayout,
++  waylandClient, waylandCsdFramed, waylandCsdRadius, waylandCsdTiled,
++} from '../src/wayland-csd.ts'
++
++afterEach(() => {
++  vi.restoreAllMocks()
++  vi.unstubAllEnvs()
++})
++
++describe('waylandClient', () => {
++  const session = { XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0' }
++
++  it('follows the session under the default auto hint', () => {
++    expect(waylandClient([], session)).toBe(true)
++    expect(waylandClient(['--ozone-platform-hint=auto'], session)).toBe(true)
++    expect(waylandClient([], { WAYLAND_DISPLAY: 'wayland-0' })).toBe(true)
++    expect(waylandClient([], { XDG_SESSION_TYPE: 'wayland' })).toBe(true)
++    expect(waylandClient([], { XDG_SESSION_TYPE: 'x11', DISPLAY: ':0' })).toBe(false)
++    expect(waylandClient([], { WAYLAND_DISPLAY: '' })).toBe(false)
++  })
++
++  it('lets an explicit platform override the hint and the session', () => {
++    expect(waylandClient(['--ozone-platform=x11'], session)).toBe(false)
++    expect(waylandClient(['--ozone-platform=x11', '--ozone-platform-hint=wayland'], session)).toBe(false)
++    expect(waylandClient(['--ozone-platform=wayland'], { XDG_SESSION_TYPE: 'x11' })).toBe(true)
++    expect(waylandClient(['--ozone-platform=headless'], session)).toBe(false)
++  })
++
++  it('reads the hint from the switch before the environment', () => {
++    expect(waylandClient(['--ozone-platform-hint=x11'], session)).toBe(false)
++    expect(waylandClient([], { ...session, ELECTRON_OZONE_PLATFORM_HINT: 'x11' })).toBe(false)
++    expect(waylandClient(['--ozone-platform-hint=wayland'], { ELECTRON_OZONE_PLATFORM_HINT: 'x11' })).toBe(true)
++    expect(waylandClient([], { ELECTRON_OZONE_PLATFORM_HINT: 'wayland' })).toBe(true)
++  })
++
++  it('takes the last occurrence and ignores empty values', () => {
++    expect(waylandClient(['--ozone-platform=wayland', '--ozone-platform=x11'], session)).toBe(false)
++    expect(waylandClient(['--ozone-platform='], session)).toBe(true)
++  })
++})
++
++it('names the argument the main process hands to the preload', () => {
++  expect(WAYLAND_CSD_ARGUMENT).toBe('--dsh-desktop-wayland-csd')
++})
++
++describe('frame state', () => {
++  const window = (origin: { x: number; y: number }, maximized = false, fullscreen = false) =>
++    Object.assign(new EventEmitter(), {
++      isMaximized: () => maximized, isFullScreen: () => fullscreen, getContentBounds: () => origin,
++    })
++  const trusted = (origin: { x: number; y: number }, maximized = false, fullscreen = false) => {
++    const framed = window(origin, maximized, fullscreen)
++    markWaylandCsd(framed)
++    framed.emit('move')
++    return framed
++  }
++
++  it('reads a tiled frame from equal frame-sized insets', () => {
++    expect(waylandCsdTiled({ x: 10, y: 10 })).toBe(true)
++    // Floating: the shadow falls downward. Maximized or fullscreen: no frame.
++    expect(waylandCsdTiled({ x: 16, y: 10 })).toBe(false)
++    expect(waylandCsdTiled({ x: 0, y: 0 })).toBe(false)
++    // A requested position before the first configure is not an inset.
++    expect(waylandCsdTiled({ x: 340, y: 340 })).toBe(false)
++    expect(waylandCsdTiled({ x: 24, y: 24 })).toBe(false)
++  })
++
++  it('trusts the origin only after the first move switches it to the frame inset', () => {
++    const requested = window({ x: 10, y: 10 })
++    markWaylandCsd(requested)
++    // Before the first move, an equal, small origin is a requested position, not a tiled frame.
++    expect(waylandCsdRadius(requested)).toBe(8)
++    requested.emit('move')
++    expect(waylandCsdRadius(requested)).toBe(0)
++  })
++
++  it('rounds sibling views only while the frame floats', () => {
++    expect(WAYLAND_CSD_RADIUS).toBe(8)
++    expect(waylandCsdRadius(trusted({ x: 16, y: 10 }))).toBe(8)
++    expect(waylandCsdRadius(trusted({ x: 574, y: 340 }))).toBe(8)
++    expect(waylandCsdRadius(trusted({ x: 10, y: 10 }))).toBe(0)
++    // The maximize event can arrive while the bounds still carry the floating inset.
++    expect(waylandCsdRadius(trusted({ x: 16, y: 10 }, true))).toBe(0)
++    expect(waylandCsdRadius(trusted({ x: 16, y: 10 }, false, true))).toBe(0)
++  })
++
++  it('remembers which windows carry the client frame and consumes its first move', () => {
++    const framed = new EventEmitter()
++    markWaylandCsd(framed)
++    expect(waylandCsdFramed(framed)).toBe(true)
++    expect(framed.eventNames()).toEqual(['move'])
++    framed.emit('move')
++    expect(framed.eventNames()).toEqual([])
++    expect(waylandCsdFramed({})).toBe(false)
++  })
++})
++
++describe('onWaylandCsdLayout', () => {
++  const owner = () => Object.assign(new EventEmitter(), { contentView: new EventEmitter() })
++
++  it('relays every frame-state change until teardown', () => {
++    const window = owner()
++    const relayout = vi.fn()
++    const stop = onWaylandCsdLayout(window, relayout)
++    for (const name of ['move', 'resize', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) window.emit(name)
++    // The root view reports the final bounds after a resize that carried the previous ones.
++    window.contentView.emit('bounds-changed')
++    expect(relayout).toHaveBeenCalledTimes(7)
++    stop()
++    window.emit('move'); window.emit('resize'); window.emit('maximize'); window.contentView.emit('bounds-changed')
++    expect(relayout).toHaveBeenCalledTimes(7)
++    expect(window.eventNames()).toEqual([])
++    expect(window.contentView.eventNames()).toEqual([])
++  })
++})
 diff --git a/apps/desktop/tests/welcome-window.spec.ts b/apps/desktop/tests/welcome-window.spec.ts
-index 2100de70f..724ab3f42 100644
+index 2100de7..724ab3f 100644
 --- a/apps/desktop/tests/welcome-window.spec.ts
 +++ b/apps/desktop/tests/welcome-window.spec.ts
 @@ -52,7 +52,7 @@ const operations = {
@@ -365,3 +837,15 @@ index 2100de70f..724ab3f42 100644
    it('waits for its local document and blocks renderer navigation', async () => {
      const window = createWindow()
      const loaded = Promise.withResolvers<undefined>()
+diff --git a/tsconfig.client.json b/tsconfig.client.json
+index 26d88ff..23632e2 100644
+--- a/tsconfig.client.json
++++ b/tsconfig.client.json
+@@ -21,6 +21,7 @@
+     "apps/desktop/src/browser-guests.ts",
+     "apps/desktop/src/ipc.ts",
+     "apps/desktop/src/update-overlay.ts",
++    "apps/desktop/src/wayland-csd.ts",
+     "apps/desktop/src/windows-layout.ts",
+     "apps/desktop/tests/**/*.client.spec.tsx",
+     // Source-subpath test imports can arrive through workspace links whose

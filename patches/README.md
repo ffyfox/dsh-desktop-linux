@@ -325,7 +325,7 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0019-desktop-linux-frameless.patch` | `src/frameless-mode.ts`（新增）、`src/main.ts`、`src/preload-platform.ts`、`src/preload-menu.ts`、`src/welcome-window.ts`、`tests/{frameless-mode,main-startup,welcome-window,preload-platform.client}.spec.ts` | `DSH_DESKTOP_FRAMELESS=1` 时主窗口加 `titleBarStyle: 'hidden'` + `titleBarOverlay`（高度 40、初始色取 `chromeFallbackFill()`），原生按钮由 Electron 自绘（见下），标题区其余部分仍由 0016 的页内 caption 提供；`windowsAppearance` 里 `setTitleBarOverlay` 的门从「只 Windows」放宽到「Windows 或 Linux 无边框」，页面实测出来的侧栏色因此也能刷到原生条上。全屏事件与 preload 的 `data-fullscreen` 监听一并放行到 Linux 无边框（全屏时原生按钮隐藏，caption 要给内容让位）。欢迎窗走同一套覆盖层（高度 42）。`preload-menu.ts` 的菜单起点改成 `max(--dsh-windows-menu-start, env(titlebar-area-x))`，系统把按钮放左侧时菜单跟着安全区右移 |
+| `0019-desktop-linux-frameless.patch` | `src/frameless-mode.ts`（新增）、`src/wayland-csd.ts`（新增）、`src/main.ts`、`src/preload-platform.ts`、`src/preload-menu.ts`、`src/welcome-window.ts`、`src/update-overlay.ts`、`tsconfig.client.json`、`tests/{frameless-mode,main-startup,welcome-window,preload-platform.client,wayland-csd,update-overlay}.spec.ts` | `DSH_DESKTOP_FRAMELESS=1` 时主窗口加 `titleBarStyle: 'hidden'` + `titleBarOverlay`（高度 40、初始色取 `chromeFallbackFill()`），原生按钮由 Electron 自绘（见下），标题区其余部分仍由 0016 的页内 caption 提供；`windowsAppearance` 里 `setTitleBarOverlay` 的门从「只 Windows」放宽到「Windows 或 Linux 无边框」，页面实测出来的侧栏色因此也能刷到原生条上。全屏事件与 preload 的 `data-fullscreen` 监听一并放行到 Linux 无边框（全屏时原生按钮隐藏，caption 要给内容让位）。欢迎窗走同一套覆盖层（高度 42）。`preload-menu.ts` 的菜单起点改成 `max(--dsh-windows-menu-start, env(titlebar-area-x))`，系统把按钮放左侧时菜单跟着安全区右移 |
 
 **为什么不是 `frame: false`**：Electron 的 `IsWindowControlsOverlayEnabled()` 要求
 `titleBarStyle === 'hidden'` **且** 创建时就带 `titleBarOverlay`。`frame: false` 单独用（不带
