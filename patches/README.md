@@ -7,7 +7,7 @@
 多个补丁触及**，此时必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的
 hunk 一起带进来。
 
-**`0017` 与 `0018` 是这条约定的两个已知例外。**
+**`0017`、`0018` 与 `0019` 是这条约定的已知例外。**
 
 `0017` 的 5 个文件（`src/node-environment.ts`、`src/main.ts`、`tests/host-process.spec.ts`、
 `tests/node-environment.spec.ts`、`desktop-host/src/index.ts`）全部也属于 `0008`，而且它的 diff 上下文含
@@ -24,6 +24,10 @@ hunk 一起带进来。
 的 `SidebarRoot.tsx` / `SidebarRoot.module.css` / `tests/sidebar-root.client.spec.tsx`，以及 `ui-plugin-manager` / `ui-schedule` 的两个页面样式表
 `src/client/PluginManagerPage.module.css` / `src/client/TaskManagerPage.module.css`），
 其中 4 个是新增文件。
+
+`0019` 也一样：`src/main.ts` 的 hunk 落在 `0016` 改过的 `setTitleBarOverlay` 守卫与 `0018` 加的
+`glass` 分支上，`tests/main-startup.spec.ts` 的用例插在 `0018` 的玻璃用例之间，所以它只有排在 `0018`
+之后才成立，取 diff 的基准是「基线 + 0001–0018」。
 
 已验证（0.2.2-alpha.2）：这一轮是完整同步 —— 上游从 rc.4 到这个 tag 走了 2161 个提交、6944 个改动文件
 （剔除 `.agents/notes` 之后：3454 新增 / 3430 修改 / 60 删除）。14 个补丁触及的文件被改过而重生；
@@ -321,6 +325,42 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
 座椅 `(12,11)`+`(48,11)` 中心 y25、侧栏列宽 0、内容区从 x0 开始；普通模式不受影响（caption 40px、收起
 `0px`、控件仍在 `(12,6)`/`(48,6)`）。
 
+## 让 Wayland 下的主窗口自己画边框（0019）
+
+| 补丁 | 覆盖文件 | 内容 |
+|---|---|---|
+| `0019-desktop-linux-wayland-csd.patch` | `src/wayland-csd.ts`（新增）、`src/main.ts`、`src/preload-platform.ts`、`src/update-overlay.ts`、`tests/{wayland-csd,main-startup,preload-platform.client,update-overlay}.spec.ts`（`wayland-csd.spec.ts` 新增）、根 `tsconfig.client.json` | `DSH_DESKTOP_WAYLAND_CSD=1` 且 Electron 是 Wayland 客户端时，主窗口改用 Chromium 的客户端帧：`titleBarStyle: 'hidden'` + `titleBarOverlay`（WCO，也是最小化 / 最大化 / 关闭的入口）+ 显式 `hasShadow` / `roundedCorners` 与不透明 `chromeFallbackFill()` 底色（**不加 `frame: false`**：它没有可观测收益，单独用还会让 overlay 不启用），阴影、1px 描边、8px 圆角与四边缩放热区都由客户端帧画，所以 `windowsAppearance` 的 `setTitleBarOverlay` 守卫从 `win32` 放宽到「win32 或这个窗口」，同一处顺带把不透明的 caption 填充色原地设成窗口底色（半透明值不设：帧只画在不透明窗口外）。全屏同步（`DESKTOP_IPC.windowFullscreen` → `html[data-fullscreen]`）放宽到这个窗口，preload 靠 `additionalArguments` 里的 `--dsh-desktop-wayland-csd` 认出它。更新浮层（`WebContentsView`）在这个窗口上从 caption 下方开始，控件保持可点，并用 `setBorderRadius` 跟随帧：浮动 8，贴边 / 最大化 / 全屏 0。`update-overlay.ts` 在 client aggregate 的显式文件表里，所以它新 import 的 `wayland-csd.ts` 也要进根 `tsconfig.client.json`，否则 `build:official` 报 `TS6307` |
+
+判定与状态都在 `wayland-csd.ts`（纯函数，不依赖 Electron）：
+
+- **是不是 Wayland 客户端**，顺序照 Chromium：`--ozone-platform=` → `--ozone-platform-hint=` →
+  `ELECTRON_OZONE_PLATFORM_HINT` → `XDG_SESSION_TYPE=wayland` 或非空 `WAYLAND_DISPLAY`（Electron 38
+  起缺省 hint 是 `auto`）。`--ozone-platform=x11` 在 Wayland 会话里也判否 —— X11 没有客户端帧。
+- **默认关**，只认 `1`；玻璃模式优先（`transparent: true` 时帧不画），欢迎窗不动（保留合成器装饰）。
+- **贴边**读 `window.getContentBounds()` 的原点，但只在**首次 `move` 之后**：窗口刚创建时两个 bounds API
+  报的是请求坐标（例如 KDE `(458,270)`、GNOME `(650,330)`），首次 `move` 后同一对 API 才改报帧内边距。
+  `markWaylandCsd()` 在窗口创建时挂一次 `move`；门控打开前 `waylandCsdRadius()` 只认
+  `isMaximized()` / `isFullScreen()`，其余按浮动（8px）处理。门控打开后：浮动时阴影向下偏，x ≠ y；
+  贴边撤掉阴影，四边同宽，x = y；最大化 / 全屏为 0。判据仍是 `x === y && 0 < x < 24`，上限留作
+  异常读数的保险。
+- **事件**：`move`（首次 `move` 同时打开原点门控）、`resize`、`maximize` / `unmaximize` /
+  `enter-full-screen` / `leave-full-screen`，以及根视图的 `bounds-changed`。`resize` 可能在帧状态更新
+  前到达（应用自己发起的切换、拖拽缩放的最后一帧），带的是旧 bounds；紧跟的 `bounds-changed` 带最终
+  值，所以不需要定时补算，它才是收敛点。
+
+两种「原点」不要混：
+
+- **`window.getContentBounds()`**：判定用这个，但只在首次 `move` 之后。KWin 上浮动 `(16,10)`、贴边
+  `(10,10)`、最大化 / 全屏 `(0,0)`，`x === y` 只在贴边成立；它同样受上面 `resize` 时序的约束，
+  贴边 / 还原以 `bounds-changed` 带最终值的那次重算为准。
+- **`contentView.getBounds()`**：只当 `bounds-changed` 的事件源，不读原点。KWin 上它的原点恒为
+  `(0,0)`（贴边后也一样），拿它判贴边会永远判否；本机每次贴边 / 还原都伴随根视图尺寸变化，
+  `bounds-changed` 也都会来。
+
+KDE 探针里窗口显示后会自动收到首次 `move`，不需要用户拖动；在那之前若窗口已经贴边，圆角会先保持
+8px，`move` 到达后纠正。只换内边距、尺寸不变的情况还没测；上面的缩放是 KWin 脚本改 `frameGeometry`
+模拟的，真实指针拖拽的 resizing 状态也还没验收。
+
 ## Arch 包与 deb/rpm 构建树的差异（无害）
 
 同一份上游代码、两套构建入口（`build.sh` 在 `upstream/` 里出 AppImage / deb / rpm，`makepkg` 在
@@ -444,10 +484,13 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
   等上游哪天给 Linux 做自己的 caption，再统一命名。
 - **`0016` 与 `0008`、`0013` 共用 `src/main.ts`**，所以它同样按开头那条约定、在「基线 + 只有这一个补丁」
   的隔离树里取 diff（`git diff --no-index` 两棵树，再改回 `a/`、`b/` 前缀）。
-- **借 Windows 属性时，Windows 专属的 Electron 调用必须单独守卫（`0016` 的教训）。** caption 的
+- **借 Windows 属性时，按「overlay 是否启用」守卫，而不是按平台（`0016` 的教训）。** caption 的
   布局与菜单是纯客户端行为，照搬无害；但 `windowsAppearance` 这个 handler 里有一句
-  `mainWindow.setTitleBarOverlay(...)`，而窗口的 `titleBarOverlay` 只在 `win32 && primary` 时创建。
-  Linux 上调它抛 `TypeError: Titlebar overlay is not enabled` —— 这是主进程里**未捕获**的异常，
+  `mainWindow.setTitleBarOverlay(...)`，而 `titleBarOverlay` 只在窗口显式带 `titleBarStyle: 'hidden'` +
+  `titleBarOverlay` 时才创建（上游的 Windows 主窗、`0019` 的 Wayland 窗口）。`0016` 的 Linux 普通窗口
+  没有这份配置，调它抛 `TypeError: Titlebar overlay is not enabled`。注意不是 `frame: false` 本身的锅：
+  它和 `titleBarStyle: 'hidden'` 并存时 WCO 照常工作，**单独**用 `frame: false` 才不启用 overlay ——
+  这也是 `0019` 不再加 `frame: false` 的原因。这是主进程里**未捕获**的异常，
   由 IPC 监听器抛出，不是启动链自己抛的；而启动链的顺序是先 `await navigateMain(...)` 建主窗口、
   再 `backend.start(...)` 拉起 Host，异常正好落在这两步之间，于是 **Host 从未被拉起**：主窗口已显示、
   `dsh web:` 永远不出现、`$DSH_HOME/profiles/` 不生成，连 `--remote-debugging-port` 的端点也只接受

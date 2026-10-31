@@ -177,6 +177,22 @@ The window then follows the official desktop app's macOS layout:
   KDE and GNOME do not blur — the sidebar is merely translucent, so raise the fill
   when text gets hard to read.
 
+### Self-drawn window frame (Wayland, experimental)
+
+To have the main window draw its own frame instead of using the compositor's title bar:
+
+```bash
+DSH_DESKTOP_WAYLAND_CSD=1 deepseek-harness
+```
+
+- The compositor's title bar goes away; the in-page caption row carries the window controls, which follow
+  your desktop's button layout (`gtk-decoration-layout`).
+- Shadow, rounded corners and resize borders are drawn by Electron's Chromium client frame; shadow and
+  resize borders drop away when the window is tiled, maximized or fullscreen. KDE and GNOME also square
+  the corners; on Hyprland the remaining rounding comes from its own `decoration:rounding`.
+- Applies only when the app runs as a Wayland client: it has no effect with `--ozone-platform=x11`
+  or on X11, and glass mode takes precedence. The sign-in welcome window keeps the compositor's title bar.
+
 ## Validation status
 
 **Only a few environments have been tested so far, and we intend to widen that coverage.**

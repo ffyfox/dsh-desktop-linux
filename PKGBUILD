@@ -69,6 +69,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harnes
         '0016-desktop-linux-caption.patch'
         '0017-desktop-host-resources-path.patch'
         '0018-desktop-linux-glass-mode.patch'
+        '0019-desktop-linux-wayland-csd.patch'
         # 补丁系列是文本 diff，装不下托盘 PNG —— GNU patch（makepkg 与 PKGBUILD 都用它）
         # 不支持 git 的二进制补丁。所以这张图作为普通本地 source 平铺过来，由 prepare() 放进源码树。
         'tray-linux.png')
@@ -89,6 +90,7 @@ sha256sums=('85f1af41532fe402af613db50d35b7b72224a25adc78682019830b12e4cf9788'
             'fdbab625b085c3e2d841e7f086cfecba75688c266d27e60b93c7c5b3674bffe4'
             '46675846e3203a07fc77fa817c4f5670d14259cd3f9938a32e688c2b22670311'
             '09271c5725c6dabde251781f51106f9234ca4fc3443c58af131cbd70fb014077'
+            'bad68a29acc08b3b65d650d913a3b94daa9f2fce03ba6518159fc2e6675dead2'
             'd1153ab7bb1c61ca7f6568b4525f6c3f3c7bf9a9e29af1697f3c02da7dee5322')
 
 prepare() {

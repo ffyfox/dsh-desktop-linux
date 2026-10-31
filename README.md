@@ -149,6 +149,21 @@ DSH_DESKTOP_GLASS=1 deepseek-harness
   niri 要自己在配置里开 `background-effect { blur true }`；
   KDE 与 GNOME 不模糊，只是半透明——文字受背景干扰时可把浓度调高。
 
+### 自绘窗口边框（Wayland，实验性）
+
+想让主窗口自己画边框、不用合成器的标题栏，加环境变量启动：
+
+```bash
+DSH_DESKTOP_WAYLAND_CSD=1 deepseek-harness
+```
+
+- 合成器的标题栏消失，窗口控件放进页面内的 caption 行，按钮组跟随桌面的按钮布局（`gtk-decoration-layout`）。
+- 阴影、圆角与缩放边框由 Electron 内嵌的 Chromium 客户端帧画；贴边、最大化、全屏时阴影与缩放边框
+  自动撤掉。圆角在 KDE 与 GNOME 上也会变直角，Hyprland 仍显示圆角是它自己的 `decoration:rounding`
+  裁的，与客户端设置无关。
+- 只在应用作为 Wayland 客户端运行时生效：`--ozone-platform=x11` 或 X11 下无效，玻璃模式优先。
+  未登录时的欢迎窗仍用合成器的标题栏。
+
 ## 验证状态
 
 **当前实测环境较少，后续会尽可能拓展。** 下面两张表随反馈更新——欢迎在
