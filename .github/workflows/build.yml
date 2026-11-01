@@ -24,7 +24,18 @@ env:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    # 两个架构各跑一条完整流水线：arm64 必须原生构建，prepare 阶段会真的执行目标
+    # Electron/Node/Python，交叉构建会失败或产出不可用的包。
+    name: linux-${{ matrix.arch }}
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runs-on: ubuntu-latest
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
     # 整条流水线（build:official / release:pack / prepare:*）才是耗时大头，多打一种格式只多
     # 一次 fpm/AppImage 打包。所以这里一次跑完三种格式，而不是按格式拆成多个 job 各跑一遍
     # 全流水线（那是 3 倍时间）。
@@ -110,15 +121,48 @@ jobs:
       - name: 验证
         run: ./scripts/verify.sh
 
+      # 打包成功只说明格式对，不说明能启动；arm64 最容易出现「箱子里装的是 x64 零件」。
+      # 在虚拟显示器上真的启动一次：窗口没出现，或出现启动失败对话框，都判红。
+      - name: 装启动冒烟依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            xvfb x11-utils xdotool imagemagick squashfs-tools \
+            libnotify4 libnss3 libxss1 libxtst6 libgbm1 libdrm2 xauth
+          # Ubuntu 24.04 把这两个包改名成 t64 版本；按顺序试，装上任一个即可。
+          for pkg in libgtk-3-0t64 libgtk-3-0; do
+            if sudo apt-get install -y --no-install-recommends "$pkg"; then break; fi
+          done
+          for pkg in libasound2t64 libasound2; do
+            if sudo apt-get install -y --no-install-recommends "$pkg"; then break; fi
+          done
+
+      - name: 启动冒烟（AppImage）
+        env:
+          SMOKE_OUT: ${{ runner.temp }}/dsh-smoke
+        run: |
+          ./scripts/smoke-appimage.sh \
+            "upstream/apps/desktop/.desktop-build/targets/linux-${{ matrix.arch }}/unsigned-artifacts" \
+            "linux-${{ matrix.arch }}"
+
+      - name: 保留冒烟截图
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage-smoke-${{ matrix.arch }}
+          path: ${{ runner.temp }}/dsh-smoke/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
       # 产物在 .desktop-build/ 下——这是个隐藏目录，而 upload-artifact 默认跳过隐藏文件，
       # 路径写对了也传不上去，必须显式打开 include-hidden-files。
       - uses: actions/upload-artifact@v4
         with:
-          name: deepseek-harness-desktop-linux-x64
+          name: deepseek-harness-desktop-linux-${{ matrix.arch }}
           path: |
-            upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/*.AppImage
-            upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/*.deb
-            upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/*.rpm
+            upstream/apps/desktop/.desktop-build/targets/linux-${{ matrix.arch }}/unsigned-artifacts/*.AppImage
+            upstream/apps/desktop/.desktop-build/targets/linux-${{ matrix.arch }}/unsigned-artifacts/*.deb
+            upstream/apps/desktop/.desktop-build/targets/linux-${{ matrix.arch }}/unsigned-artifacts/*.rpm
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14

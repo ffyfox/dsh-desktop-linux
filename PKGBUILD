@@ -24,7 +24,8 @@ _commit='f3803c96974ad4a94195fb97e5c637e9c2a3afe3'
 _srcdirname="deepseek-harness-$_tag"
 
 pkgdesc='Official DeepSeek Harness desktop application (Electron shell around a bundled dsh runtime)'
-arch=('x86_64')
+# aarch64 走 Arch Linux ARM 本机 makepkg（CI 的 archlinux 容器只有 x86_64）；该架构尚未实测。
+arch=('x86_64' 'aarch64')
 url='https://github.com/ffyfox/dsh-desktop-linux'
 license=('MIT')
 # 上游 deb/rpm 的 control 里声明的运行时依赖，换成 Arch 的包名，再加上 ldd 显示而
@@ -74,15 +75,15 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harnes
         # 不支持 git 的二进制补丁。所以这张图作为普通本地 source 平铺过来，由 prepare() 放进源码树。
         'tray-linux.png')
 sha256sums=('85f1af41532fe402af613db50d35b7b72224a25adc78682019830b12e4cf9788'
-            '9f4842ac88fa503319d5a18c007a3324f8471900275be56cf98b21ca152d5faa'
-            '740ce44d9ccb931e37ac31691c7d4fdfef01562c555f3f86daf13b25b1047d72'
+            '98d5f86a8c51eb0fdbc31babc65454237afe610726b1cb110420046fd3adc6f8'
+            'b2bcb96b6df9e1806061dacc09c1505a20d7cb84524ab239a6c71c963dd9dccc'
             '6c5f21088f37bf5c57c49f96758563ff531a0dce590ba749f14967847bbe5f77'
             '86ce03a77b1d12570739328bed54a8575e301deed0f48d14c259a7b40c762ddc'
             '5045677d943313cded259deda90b227338aa7d65b3b03beb98b87e6bf959a4ef'
-            'a20385cfa3d866e5b9cc03a415ca3e5c75196fa7d530aadd799b9f7cdfcefc62'
-            'f11fc8b32b1b650a3c8937e2289936833992c8505a4fa43119c0926af6422d7d'
+            'be73e172b162f84303f27f099d581ad331576e3475b763dc431c3a4d3aa2a701'
+            '9380ea5348da556eded962abaa6357ebcbf3aa75f299fffdaae0ab950e26c314'
             'c9afe50023999bb0a2989659d401b4cf205a10b5ce196006cf0ef2a8c0b1be7b'
-            '03d27922696f9ed1a86e394c7f37f1e76c1913b30fcf0fb2a686e6559bee8fa1'
+            'f2ae0794d49252890fe588a48d6545f6fda8138b61823820c61636b99ac98da9'
             'e1c9243ca4c39b22db972d4b848671e7f5e0e77485c578c7ced3dbea83c2867b'
             'a3ff4a524a4ebe28551797bd36dab7b7139516e668462f054e616e8a521e3e8f'
             'ecf7ca3233077be8c1cb7da1dd49c525b6ac0e868242396e128dc60e8cbf6352'

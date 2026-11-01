@@ -10,10 +10,10 @@ Ports the **packaging pipeline** of the official
 (the Electron application in `apps/desktop`) to Linux, producing
 AppImage / deb / rpm / Arch packages.
 
-Upstream explicitly does not support Linux today (`apps/desktop/README.md`:
+Upstream explicitly does not support Linux today (`apps/desktop/packaging/README.md`:
 *"Linux is not a supported Desktop release target."*). This project fills exactly
-that gap: it teaches the official packaging pipeline about `linux-x64` and emits
-installable artifacts. See [Validation status](#validation-status) for what has
+that gap: it teaches the official packaging pipeline about `linux-x64` and
+`linux-arm64` and emits installable artifacts. See [Validation status](#validation-status) for what has
 actually been tested.
 
 ![The DeepSeek Harness desktop interface in normal mode (KDE)](docs/screenshot.png)
@@ -45,6 +45,11 @@ Download the AppImage, deb and rpm artifacts from [Releases](https://github.com/
 Artifacts are **unsigned** builds (the file name carries `-unsigned`). Once
 installed, `dsh://` links are handed to it.
 
+From the next release after 2026-11, the same page also carries **arm64** builds
+(file names carry `linux-arm64`; the rpm says `aarch64`) in AppImage, deb and rpm.
+CI builds them on a native arm64 machine and runs a launch smoke test; they have
+not been tried on a physical arm64 device yet.
+
 ## Building from source
 
 Requirements: Node 24.9+ (**not your distro's own Node** — see below), **pnpm 11**, and git.
@@ -67,7 +72,9 @@ only adds one fpm/AppImage packaging pass, so building formats separately is bot
 faster and easier to debug.
 
 Artifacts land in
-`upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/`.
+`upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/` (on an arm64
+machine: `targets/linux-arm64/…`; `build.sh` picks the target from `uname -m`, and
+cross-building is not supported).
 
 The deb / rpm `Maintainer:` / `Homepage:` come from `upstream/apps/desktop/.env.linux`.
 `build.sh` creates it on first run from the repo's `.env.linux.example`, values already filled in.
@@ -220,7 +227,8 @@ Both tables below are kept up to date as reports come in — please tell us how 
 | Other distributions (Linux Mint / CachyOS, …) | Not tested |
 | Other desktops / WMs (Xfce, Sway, …) | Not tested |
 | X11 | Not tested |
-| aarch64 | Not built, not tested |
+| aarch64 (CI build + launch smoke) | Implemented; awaiting the first CI build |
+| Kylin Desktop V10 SP1 · aarch64 · glibc 2.31 | Awaiting a report (issue #11) |
 
 ### Artifacts
 
@@ -231,6 +239,7 @@ Both tables below are kept up to date as reports come in — please tell us how 
 | rpm | **Tested**: `dnf install` → launch → tray, window close → quit |
 | Arch package | **Tested**: `makepkg` → `pacman -U` → launch, sandbox, uninstall |
 | `linux-unpacked` | **Tested**: `verify.sh --runtime` live matrix |
+| arm64 AppImage / deb / rpm | Implemented; awaiting the first CI build |
 
 ## Known limitations
 
@@ -264,11 +273,14 @@ Both tables below are kept up to date as reports come in — please tell us how 
   `platform === 'win32' ? 'desktop-win' : 'desktop-mac'`, so Linux lands on
   `desktop-mac`. That follows from upstream's `'darwin' | 'win32' | null` union
   and is not introduced here; the same request reports `device_model` as
-  `linux-x64`.
-- **`linux-unpacked` is about 1.1G.** With asar disabled it is a tree of small
-  files; the AppImage compresses it to 339M, but first launch reads more files
-  than an asar build would.
-- **x86_64 only.**
+  `linux-x64` or `linux-arm64`.
+- **`linux-unpacked` (on arm64: `linux-arm64-unpacked`) is about 1.1G.** With asar
+  disabled it is a tree of small files; the AppImage compresses it to 339M, but first
+  launch reads more files than an asar build would.
+- **arm64 is built and smoke-tested in CI only, never on physical hardware.** Target
+  environments such as Kylin Desktop V10 SP1 (glibc 2.31) are waiting for a report. The x64
+  speech-to-text binding (`sherpa-onnx`) needs glibc 2.32; its arm64 prebuilt only needs 2.17,
+  so on 2.31 it should work there too — to be confirmed on real hardware.
 
 ## License
 

@@ -2,7 +2,7 @@
 # 验证矩阵。逐项检查，失败不中断，最后汇总。
 #
 #   ./scripts/verify.sh             静态部分：只看产物与打包元数据，不启动应用（CI 跑这个）
-#   ./scripts/verify.sh --runtime   额外跑活体矩阵：真的拉起 linux-unpacked，用 DevTools
+#   ./scripts/verify.sh --runtime   额外跑活体矩阵：真的拉起未打包目录，用 DevTools
 #                                   协议读渲染文档，结束时自动收掉
 #
 # 活体部分需要显示器，且刻意只碰临时 DSH_HOME；同时断言真实的 ~/.dsh 未被触碰。
@@ -19,6 +19,13 @@ if [[ "$DSH_HOME" == "$HOME/.dsh" ]]; then
   exit 1
 fi
 
+# 目标架构跟本机走：x64 与 arm64 的产物目录、未打包目录名、ELF 机器类型都不同。
+case "$(uname -m)" in
+  x86_64)        TARGET=linux-x64;   UNPACKED_NAME=linux-unpacked;       EXPECTED_ELF='X86-64' ;;
+  aarch64|arm64) TARGET=linux-arm64; UNPACKED_NAME=linux-arm64-unpacked; EXPECTED_ELF='AArch64' ;;
+  *) echo "错误：不支持的验证机架构 $(uname -m)（只做 x86_64 与 aarch64）" >&2; exit 1 ;;
+esac
+
 RUNTIME=0
 for arg in "$@"; do
   case "$arg" in
@@ -34,6 +41,12 @@ skip() { echo "  [SKIP] $1"; skipped=$((skipped+1)); }
 # 断言一个字符串包含另一段文本；$3 是给人看的说明。
 has()  { if [[ "$1" == *"$2"* ]]; then ok "$3"; else bad "$3（期望包含：$2）"; fi; }
 
+# ELF 机器类型与最高 GLIBC 符号版本。arm64 构建最容易犯的错是「箱子里装的是 x64 零件」，
+# GLIBC 门禁则防止构建期现场编译把最低系统要求悄悄抬高（核心 2.31 / 可选语音 2.32）。
+elf_machine() { readelf -h "$1" 2>/dev/null | sed -n 's/^ *Machine: *//p' | head -1; }
+max_glibc() { readelf --version-info "$1" 2>/dev/null | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1; }
+version_gt() { [[ "$1" != "$2" && "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" == "$1" ]]; }
+
 # 会话总线上已注册的 StatusNotifierItem，每行一个 "<bus>/<path>"。
 #
 # 条目名有两种形态，都得认：Electron ≤41 与 44.1.0 之后注册的是自己的总线名
@@ -46,8 +59,8 @@ tray_items() {
 }
 
 # unsigned 构建的输出目录（见 electron-builder-config.mjs 的 directories.output）
-OUT="$UPSTREAM/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts"
-UNPACKED="$OUT/linux-unpacked"
+OUT="$UPSTREAM/apps/desktop/.desktop-build/targets/$TARGET/unsigned-artifacts"
+UNPACKED="$OUT/$UNPACKED_NAME"
 APPDSH="$UNPACKED/resources/app/dsh"
 PRIMARY_NODE="$UNPACKED/resources/runtime/primary-runtime/dependencies/node/bin/node"
 CLI="$APPDSH/node_modules/@deepseek-ai/dsh/lib/bin.js"
@@ -122,7 +135,7 @@ fi
 
 # 从产物文件名里取版本：deepseek-harness-<版本>-linux-<arch>-unsigned.<格式>
 artifact_version() {
-  sed -n 's/^deepseek-harness-\(.*\)-linux-\(x86_64\|amd64\)-unsigned\.\(AppImage\|deb\|rpm\)$/\1/p' <<<"$(basename "$1")"
+  sed -n 's/^deepseek-harness-\(.*\)-linux-\(x86_64\|amd64\|arm64\|aarch64\)-unsigned\.\(AppImage\|deb\|rpm\)$/\1/p' <<<"$(basename "$1")"
 }
 
 # 补丁 → 由哪一层覆盖。新增补丁必须在这里登记，否则本脚本直接 FAIL ——
@@ -162,6 +175,16 @@ if (( ${#artifacts[@]} > 0 )); then
     a_version="$(artifact_version "$a")"
     if [[ "$a_version" == "$EXPECTED_VERSION" ]]; then
       ok "$(basename "$a") ($(du -h "$a" | cut -f1))"
+      # 架构标记必须与本次目标一致：arm64 机器上误用 x64 脚本时，这里先拦住。
+      case "$TARGET" in
+        linux-x64)   [[ "$(basename "$a")" == *-linux-x86_64-* || "$(basename "$a")" == *-linux-amd64-* ]] && arch_ok=1 || arch_ok=0 ;;
+        linux-arm64) [[ "$(basename "$a")" == *-linux-arm64-* || "$(basename "$a")" == *-linux-aarch64-* ]] && arch_ok=1 || arch_ok=0 ;;
+      esac
+      if (( arch_ok )); then
+        ok "$(basename "$a") 的架构标记与 $TARGET 一致"
+      else
+        bad "$(basename "$a") 的架构标记与 $TARGET 不一致"
+      fi
       fresh_artifacts+=("$a")
     elif [[ -z "$a_version" ]]; then
       bad "$(basename "$a") 的文件名里读不出版本，无法确认它属于当前基线 $EXPECTED_VERSION"
@@ -175,17 +198,52 @@ fi
 
 echo "== 2. 未打包目录 =="
 if [[ -x "$UNPACKED/deepseek-harness" ]]; then
-  ok "linux-unpacked/deepseek-harness"
+  ok "$UNPACKED_NAME/deepseek-harness"
+  if command -v readelf >/dev/null 2>&1; then
+    machine="$(elf_machine "$UNPACKED/deepseek-harness")"
+    if [[ "$machine" == *"$EXPECTED_ELF"* ]]; then
+      ok "未打包目录的 ELF 架构是 $EXPECTED_ELF"
+    else
+      bad "未打包目录的 ELF 架构不是 $EXPECTED_ELF（readelf: ${machine:-空}）——构建机与目标架构不一致？"
+    fi
+
+    core_max=''; core_worst=''; voice_max=''; voice_worst=''
+    while IFS= read -r bin; do
+      [[ -f "$bin" ]] || continue
+      g="$(max_glibc "$bin")"; g="${g#GLIBC_}"
+      [[ -n "$g" ]] || continue
+      if [[ "$bin" == *'/sherpa-onnx-'* ]]; then
+        if [[ -z "$voice_max" ]] || version_gt "$g" "$voice_max"; then voice_max="$g"; voice_worst="$bin"; fi
+      else
+        if [[ -z "$core_max" ]] || version_gt "$g" "$core_max"; then core_max="$g"; core_worst="$bin"; fi
+      fi
+    done < <({ printf '%s\n' "$UNPACKED/deepseek-harness" "$PRIMARY_NODE"
+               find "$UNPACKED/resources" -type f \( -name '*.node' -o -name 'landlock-run' -o -path '*/python/bin/python3.*' \) 2>/dev/null; })
+    if [[ -n "$core_max" ]] && version_gt "$core_max" 2.31; then
+      bad "核心二进制的最高 GLIBC 要求是 $core_max（超过 2.31）：$core_worst"
+    else
+      ok "核心二进制的最高 GLIBC 要求是 ${core_max:-未知}（≤ 2.31）"
+    fi
+    if [[ -n "$voice_max" ]] && version_gt "$voice_max" 2.32; then
+      bad "语音包（可选）的最高 GLIBC 要求是 $voice_max（超过 2.32）：$voice_worst"
+    elif [[ -n "$voice_max" ]]; then
+      ok "语音包（可选）的最高 GLIBC 要求是 $voice_max（≤ 2.32）"
+    else
+      skip "产物里没有 sherpa-onnx 语音包，跳过可选语音的 GLIBC 检查"
+    fi
+  else
+    skip "没有 readelf，跳过 ELF 架构与 GLIBC 上限检查"
+  fi
   # 未打包目录是不是当前基线打出来的：打包后的 package.json 版本就是上游版本。
   if [[ -n "$NODE" && -f "$UNPACKED/resources/app/package.json" ]]; then
     unpacked_version="$("$NODE" -p "require('$UNPACKED/resources/app/package.json').version" 2>/dev/null || true)"
     if [[ "$unpacked_version" == "$EXPECTED_VERSION" ]]; then
-      ok "linux-unpacked 的 package.json 版本是 $unpacked_version"
+      ok "$UNPACKED_NAME 的 package.json 版本是 $unpacked_version"
     else
-      bad "linux-unpacked 是 $unpacked_version 的产物（当前基线 $EXPECTED_VERSION）——先重跑 build.sh --dir"
+      bad "$UNPACKED_NAME 是 $unpacked_version 的产物（当前基线 $EXPECTED_VERSION）——先重跑 build.sh --dir"
     fi
   else
-    skip "读不到 linux-unpacked/resources/app/package.json 的版本"
+    skip "读不到 $UNPACKED_NAME/resources/app/package.json 的版本"
   fi
   # 真 Node 读不了 asar，Linux 上 dsh 必须是一棵真目录树。
   if [[ -d "$APPDSH/node_modules" ]]; then
@@ -247,7 +305,7 @@ if [[ -x "$UNPACKED/deepseek-harness" ]]; then
     bad "resources/tray-linux.png 缺失（Linux 托盘会拿到空图标）"
   fi
 else
-  skip "linux-unpacked 不存在（还没跑 package:linux:x64:dir）"
+  skip "$UNPACKED_NAME 不存在（还没跑 build.sh --dir）"
 fi
 
 echo "== 3. 原生模块 =="

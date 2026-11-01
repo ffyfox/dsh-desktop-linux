@@ -1,13 +1,15 @@
 diff --git a/apps/desktop/package.json b/apps/desktop/package.json
-index 081a90e..faeba5b 100644
+index 081a90ead..60894e69d 100644
 --- a/apps/desktop/package.json
 +++ b/apps/desktop/package.json
-@@ -38,6 +38,8 @@
+@@ -38,6 +38,10 @@
      "package:win:x64": "tsx scripts/package-target.ts win-x64",
      "package:win:x64:unsigned": "tsx scripts/package-target.ts win-x64 --unsigned",
      "package:win:x64:dir": "tsx scripts/package-target.ts win-x64 --dir",
 +    "package:linux:x64": "tsx scripts/package-target.ts linux-x64 --unsigned",
 +    "package:linux:x64:dir": "tsx scripts/package-target.ts linux-x64 --unsigned --dir",
++    "package:linux:arm64": "tsx scripts/package-target.ts linux-arm64 --unsigned",
++    "package:linux:arm64:dir": "tsx scripts/package-target.ts linux-arm64 --unsigned --dir",
      "upload:mac:arm64": "tsx scripts/upload-target.ts mac-arm64",
      "upload:mac:x64": "tsx scripts/upload-target.ts mac-x64",
      "upload:win:x64": "tsx scripts/upload-target.ts win-x64",

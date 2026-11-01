@@ -1,17 +1,18 @@
 diff --git a/apps/desktop/scripts/desktop-upload-plan.ts b/apps/desktop/scripts/desktop-upload-plan.ts
-index 1461444..1adda3f 100644
+index 1461444fc..44a8421bd 100644
 --- a/apps/desktop/scripts/desktop-upload-plan.ts
 +++ b/apps/desktop/scripts/desktop-upload-plan.ts
-@@ -21,6 +21,7 @@ const TARGETS = {
+@@ -21,6 +21,8 @@ const TARGETS = {
    'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
    'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
    'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
 +  'linux-x64': { platform: 'linux', arch: 'x64', os: 'linux' },
++  'linux-arm64': { platform: 'linux', arch: 'arm64', os: 'linux' },
  } as const satisfies Record<DesktopPackageTargetName, {
    readonly platform: NodeJS.Platform
    readonly arch: string
 diff --git a/apps/desktop/scripts/package-target.ts b/apps/desktop/scripts/package-target.ts
-index b6bc6ef..20da969 100644
+index b6bc6efb6..3bf51dbc1 100644
 --- a/apps/desktop/scripts/package-target.ts
 +++ b/apps/desktop/scripts/package-target.ts
 @@ -48,14 +48,14 @@ const DESKTOP_UPLOAD_CREDENTIAL_ENV_NAMES = new Set([
@@ -19,7 +20,7 @@ index b6bc6ef..20da969 100644
  
  /** Fixed platform and architecture identifiers exposed by package scripts. */
 -export type DesktopPackageTargetName = 'mac-arm64' | 'mac-x64' | 'win-x64'
-+export type DesktopPackageTargetName = 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'
++export type DesktopPackageTargetName = 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'
  
  /** One supported release target and its electron-builder selectors. */
  export interface DesktopPackageTarget {
@@ -32,7 +33,7 @@ index b6bc6ef..20da969 100644
    readonly builderArch: '--arm64' | '--x64'
  }
  
-@@ -81,6 +81,13 @@ const TARGETS: Record<DesktopPackageTargetName, DesktopPackageTarget> = {
+@@ -81,6 +81,20 @@ const TARGETS: Record<DesktopPackageTargetName, DesktopPackageTarget> = {
      builderPlatform: '--win',
      builderArch: '--x64',
    },
@@ -43,18 +44,25 @@ index b6bc6ef..20da969 100644
 +    builderPlatform: '--linux',
 +    builderArch: '--x64',
 +  },
++  'linux-arm64': {
++    name: 'linux-arm64',
++    platform: 'linux',
++    arch: 'arm64',
++    builderPlatform: '--linux',
++    builderArch: '--arm64',
++  },
  }
  
  /**
-@@ -190,6 +197,12 @@ export function resolveDesktopPackageTarget(
+@@ -190,6 +204,12 @@ export function resolveDesktopPackageTarget(
    if (name === 'mac-x64' && hostArch !== 'arm64' && hostArch !== 'x64') {
      throw new Error('desktop package: mac-x64 requires an Intel Mac or Apple Silicon with Rosetta')
    }
 +  if (target.platform === 'linux' && hostPlatform !== 'linux') {
 +    throw new Error(`desktop package: ${name} requires a Linux build host`)
 +  }
-+  if (target.platform === 'linux' && hostArch !== 'x64') {
-+    throw new Error(`desktop package: ${name} requires an x64 build host`)
++  if (target.platform === 'linux' && hostArch !== target.arch) {
++    throw new Error(`desktop package: ${name} requires a Linux ${target.arch} build host`)
 +  }
    return target
  }

@@ -14,11 +14,20 @@
 #   DSH_DESKTOP_LINUX_HOME  隔离的 dsh 数据目录，默认 /tmp/dsh-desktop-test
 #                           （刻意不读 DSH_HOME，见下方注释）
 #
-# 产物落在 .desktop-build/targets/linux-x64/unsigned-artifacts/（unsigned 构建）。
+# 产物落在 .desktop-build/targets/<linux-x64|linux-arm64>/unsigned-artifacts/（unsigned 构建）。
+# 构建目标由本机架构决定：arm64 必须原生构建，构建期会真的执行目标 Electron/Node/Python。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UPSTREAM="$ROOT/upstream"
+
+# 目标架构跟本机走：交叉构建在 prepare 阶段就会失败（要执行目标平台的运行时）。
+case "$(uname -m)" in
+  x86_64)        ARCH=x64 ;;
+  aarch64|arm64) ARCH=arm64 ;;
+  *) echo "错误：不支持的构建机架构 $(uname -m)（只做 x86_64 与 aarch64）" >&2; exit 1 ;;
+esac
+TARGET="linux-$ARCH"
 # 刻意不继承环境里的 DSH_HOME：DSH 会话自身把 DSH_HOME 指向用户真实的 ~/.dsh，直接继承会让
 # 构建往正在使用的数据目录里写东西。要换路径请用 DSH_DESKTOP_LINUX_HOME。
 export DSH_HOME="${DSH_DESKTOP_LINUX_HOME:-/tmp/dsh-desktop-test}"
@@ -38,11 +47,11 @@ source "$ROOT/scripts/select-pnpm.sh"
 # 不是发布设置，所以它只能从环境传，不能写进 .env.linux。
 MODE="${1:---appimage}"
 case "$MODE" in
-  --dir)      SCRIPT="package:linux:x64:dir"; FORMATS="" ;;
-  --appimage) SCRIPT="package:linux:x64";     FORMATS="AppImage" ;;
-  --deb)      SCRIPT="package:linux:x64";     FORMATS="deb" ;;
-  --rpm)      SCRIPT="package:linux:x64";     FORMATS="rpm" ;;
-  --all)      SCRIPT="package:linux:x64";     FORMATS="AppImage,deb,rpm" ;;
+  --dir)      SCRIPT="package:linux:$ARCH:dir"; FORMATS="" ;;
+  --appimage) SCRIPT="package:linux:$ARCH";     FORMATS="AppImage" ;;
+  --deb)      SCRIPT="package:linux:$ARCH";     FORMATS="deb" ;;
+  --rpm)      SCRIPT="package:linux:$ARCH";     FORMATS="rpm" ;;
+  --all)      SCRIPT="package:linux:$ARCH";     FORMATS="AppImage,deb,rpm" ;;
   *) echo "未知参数：$MODE" >&2; exit 2 ;;
 esac
 
@@ -66,11 +75,12 @@ else
 fi
 
 echo "==> DSH_HOME=$DSH_HOME"
+echo "==> 构建目标：$TARGET（$(uname -m)）"
 echo "==> apps/desktop script: $SCRIPT${FORMATS:+ (formats: $FORMATS)}"
 mkdir -p "$DSH_HOME"
 
-# 原生模块现状（实测）：node-pty 与 sharp 的 linux-x64 二进制都随 pnpm install 就位，
-# 不需要额外编译。
+# 原生模块现状（实测）：node-pty 与 sharp 的 linux-x64 / linux-arm64 二进制都随 pnpm install
+# 就位，不需要额外编译。
 if ! find "$UPSTREAM/node_modules" -name 'pty.node' -print -quit 2>/dev/null | grep -q .; then
   echo "==> 警告：没找到 pty.node" >&2
 fi
@@ -79,4 +89,4 @@ if [[ -n "$FORMATS" ]]; then
   export DSH_DESKTOP_TARGET_FORMATS="$FORMATS"
 fi
 "$PNPM" --dir "$UPSTREAM/apps/desktop" run "$SCRIPT"
-echo "==> 完成，产物见 $UPSTREAM/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts"
+echo "==> 完成，产物见 $UPSTREAM/apps/desktop/.desktop-build/targets/$TARGET/unsigned-artifacts"

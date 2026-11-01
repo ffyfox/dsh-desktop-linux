@@ -512,3 +512,18 @@ GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩�
   连接不回数据。**别把它误判成死锁或产物问题**：主进程其实空闲在 `poll`（~0.6% CPU）。排查靠
   `xdotool search --pid <pid>` 找到那个名叫 `Error` 的窗口，再 `import -window <id>` 抓下来读原文；
   探 DevTools 之前记得先摘掉本机的 `NODE_USE_ENV_PROXY`/`http_proxy`，否则 `127.0.0.1` 也会被代理拦掉。
+
+## 2026-11-01：linux-arm64（issue #11）
+
+arm64 目标折进现有补丁，不新增编号；文件名保留 `-x64` 的历史名。
+
+- `0001` / `0002` / `0006` / `0007` 的目标联合、`SUPPORTED_TARGETS`、`TARGETS`、`package.json`
+  脚本与单测同时覆盖 `linux-x64` 与 `linux-arm64`。
+- `package-target` 的宿主守卫由「Linux 必须 x64」改为「宿主架构 == 目标架构」：交叉构建在 prepare
+  阶段就会失败（要执行目标 Electron/Node/Python），必须原生构建。
+- `0009` 把 `linux-unpacked` 改成按目标架构计算：electron-builder 以 x64 为默认架构，arm64 的
+  未打包目录是 `linux-arm64-unpacked`。
+- PKGBUILD 的 `arch` 加 `aarch64`（只支持 Arch Linux ARM 本机 makepkg；CI 的 Arch 容器仍是 x86_64）。
+- 验证（2026-11-01）：这五个补丁在干净 worktree 里按序 `git apply` 通过，与补丁态工作树逐文件
+  `cmp` 零差异；`desktop-build-paths` / `desktop-auto-update-environment` / `package-target`
+  三个 spec 共 48 个用例通过。

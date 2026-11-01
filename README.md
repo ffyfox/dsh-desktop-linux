@@ -8,8 +8,9 @@
 （`apps/desktop` 的 Electron 应用）的**打包流水线**移植到 Linux，产出
 AppImage / deb / rpm / Arch 包。
 
-上游目前明确不支持 Linux（`apps/desktop/README.md`：*"Linux is not a supported Desktop
-release target."*）。本项目补的就是这一块：让官方打包流水线认得 `linux-x64` 并产出安装包。
+上游目前明确不支持 Linux（`apps/desktop/packaging/README.md`：*"Linux is not a supported
+Desktop release target."*）。本项目补的就是这一块：让官方打包流水线认得 `linux-x64` 与
+`linux-arm64` 并产出安装包。
 当前验证范围见[验证状态](#验证状态)。
 
 ![DeepSeek Harness 桌面端普通模式界面（KDE）](docs/screenshot.png)
@@ -39,6 +40,9 @@ release target."*）。本项目补的就是这一块：让官方打包流水线
 
 产物是 **unsigned** 构建（文件名里带 `-unsigned`）。安装后 `dsh://` 链接会交给它处理。
 
+从 2026-11 的下一个版本起，同一页面也提供 **arm64**（文件名带 `linux-arm64`，rpm 里写 `aarch64`）的
+AppImage / deb / rpm。arm64 产物由 CI 在原生 arm64 机器上构建，并做启动检查；目前还没有实体设备实测。
+
 ## 从源码构建
 
 依赖：Node 24.9+（**别用发行版自己打的 Node**，见下）、**pnpm 11**、git。
@@ -58,7 +62,8 @@ cd dsh-desktop-linux
 整条流水线（`build:official` → `release:pack` → `prepare:*` → `package`）才是耗时大头，
 多打一种格式只多一次 fpm/AppImage 打包，所以分开跑更快，也更容易定位失败。
 
-产物落在 `upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/`。
+产物落在 `upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/`（arm64 机器上是
+`targets/linux-arm64/…`；`build.sh` 按 `uname -m` 自动选目标，交叉构建不受支持）。
 
 deb / rpm 的 `Maintainer:` / `Homepage:` 来自 `upstream/apps/desktop/.env.linux`。`build.sh`
 首次运行就从仓库里的 `.env.linux.example` 生成，值已经填好。要换成你自己的，改那个文件即可：
@@ -187,7 +192,8 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
 | 其他发行版（Linux Mint / CachyOS 等） | 未验证 |
 | 其他DE/WM（Xfce / Sway 等） | 未验证 |
 | X11 | 未验证 |
-| aarch64 | 未构建、未验证 |
+| aarch64（CI 构建 + 启动冒烟） | 已实现，待首次 CI 构建验证 |
+| 麒麟桌面 V10 SP1 · aarch64 · glibc 2.31 | 待反馈（issue #11） |
 
 ### 产物
 
@@ -198,6 +204,7 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
 | rpm | **已实测**：`dnf install` → 启动 → 托盘、关窗 → 退出 |
 | Arch 包 | **已实测**：`makepkg` → `pacman -U` 安装 → 启动、沙箱、卸载 |
 | `linux-unpacked` | **已实测**：`verify.sh --runtime` 活体矩阵 |
+| arm64 AppImage / deb / rpm | 已实现，待首次 CI 构建验证 |
 
 ## 已知限制
 
@@ -225,10 +232,12 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
 - **Platform 侧会把 Linux 客户端认成 macOS。** 上游的客户端身份映射是
   `platform === 'win32' ? 'desktop-win' : 'desktop-mac'`，Linux 落到 `desktop-mac`。
   这是上游类型联合 `'darwin' | 'win32' | null` 的结果，不是本项目引入的；
-  同一个请求里的 `device_model` 又是 `linux-x64`。
-- **`linux-unpacked` 约 1.1G。** asar 关闭后是小文件目录树，AppImage 压成 squashfs 后 339M，
-  但首次启动的文件读取比 asar 多。
-- **只做 x86_64。**
+  同一个请求里的 `device_model` 又是 `linux-x64` 或 `linux-arm64`。
+- **`linux-unpacked`（arm64 上是 `linux-arm64-unpacked`）约 1.1G。** asar 关闭后是小文件目录树，
+  AppImage 压成 squashfs 后 339M，但首次启动的文件读取比 asar 多。
+- **arm64 只在 CI 里构建和冒烟，没有实体设备实测。** 目标环境（例如麒麟桌面 V10 SP1，glibc 2.31）
+  待用户反馈。x64 的本地语音转写包（`sherpa-onnx`）要求 glibc 2.32；arm64 的对应预编译包只要求
+  2.17，理论上 2.31 上也能用，待实机确认。
 
 ## 许可
 

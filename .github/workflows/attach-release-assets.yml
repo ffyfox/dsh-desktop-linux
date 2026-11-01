@@ -1,0 +1,96 @@
+name: attach-release-assets
+
+# 把某次 build-linux 的产物直接传进一个已存在的草稿 Release，不经过维护者的本机。
+#
+# 为什么不在 tag 触发的构建里自动上传：
+#   - 对外动作（建 Release / 上传资产）必须由维护者显式发起，这个 workflow 是 workflow_dispatch；
+#   - 草稿由维护者先建，作者仍是维护者本人，不会变成 github-actions[bot]。
+#
+# 用法（13 站）：
+#   gh workflow run attach-release-assets.yml \
+#     -f run_id=<build-linux 的 run id> -f tag=<草稿 Release 的 tag>
+#
+# 校验：run 的 head_sha 必须等于 tag 指向的提交；Release 必须是 draft；上传后逐个核对
+# API 里的 sha256 digest 与本地文件，不一致就红。
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'build-linux 的 run id（tag 或空跑那次，产物在它的 artifacts 里）'
+        required: true
+      tag:
+        description: '已存在的草稿 Release 的 tag'
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 校验 run、tag 与草稿 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ inputs.run_id }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          run_sha="$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq .head_sha)"
+          # annotated tag 用 commits/<tag> 直接解析到提交，而不是 tag 对象。
+          tag_sha="$(gh api "repos/$REPO/commits/$TAG" --jq .sha)"
+          if [[ "$run_sha" != "$tag_sha" ]]; then
+            echo "run $RUN_ID 的 head_sha（$run_sha）与 tag $TAG 指向的提交（$tag_sha）不一致" >&2
+            exit 1
+          fi
+          draft="$(gh api "repos/$REPO/releases/tags/$TAG" --jq .draft)"
+          if [[ "$draft" != "true" ]]; then
+            echo "Release $TAG 不是草稿（draft=$draft）；只允许往草稿上传" >&2
+            exit 1
+          fi
+          echo "校验通过：run=$RUN_ID sha=$run_sha tag=$TAG"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deepseek-harness-desktop-linux-*
+          merge-multiple: true
+          path: assets
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+
+      - name: 上传并核对 digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(assets/*)
+          if (( ${#files[@]} == 0 )); then
+            echo "没有下载到任何产物（run ${{ inputs.run_id }} 的 artifacts 为空？）" >&2
+            exit 1
+          fi
+          printf '准备上传 %d 个文件\n' "${#files[@]}"
+          gh release upload "$TAG" "${files[@]}" --clobber
+
+          # 不下载 851MB 也能核对：Release asset 的 digest 字段就是 sha256。
+          release_id="$(gh api "repos/$REPO/releases/tags/$TAG" --jq .id)"
+          gh api "repos/$REPO/releases/$release_id/assets" --jq '.[] | [.name,.digest] | @tsv' > uploaded.txt
+          status=0
+          for f in "${files[@]}"; do
+            name="$(basename "$f")"
+            local_digest="sha256:$(sha256sum "$f" | cut -d' ' -f1)"
+            remote_digest="$(awk -F'\t' -v n="$name" '$1==n {print $2}' uploaded.txt)"
+            if [[ "$remote_digest" != "$local_digest" ]]; then
+              echo "digest 不一致：$name 本地 $local_digest 远端 ${remote_digest:-缺失}" >&2
+              status=1
+            else
+              echo "ok $name $remote_digest"
+            fi
+          done
+          exit "$status"

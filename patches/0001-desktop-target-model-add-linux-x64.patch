@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/desktop-auto-update-environment.d.mts b/apps/desktop/scripts/desktop-auto-update-environment.d.mts
-index 4d42b3d..87b29de 100644
+index 4d42b3dd1..abbe60b3a 100644
 --- a/apps/desktop/scripts/desktop-auto-update-environment.d.mts
 +++ b/apps/desktop/scripts/desktop-auto-update-environment.d.mts
 @@ -5,7 +5,7 @@ export const DESKTOP_AUTO_UPDATE_ENV: 'DSH_DESKTOP_AUTO_UPDATE_ENV'
@@ -7,12 +7,12 @@ index 4d42b3d..87b29de 100644
  
  /** Directory name of one supported Desktop release target. */
 -export type DesktopAutoUpdateTarget = 'mac-arm64' | 'mac-x64' | 'win-x64'
-+export type DesktopAutoUpdateTarget = 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'
++export type DesktopAutoUpdateTarget = 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'
  
  /**
   * Name the fixed installer object shared by uploading and cache refresh.
 diff --git a/apps/desktop/scripts/desktop-auto-update-environment.mjs b/apps/desktop/scripts/desktop-auto-update-environment.mjs
-index 835bead..8cf84b3 100644
+index 835beadd6..d463eab63 100644
 --- a/apps/desktop/scripts/desktop-auto-update-environment.mjs
 +++ b/apps/desktop/scripts/desktop-auto-update-environment.mjs
 @@ -33,7 +33,7 @@ const UPDATE_ENVIRONMENTS = {
@@ -20,7 +20,7 @@ index 835bead..8cf84b3 100644
  }
  
 -const UPDATE_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64'])
-+const UPDATE_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64'])
++const UPDATE_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64', 'linux-arm64'])
  
  /**
   * Name the fixed installer object shared by uploading and cache refresh.
@@ -29,7 +29,7 @@ index 835bead..8cf84b3 100644
   * @param {NodeJS.Platform} platform - Target Node.js platform.
   * @param {string} arch - Target Node.js architecture.
 - * @returns {'mac-arm64' | 'mac-x64' | 'win-x64'} Update target directory.
-+ * @returns {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'} Update target directory.
++ * @returns {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'} Update target directory.
   */
  export function resolveDesktopAutoUpdateTarget(platform, arch) {
    const os = platform === 'darwin' ? 'mac' : platform === 'win32' ? 'win' : platform
@@ -38,12 +38,30 @@ index 835bead..8cf84b3 100644
  /**
   * Return the local completion record filename for one packaged target.
 - * @param {'mac-arm64' | 'mac-x64' | 'win-x64'} target - Supported release target.
-+ * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'} target - Supported release target.
++ * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'} target - Supported release target.
   * @returns {string} Filename stored beside electron-builder artifacts.
   */
  export function desktopBuildRecordFilename(target) {
+@@ -148,7 +148,7 @@ function httpsOrigin(value, name) {
+  * @param {NodeJS.ProcessEnv} env - Packaging or upload environment.
+  * @param {NodeJS.Platform} platform - Target Node.js platform.
+  * @param {string} arch - Target Node.js architecture.
+- * @returns {{ environment: 'test' | 'production', channel: 'nightly' | 'latest', target: 'mac-arm64' | 'mac-x64' | 'win-x64', origin: string, publicUrl: string, keyPrefix: string, binaryKeyPrefix: string }} Resolved updater configuration.
++ * @returns {{ environment: 'test' | 'production', channel: 'nightly' | 'latest', target: 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64', origin: string, publicUrl: string, keyPrefix: string, binaryKeyPrefix: string }} Resolved updater configuration.
+  * @throws {Error} When the test deployment lacks a valid HTTPS origin or a 32-character lowercase hexadecimal release ID.
+  */
+ export function resolveDesktopAutoUpdateConfig(env, platform, arch) {
+@@ -187,7 +187,7 @@ export function resolveDesktopAutoUpdateConfig(env, platform, arch) {
+  * @param {NodeJS.ProcessEnv} env - Upload environment.
+  * @param {NodeJS.Platform} platform - Target Node.js platform.
+  * @param {string} arch - Target Node.js architecture.
+- * @returns {{ environment: 'test' | 'production', channel: 'nightly' | 'latest', target: 'mac-arm64' | 'mac-x64' | 'win-x64', origin: string, publicUrl: string, keyPrefix: string, binaryKeyPrefix: string, bucket: string, secretIdEnvName: string, secretKeyEnvName: string }} Resolved upload configuration.
++ * @returns {{ environment: 'test' | 'production', channel: 'nightly' | 'latest', target: 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64', origin: string, publicUrl: string, keyPrefix: string, binaryKeyPrefix: string, bucket: string, secretIdEnvName: string, secretKeyEnvName: string }} Resolved upload configuration.
+  * @throws {Error} When the selected deployment lacks a bucket or valid updater configuration.
+  */
+ export function resolveDesktopUploadConfig(env, platform, arch) {
 diff --git a/apps/desktop/scripts/desktop-build-paths.d.mts b/apps/desktop/scripts/desktop-build-paths.d.mts
-index 910f303..da063eb 100644
+index 910f3032e..da063eb58 100644
 --- a/apps/desktop/scripts/desktop-build-paths.d.mts
 +++ b/apps/desktop/scripts/desktop-build-paths.d.mts
 @@ -46,10 +46,17 @@ export function desktopTargetBuildPaths(target: DesktopAutoUpdateTarget, environ
@@ -66,7 +84,7 @@ index 910f303..da063eb 100644
   * Resolve the paths owned by the target selected in a packaging environment.
   * @param env - Packaging environment.
 diff --git a/apps/desktop/scripts/desktop-build-paths.mjs b/apps/desktop/scripts/desktop-build-paths.mjs
-index edfd9cd..f6ba9cb 100644
+index edfd9cdf7..66067e6d1 100644
 --- a/apps/desktop/scripts/desktop-build-paths.mjs
 +++ b/apps/desktop/scripts/desktop-build-paths.mjs
 @@ -4,14 +4,14 @@ import { isAbsolute, join, resolve } from 'node:path'
@@ -74,7 +92,7 @@ index edfd9cd..f6ba9cb 100644
  const APP_ROOT = resolve(import.meta.dirname, '..')
  const BUILD_ROOT = join(APP_ROOT, '.desktop-build')
 -const SUPPORTED_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64'])
-+const SUPPORTED_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64'])
++const SUPPORTED_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64', 'linux-arm64'])
  
  /**
   * Resolve the fixed build target selected by a packaging environment.
@@ -82,7 +100,7 @@ index edfd9cd..f6ba9cb 100644
   * @param {NodeJS.Platform} hostPlatform - Build-host platform used when no target override exists.
   * @param {string} hostArch - Build-host architecture used when no target override exists.
 - * @returns {'mac-arm64' | 'mac-x64' | 'win-x64'} Supported Desktop target name.
-+ * @returns {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'} Supported Desktop target name.
++ * @returns {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'} Supported Desktop target name.
   */
  export function resolveDesktopBuildTarget(
    env = process.env,
@@ -91,7 +109,7 @@ index edfd9cd..f6ba9cb 100644
      throw new Error(`desktop build paths: unsupported target ${target}`)
    }
 -  return /** @type {'mac-arm64' | 'mac-x64' | 'win-x64'} */ (target)
-+  return /** @type {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'} */ (target)
++  return /** @type {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'} */ (target)
  }
  
  function assertSupportedTarget(target) {
@@ -100,7 +118,7 @@ index edfd9cd..f6ba9cb 100644
  /**
   * Return the mutable preparation and artifact directories owned by one release target.
 - * @param {'mac-arm64' | 'mac-x64' | 'win-x64'} target - Supported Desktop target name.
-+ * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'} target - Supported Desktop target name.
++ * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'} target - Supported Desktop target name.
   * @param {NodeJS.ProcessEnv} environment - Packaging environment with an optional absolute cache directory.
   * @returns {{ root: string, artifacts: string, unsignedArtifacts: string, unnotarizedArtifacts: string, runtime: string, packageSet: string, dsh: string, dshPnpm: string, electron: string, packedDsh: string, packedVendor: string, packedLandlock: string, downloads: string, pnpmStore: string }} Target paths plus shared download and package caches.
   */
@@ -110,16 +128,17 @@ index edfd9cd..f6ba9cb 100644
   * Windows is prepared as x64 only, so this differs from the build host on an arm64 Windows machine.
 - * @param {'mac-arm64' | 'mac-x64' | 'win-x64'} target - Supported Desktop target name.
 - * @returns {{ platform: 'darwin' | 'win32', arch: 'arm64' | 'x64' }} Platform and architecture of the prepared payload.
-+ * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'} target - Supported Desktop target name.
++ * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'} target - Supported Desktop target name.
 + * @returns {{ platform: 'darwin' | 'win32' | 'linux', arch: 'arm64' | 'x64' }} Platform and architecture of the prepared payload.
   */
  export function desktopTargetPlatform(target) {
    assertSupportedTarget(target)
-@@ -79,10 +79,24 @@ export function desktopTargetPlatform(target) {
+@@ -79,10 +79,25 @@ export function desktopTargetPlatform(target) {
      'mac-arm64': { platform: 'darwin', arch: 'arm64' },
      'mac-x64': { platform: 'darwin', arch: 'x64' },
      'win-x64': { platform: 'win32', arch: 'x64' },
 +    'linux-x64': { platform: 'linux', arch: 'x64' },
++    'linux-arm64': { platform: 'linux', arch: 'arm64' },
    })
    return targets[target]
  }
@@ -127,13 +146,13 @@ index edfd9cd..f6ba9cb 100644
 +/**
 + * Return the Electron executable inside one target's extracted distribution.
 + * The macOS zip nests the binary in the bundle; the Windows and Linux zips place it at the root.
-+ * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64'} target - Supported Desktop target name.
++ * @param {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'} target - Supported Desktop target name.
 + * @returns {string} Path relative to the extracted Electron directory.
 + */
 +export function desktopElectronExecutablePath(target) {
 +  assertSupportedTarget(target)
 +  if (target === 'win-x64') return 'electron.exe'
-+  if (target === 'linux-x64') return 'electron'
++  if (target.startsWith('linux-')) return 'electron'
 +  return 'Electron.app/Contents/MacOS/Electron'
 +}
 +
@@ -141,7 +160,7 @@ index edfd9cd..f6ba9cb 100644
   * Resolve the paths owned by the target selected in a packaging environment.
   * @param {NodeJS.ProcessEnv} env - Packaging environment.
 diff --git a/apps/desktop/scripts/desktop-release-store.ts b/apps/desktop/scripts/desktop-release-store.ts
-index c080272..83ec26c 100644
+index c080272e1..ee0b1dc24 100644
 --- a/apps/desktop/scripts/desktop-release-store.ts
 +++ b/apps/desktop/scripts/desktop-release-store.ts
 @@ -17,7 +17,7 @@ const sourceSchema = z.strictObject({
@@ -149,7 +168,7 @@ index c080272..83ec26c 100644
    runnerName: z.string().min(1),
    // Storage accepts every Desktop target; CI routing separately limits currently provisioned platforms.
 -  target: z.enum(['mac-arm64', 'mac-x64', 'win-x64']),
-+  target: z.enum(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64']),
++  target: z.enum(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64', 'linux-arm64']),
    preset: z.enum(['test', 'production']),
    productVersion: z.string().min(1),
    version: z.string().min(1),
