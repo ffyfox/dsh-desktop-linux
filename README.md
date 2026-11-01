@@ -192,7 +192,7 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
 | 其他发行版（Linux Mint / CachyOS 等） | 未验证 |
 | 其他DE/WM（Xfce / Sway 等） | 未验证 |
 | X11 | 未验证 |
-| aarch64（CI 构建 + 启动冒烟） | 已实现，待首次 CI 构建验证 |
+| aarch64（CI 构建 + 启动冒烟） | 已在 CI 通过构建与启动冒烟（2026-11-01） |
 | 麒麟桌面 V10 SP1 · aarch64 · glibc 2.31 | 待反馈（issue #11） |
 
 ### 产物
@@ -204,7 +204,7 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
 | rpm | **已实测**：`dnf install` → 启动 → 托盘、关窗 → 退出 |
 | Arch 包 | **已实测**：`makepkg` → `pacman -U` 安装 → 启动、沙箱、卸载 |
 | `linux-unpacked` | **已实测**：`verify.sh --runtime` 活体矩阵 |
-| arm64 AppImage / deb / rpm | 已实现，待首次 CI 构建验证 |
+| arm64 AppImage / deb / rpm | 已在 CI 构建并冒烟通过（2026-11-01） |
 
 ## 已知限制
 

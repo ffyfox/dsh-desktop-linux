@@ -227,7 +227,7 @@ Both tables below are kept up to date as reports come in — please tell us how 
 | Other distributions (Linux Mint / CachyOS, …) | Not tested |
 | Other desktops / WMs (Xfce, Sway, …) | Not tested |
 | X11 | Not tested |
-| aarch64 (CI build + launch smoke) | Implemented; awaiting the first CI build |
+| aarch64 (CI build + launch smoke) | CI build and launch smoke passed (2026-11-01) |
 | Kylin Desktop V10 SP1 · aarch64 · glibc 2.31 | Awaiting a report (issue #11) |
 
 ### Artifacts
@@ -239,7 +239,7 @@ Both tables below are kept up to date as reports come in — please tell us how 
 | rpm | **Tested**: `dnf install` → launch → tray, window close → quit |
 | Arch package | **Tested**: `makepkg` → `pacman -U` → launch, sandbox, uninstall |
 | `linux-unpacked` | **Tested**: `verify.sh --runtime` live matrix |
-| arm64 AppImage / deb / rpm | Implemented; awaiting the first CI build |
+| arm64 AppImage / deb / rpm | Built and smoke-tested in CI (2026-11-01) |
 
 ## Known limitations
 
