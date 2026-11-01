@@ -167,6 +167,19 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # 只给 arm64 留一份 deb：持有麒麟等 arm64 设备的测试者只需要 deb，没必要为拿一个包
+      # 去下 816MB 的三格式整包。名字故意不带 deepseek-harness-desktop-linux- 前缀——
+      # 13 站的 attach-release-assets.yml 按该前缀下载产物，撞上会把同一个 deb 重复上传。
+      - name: 只上传 arm64 deb（给 arm64 测试者）
+        if: matrix.arch == 'arm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: arm64-deb-only
+          path: upstream/apps/desktop/.desktop-build/targets/linux-${{ matrix.arch }}/unsigned-artifacts/*.deb
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
   # Arch 包（PKGBUILD）单独一个 job：跑在 archlinux 容器里，与上面的 electron-builder
   # 流水线无关。PKGBUILD 直接吃上游 release 源码包，不依赖 ./upstream 检出。
   arch:
