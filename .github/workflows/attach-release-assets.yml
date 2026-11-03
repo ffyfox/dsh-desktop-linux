@@ -30,6 +30,9 @@ jobs:
   attach:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # 本 job 不 checkout 仓库，gh 找不到仓库上下文；上传/查看 Release 都靠它。
+    env:
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: 校验 run、tag 与草稿 Release
         env:
@@ -46,7 +49,9 @@ jobs:
             echo "run $RUN_ID 的 head_sha（$run_sha）与 tag $TAG 指向的提交（$tag_sha）不一致" >&2
             exit 1
           fi
-          draft="$(gh api "repos/$REPO/releases/tags/$TAG" --jq .draft)"
+          # 草稿 Release 还没和 tag 绑定（页面 URL 是 untagged-…），releases/tags/<tag>
+          # 对草稿一律 404；gh release view 会连草稿一起找。
+          draft="$(gh release view "$TAG" --json isDraft --jq .isDraft)"
           if [[ "$draft" != "true" ]]; then
             echo "Release $TAG 不是草稿（draft=$draft）；只允许往草稿上传" >&2
             exit 1
@@ -79,7 +84,7 @@ jobs:
           gh release upload "$TAG" "${files[@]}" --clobber
 
           # 不下载 851MB 也能核对：Release asset 的 digest 字段就是 sha256。
-          release_id="$(gh api "repos/$REPO/releases/tags/$TAG" --jq .id)"
+          release_id="$(gh release view "$TAG" --json databaseId --jq .databaseId)"
           gh api "repos/$REPO/releases/$release_id/assets" --jq '.[] | [.name,.digest] | @tsv' > uploaded.txt
           status=0
           for f in "${files[@]}"; do
