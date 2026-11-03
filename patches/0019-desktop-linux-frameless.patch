@@ -15,10 +15,10 @@ index 0000000..cb18b79
 +  return process.platform === 'linux' && process.env.DSH_DESKTOP_FRAMELESS === '1'
 +}
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 2333e65..1d33d29 100644
+index bd63c59..9a78985 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -33,7 +33,9 @@ import { DesktopBackendController } from './backend-controller.ts'
+@@ -34,7 +34,9 @@ import { DesktopBackendController } from './backend-controller.ts'
  import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
  import { readDeviceInfo } from './device-info.ts'
  import { GLASS_ARGUMENT, desktopGlass, glassTint } from './glass-mode.ts'
@@ -28,7 +28,7 @@ index 2333e65..1d33d29 100644
  import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
  import { claimDesktopSingleInstance } from './single-instance.ts'
  import { desktopUpdateChannel } from './update-channel.ts'
-@@ -261,8 +263,20 @@ function platformLoginUrl(authorizeUrl: string): string {
+@@ -262,8 +264,20 @@ function platformLoginUrl(authorizeUrl: string): string {
    return url.href
  }
  
@@ -50,7 +50,7 @@ index 2333e65..1d33d29 100644
    const window = new BrowserWindow({
      width: 1280,
      height: 820,
-@@ -280,6 +294,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -281,6 +295,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
          symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115' },
      } : {}),
@@ -64,7 +64,7 @@ index 2333e65..1d33d29 100644
      // hiddenInset places traffic lights inside the sidebar; sidebar vibrancy
      // needs a transparent window background to show through the page.
      ...(process.platform === 'darwin' ? {
-@@ -300,8 +321,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -301,8 +322,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        webviewTag: primary,
        devTools: true,
        ...(glass ? { additionalArguments: [GLASS_ARGUMENT] } : {}),
@@ -78,7 +78,7 @@ index 2333e65..1d33d29 100644
    // Linux draws the caption menubar inside the page; a native menu bar would double that strip.
    // The application menu stays set so its accelerators keep working. Glass mode has no caption,
    // so the menu bar auto-hides instead and Alt reveals it, keeping the menu out of the window's content.
-@@ -313,7 +339,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -314,7 +340,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
      if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
      return { action: 'deny' }
    })
@@ -87,7 +87,7 @@ index 2333e65..1d33d29 100644
      // Fullscreen hides native window controls; overlays drop their caption clearance.
      const sendFullscreen = (): void => {
        if (!window.isDestroyed()) window.webContents.send(DESKTOP_IPC.windowFullscreen, window.isFullScreen())
-@@ -387,6 +413,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -388,6 +414,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
  }
  
  async function main(): Promise<void> {
@@ -99,7 +99,7 @@ index 2333e65..1d33d29 100644
    const desktopSettings = readDesktopSettings(app.getPath('userData'))
    void pruneCrashReports(app.getPath('logs'))
    const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
-@@ -797,7 +828,7 @@ async function main(): Promise<void> {
+@@ -798,7 +829,7 @@ async function main(): Promise<void> {
        if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname.startsWith('/assets/')
          || ['/favicon.svg', '/manifest.webmanifest'].includes(url.pathname)) {
          const root = join(resources.dsh, 'node_modules', '@deepseek-ai', 'dsh-web-frontend', 'dist')
@@ -108,7 +108,7 @@ index 2333e65..1d33d29 100644
            ? serveWebDocument(request, root, glassDocument(glassTint()))
            : serveWebDocument(request, root)
        }
-@@ -1191,8 +1222,10 @@ async function main(): Promise<void> {
+@@ -1196,8 +1227,10 @@ async function main(): Promise<void> {
        // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
        const validColor = (value: unknown): value is string => typeof value === 'string'
          && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
@@ -425,7 +425,7 @@ index 0000000..033f02d
 +  })
 +})
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index de8b027..9286b4c 100644
+index dc20ae2..83ff04b 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
 @@ -3,6 +3,7 @@ import type { DesktopHostProcess } from '../src/host-process.ts'
@@ -436,7 +436,7 @@ index de8b027..9286b4c 100644
  import { glassDocument } from '../src/glass-document.ts'
  import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
  import type { IpcMainInvokeEvent } from 'electron'
-@@ -951,6 +952,120 @@ describe('desktop main startup', () => {
+@@ -991,6 +992,120 @@ describe('desktop main startup', () => {
      expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
    })
  
@@ -838,7 +838,7 @@ index 2100de7..724ab3f 100644
      const window = createWindow()
      const loaded = Promise.withResolvers<undefined>()
 diff --git a/tsconfig.client.json b/tsconfig.client.json
-index 26d88ff..23632e2 100644
+index 8ef965c..22cbecd 100644
 --- a/tsconfig.client.json
 +++ b/tsconfig.client.json
 @@ -21,6 +21,7 @@

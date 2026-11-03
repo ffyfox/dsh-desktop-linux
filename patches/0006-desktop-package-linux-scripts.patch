@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/package.json b/apps/desktop/package.json
-index 081a90ead..60894e69d 100644
+index 5d4f00e..72de86a 100644
 --- a/apps/desktop/package.json
 +++ b/apps/desktop/package.json
 @@ -38,6 +38,10 @@
@@ -13,3 +13,75 @@ index 081a90ead..60894e69d 100644
      "upload:mac:arm64": "tsx scripts/upload-target.ts mac-arm64",
      "upload:mac:x64": "tsx scripts/upload-target.ts mac-x64",
      "upload:win:x64": "tsx scripts/upload-target.ts win-x64",
+diff --git a/packages/client/ui-brand-official/src/client/index.ts b/packages/client/ui-brand-official/src/client/index.ts
+index 332a5f6..05e32a6 100644
+--- a/packages/client/ui-brand-official/src/client/index.ts
++++ b/packages/client/ui-brand-official/src/client/index.ts
+@@ -14,7 +14,10 @@ export const inject = ['slots']
+  * @param ctx - Client root context.
+  */
+ export function apply(ctx: ClientContext): void {
+-  if (process.env.DSH_CLIENT_BUILD_PROFILE !== 'official') return
++  // Linux packages are unsigned, so packaging selects the local client profile; those
++  // release packages still carry the official brand. A build that selects no profile
++  // (a plain web build) leaves the holes to their declaring fallbacks.
++  if (process.env.DSH_CLIENT_BUILD_PROFILE === undefined) return
+   ctx.slots.inject('sidebar.brand.mark', () =>
+     ctx.slots.inject('sidebar.brand.name', function* () {
+       yield ctx.slots.register({ name: 'sidebar.brand.mark' }, OfficialBrandMark)
+diff --git a/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx b/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx
+index 47e3206..8a53d98 100644
+--- a/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx
++++ b/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx
+@@ -40,11 +40,23 @@ describe('official browser-brand plugin', () => {
+     expect(inject).toEqual(['slots'])
+   })
+ 
+-  it('leaves every slot empty outside the official build profile', async () => {
++  it('fills the brand holes for the local profile Linux release packages use', async () => {
+     vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'local')
+     const subject = await bench()
+     await subject.ctx.plugin({ inject: [...inject], apply }).await()
+-    for (const hole of HOLES) expect(subject.slots.entries(hole)).toHaveLength(0)
++    for (const hole of HOLES) expect(subject.slots.entries(hole)).toHaveLength(1)
++  })
++
++  it('leaves every slot empty when no build profile is selected', async () => {
++    const saved = process.env.DSH_CLIENT_BUILD_PROFILE
++    Reflect.deleteProperty(process.env, 'DSH_CLIENT_BUILD_PROFILE')
++    try {
++      const subject = await bench()
++      await subject.ctx.plugin({ inject: [...inject], apply }).await()
++      for (const hole of HOLES) expect(subject.slots.entries(hole)).toHaveLength(0)
++    } finally {
++      if (saved !== undefined) process.env.DSH_CLIENT_BUILD_PROFILE = saved
++    }
+   })
+ 
+   it('fills declarations before or after apply and removes every occupant on teardown', async () => {
+diff --git a/scripts/client-build-environment.client.spec.ts b/scripts/client-build-environment.client.spec.ts
+index 4348284..06154f0 100644
+--- a/scripts/client-build-environment.client.spec.ts
++++ b/scripts/client-build-environment.client.spec.ts
+@@ -156,6 +156,7 @@ describe('client build environment', () => {
+     const local = resolveClientBuildEnvironment(parent, 'local')
+     expect(local).toEqual({
+       DSH_CLIENT_BUILD_PROFILE: 'local',
++      DSH_CLIENT_TITLE: 'DeepSeek Harness',
+       DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
+       DSH_CLIENT_VERSION: '1.2.3',
+       ...(dirty === 'true' ? { DSH_CLIENT_GIT_DIRTY: 'true' } : {}),
+diff --git a/scripts/client-build-environment.ts b/scripts/client-build-environment.ts
+index 6eed371..646acbc 100644
+--- a/scripts/client-build-environment.ts
++++ b/scripts/client-build-environment.ts
+@@ -206,6 +206,9 @@ export function resolveClientBuildEnvironment(
+       DSH_CLIENT_VERSION: version,
+       ...(profile === 'official' ? OFFICIAL_CLIENT_BUILD_ENVIRONMENT : {
+         DSH_CLIENT_BUILD_PROFILE: 'local',
++        // Linux packages are unsigned, so packaging selects the local profile; they keep
++        // the official product title instead of presenting as a local build.
++        DSH_CLIENT_TITLE: OFFICIAL_CLIENT_BUILD_ENVIRONMENT.DSH_CLIENT_TITLE,
+         ...(environment.DSH_CLIENT_GIT_DIRTY === 'true' ? { DSH_CLIENT_GIT_DIRTY: 'true' } : {}),
+       }),
+     }

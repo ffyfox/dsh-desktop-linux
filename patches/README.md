@@ -203,7 +203,7 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 | `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
 | `0004-prepare-target-electron-distribution.patch` | `prepare-dsh.ts`、`prepare-runtime.ts` | Electron 分发路径按 target 推导，不再假设「非 mac 即 win32」；打包期 `pnpm install` / 运行时冒烟改用 Host 运行时；`versions.json.node` 记为 payload 实际运行的 Node 版本；Linux 上整块跳过 rc.2 新增的 `prepare:cli`（见「注意」） |
 | `0005-desktop-linux-release-settings.patch` | `desktop-package-environment.{mjs,d.mts}`、`desktop-toolchain-preflight.ts`、`.gitignore`、`.env.linux.example`、`tests/desktop-package-environment.spec.ts` | 支持 `.env.linux`；Linux 不套用 Windows/macOS 专属设置；Linux 不要求策略 origin；修掉 `win32 ? … : macOS` 的隐含假设；Linux 文件白名单加 `MAINTAINER`/`HOMEPAGE`（并从环境里剥掉，保证发布设置只由文件拥有）；打了 rpm 才预检 `rpmbuild` |
-| `0006-desktop-package-linux-scripts.patch` | `apps/desktop/package.json` | `package:linux:x64` / `package:linux:x64:dir` |
+| `0006-desktop-package-linux-scripts.patch` | `apps/desktop/package.json`、`scripts/client-build-environment.ts` 与其单测、`packages/client/ui-brand-official/src/client/index.ts` 与其单测 | `package:linux:x64` / `package:linux:x64:dir`；Linux 未签名包的官方品牌（见 2026-11-03 一节） |
 | `0007-tests-linux-x64-supported.patch` | 3 个 `tests/*.spec.ts` | 把「断言 Linux 抛错」改成「断言 Linux 受支持」 |
 
 ## 让 Host 跑在真 Node 上（0008–0010）
@@ -229,7 +229,7 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0013-desktop-linux-tray.patch` | `src/main.ts`、`src/tray.ts`、`src/background-notice.ts`、`scripts/electron-builder-config.mjs`、`scripts/render-tray-icon.ts` | 托盘的创建条件从只认 `win32` 放宽到 `win32 \|\| linux`；Linux 的托盘图是 `resources/tray-linux.png`（单张 PNG，托盘宿主自己缩放到面板；**用应用图标自身的留白，不做 Windows 那 20% 放大**，见「注意」）；首次关窗的一次性提示同样覆盖 Linux —— 它的文案本来就是「可在系统托盘中重新打开窗口」，在 Linux 上这句话只有有了托盘才成立；渲染器除 ICO 之外也输出那张 PNG；electron-builder 的 Linux `extraResources` 把它带进产物的 `resources/` |
+| `0013-desktop-linux-tray.patch` | `src/main.ts`、`src/tray.ts`、`src/background-notice.ts`、`scripts/electron-builder-config.mjs`、`scripts/render-tray-icon.ts`、`tests/main-startup.spec.ts`（只改一条断言，见 2026-11-03 一节） | 托盘的创建条件从只认 `win32` 放宽到 `win32 \|\| linux`；Linux 的托盘图是 `resources/tray-linux.png`（单张 PNG，托盘宿主自己缩放到面板；**用应用图标自身的留白，不做 Windows 那 20% 放大**，见「注意」）；首次关窗的一次性提示同样覆盖 Linux —— 它的文案本来就是「可在系统托盘中重新打开窗口」，在 Linux 上这句话只有有了托盘才成立；渲染器除 ICO 之外也输出那张 PNG；electron-builder 的 Linux `extraResources` 把它带进产物的 `resources/` |
 托盘 PNG 是二进制，`patches/` 装不下：makepkg 用的是 GNU patch，它不支持 git 的二进制补丁。
 所以这张图作为普通本地 `source` 走，仓库里存在 `assets/tray-linux.png`，由两条路径各自放进
 `apps/desktop/resources/`：PKGBUILD 的 `prepare()`（`makepkg` 路线）和 `scripts/apply-patches.sh`
@@ -527,3 +527,30 @@ arm64 目标折进现有补丁，不新增编号；文件名保留 `-x64` 的历
 - 验证（2026-11-01）：这五个补丁在干净 worktree 里按序 `git apply` 通过，与补丁态工作树逐文件
   `cmp` 零差异；`desktop-build-paths` / `desktop-auto-update-environment` / `package-target`
   三个 spec 共 48 个用例通过。
+
+## 2026-11-03：0.2.2-alpha.3
+
+基线 `dsh-v0.2.2-alpha.3`（`05b1cae8`）。上游这版跨 462 个提交、2315 个路径；17 个补丁里有 8 个的落点被上游动过（80 个被打补丁的文件里 14 个），12 个补丁因此重生、5 个（0003 / 0004 / 0010 / 0011 / 0012）逐字节没变。
+
+- **`0018` 在 `AppFrame.tsx` 有三处冲突**：上游给侧栏加了窄屏抽屉（`drawer` 与 `SIDEBAR_DRAWER_BREAKPOINT`），正好压在玻璃模式的布局判断上。裁定：
+
+  | 位置 | 裁定 |
+  |---|---|
+  | `collapsedWidth` | `drawer \|\| darwin \|\| linuxGlass \|\| windowsTitlebar ? 0 : SIDEBAR_COLLAPSED` |
+  | leading-seat 注释 | 保留 Linux 那段说明，接在上游新注释之后 |
+  | `leadingMounted` | `drawer \|\| (darwin \|\| linuxGlass) && sidebarCollapsed` |
+
+  `SidebarRoot.tsx` 的 `drawer` 判断与 `0018` 的 `stripDesktop` 并存：玻璃模式仍然把开关放在侧栏顶部、收起后交给 frame 的 `shell.leading`。其余九个客户端文件文本合并干净。
+
+- **`0006` 并入品牌层**（4 个文件；补丁名不变）。起因：`0006` 的 `package:linux:*` 脚本让 Linux 一律走 `--unsigned`，而上游 0.2.2-alpha.2 的 `091d6ed` 让未签名包改用 `build --profile local`，于是侧栏变成「DSH 本地构建 + 版本/提交徽标」、窗口标题也是本地构建字样。改法与边界：
+
+  - `scripts/client-build-environment.ts`：`local` profile 的公开环境补 `DSH_CLIENT_TITLE`（复用 `OFFICIAL_CLIENT_BUILD_ENVIRONMENT` 里的常量）。local 分支本来只给 commit / version / dirty，所以光在环境变量里传 title 进不去客户端。
+  - `packages/client/ui-brand-official/src/client/index.ts`：守卫从「不是 official 就返回」改成「**没有**选 profile 才返回」——未选 profile 的是纯 web 构建，仍留空。
+  - **构建记录仍是 `DSH_CLIENT_BUILD_PROFILE: local`**：只改显示层，不让记录冒充 official；`pack-local-packages` 与打包记录的配对校验因此一行未动。
+  - 上游两张单测同步改：`client-build-environment.client.spec.ts` 里 local 的期望加 title；`browser-plugin.client.spec.tsx` 把「profile 非 official 时槽位为空」拆成两条（local 时注册、未选 profile 时为空）。
+
+- **`0013` 附带一处测试改动**：上游 alpha.3 新增的 `groups localized DevTools before quit` 断言「最后一次 `Menu.buildFromTemplate` 是应用菜单」，而 Linux 的托盘会在 `refreshApplicationMenu()` 里顺带重建托盘菜单，`lastCall` 于是是托盘菜单。改成取「最后一个首项带 `submenu` 的构建」，并在原地注明原因。
+
+- **`apply-patches.sh --check` 对 `0017` 必然失败**，旧补丁同样：它逐补丁对空树试打，而 `0017` 的上下文含 `0008` 新增的行（见开头那条例外）。对应 CI 的是顺序 `git apply`，makepkg 那侧是 `patch -Np1`。
+
+- 验证（2026-11-03）：17 个补丁在真源码包上按序 `patch -Np1` 全过，84 个触及文件与三路合并树逐字节一致；`makepkg --verifysource` 19 项通过；`build.sh --all` 一次出三格式；`verify.sh --runtime` 46 通过 / 0 失败；上游桌面单测 2115 通过 / 0 失败 / 63 跳过。

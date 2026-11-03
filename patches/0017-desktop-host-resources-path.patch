@@ -22,10 +22,10 @@ index 1674f64..25a96dd 100644
    const runId = randomUUID() as PluginOperationRunId
    if (process.connected) process.send?.({ type: 'starting', runId }, (error) => { if (error !== null) console.error(error) })
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index fdc7e8e..866f646 100644
+index 5c53a2d..a08fe1a 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -198,6 +198,8 @@ interface RuntimeResources {
+@@ -199,6 +199,8 @@ interface RuntimeResources {
    readonly nodeBin: string
    /** Electron executable that runs this application. */
    readonly electron: string
@@ -34,7 +34,7 @@ index fdc7e8e..866f646 100644
    readonly pnpm: string
    readonly dsh: string
  }
-@@ -211,7 +213,7 @@ function runtimeResources(): RuntimeResources {
+@@ -212,7 +214,7 @@ function runtimeResources(): RuntimeResources {
        : join(process.resourcesPath, 'runtime', 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs'))
    const dsh = (development ? process.env.DSH_DESKTOP_DSH_DIR : undefined)
      ?? (development ? join(app.getAppPath(), '.desktop-build', 'development', 'project') : join(app.getAppPath(), 'dsh'))
@@ -43,7 +43,7 @@ index fdc7e8e..866f646 100644
  }
  
  function developmentPrimaryRuntime(): string {
-@@ -523,7 +525,14 @@ async function main(): Promise<void> {
+@@ -524,7 +526,14 @@ async function main(): Promise<void> {
    const backend = new DesktopBackendController((onFailure) => {
      const hostInspectPort = developmentHostInspectPort(development)
      const host = new DesktopHostProcess(

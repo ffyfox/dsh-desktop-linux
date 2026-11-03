@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/desktop-auto-update-environment.d.mts b/apps/desktop/scripts/desktop-auto-update-environment.d.mts
-index 4d42b3dd1..abbe60b3a 100644
+index 4d42b3d..abbe60b 100644
 --- a/apps/desktop/scripts/desktop-auto-update-environment.d.mts
 +++ b/apps/desktop/scripts/desktop-auto-update-environment.d.mts
 @@ -5,7 +5,7 @@ export const DESKTOP_AUTO_UPDATE_ENV: 'DSH_DESKTOP_AUTO_UPDATE_ENV'
@@ -12,7 +12,7 @@ index 4d42b3dd1..abbe60b3a 100644
  /**
   * Name the fixed installer object shared by uploading and cache refresh.
 diff --git a/apps/desktop/scripts/desktop-auto-update-environment.mjs b/apps/desktop/scripts/desktop-auto-update-environment.mjs
-index 835beadd6..d463eab63 100644
+index 835bead..d463eab 100644
 --- a/apps/desktop/scripts/desktop-auto-update-environment.mjs
 +++ b/apps/desktop/scripts/desktop-auto-update-environment.mjs
 @@ -33,7 +33,7 @@ const UPDATE_ENVIRONMENTS = {
@@ -61,7 +61,7 @@ index 835beadd6..d463eab63 100644
   */
  export function resolveDesktopUploadConfig(env, platform, arch) {
 diff --git a/apps/desktop/scripts/desktop-build-paths.d.mts b/apps/desktop/scripts/desktop-build-paths.d.mts
-index 910f3032e..da063eb58 100644
+index 910f303..da063eb 100644
 --- a/apps/desktop/scripts/desktop-build-paths.d.mts
 +++ b/apps/desktop/scripts/desktop-build-paths.d.mts
 @@ -46,10 +46,17 @@ export function desktopTargetBuildPaths(target: DesktopAutoUpdateTarget, environ
@@ -84,7 +84,7 @@ index 910f3032e..da063eb58 100644
   * Resolve the paths owned by the target selected in a packaging environment.
   * @param env - Packaging environment.
 diff --git a/apps/desktop/scripts/desktop-build-paths.mjs b/apps/desktop/scripts/desktop-build-paths.mjs
-index edfd9cdf7..66067e6d1 100644
+index edfd9cd..66067e6 100644
 --- a/apps/desktop/scripts/desktop-build-paths.mjs
 +++ b/apps/desktop/scripts/desktop-build-paths.mjs
 @@ -4,14 +4,14 @@ import { isAbsolute, join, resolve } from 'node:path'
@@ -160,7 +160,7 @@ index edfd9cdf7..66067e6d1 100644
   * Resolve the paths owned by the target selected in a packaging environment.
   * @param {NodeJS.ProcessEnv} env - Packaging environment.
 diff --git a/apps/desktop/scripts/desktop-release-store.ts b/apps/desktop/scripts/desktop-release-store.ts
-index c080272e1..ee0b1dc24 100644
+index c080272..ee0b1dc 100644
 --- a/apps/desktop/scripts/desktop-release-store.ts
 +++ b/apps/desktop/scripts/desktop-release-store.ts
 @@ -17,7 +17,7 @@ const sourceSchema = z.strictObject({

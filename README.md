@@ -15,6 +15,8 @@ Desktop release target."*）。本项目补的就是这一块：让官方打包�
 
 ![DeepSeek Harness 桌面端普通模式界面（KDE）](docs/screenshot.png)
 
+![DeepSeek Harness 桌面端无边框模式界面（KDE）](docs/screenshot-frameless.png)
+
 ![DeepSeek Harness 桌面端玻璃模式界面（Hyprland）](docs/screenshot-glass.png)
 
 ## 项目产物

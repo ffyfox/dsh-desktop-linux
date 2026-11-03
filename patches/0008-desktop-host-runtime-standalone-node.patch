@@ -147,10 +147,10 @@ index 338f93b..3856f7e 100644
      })
      this.child = child
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 4770fe8..583bf74 100644
+index d8d0e30..d4f90a9 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -60,6 +60,7 @@ import { readDesktopSettings } from './settings.ts'
+@@ -61,6 +61,7 @@ import { readDesktopSettings } from './settings.ts'
  import { readDesktopLocaleCache, writeDesktopLocaleCache } from './locale-cache.ts'
  import { DesktopUpdateDialog, type UpdateDialogOptions } from './update-dialog.ts'
  import { readDesktopRuntime } from './runtime-tree.ts'
@@ -158,7 +158,7 @@ index 4770fe8..583bf74 100644
  import { DesktopBrowserGuests } from './browser-guests.ts'
  import { installDesktopShortcuts } from './keyboard.ts'
  import { DesktopUpdateOverlays } from './update-overlay.ts'
-@@ -195,21 +196,22 @@ protocol.registerSchemesAsPrivileged([{
+@@ -196,21 +197,22 @@ protocol.registerSchemesAsPrivileged([{
  
  interface RuntimeResources {
    readonly nodeBin: string
@@ -184,7 +184,7 @@ index 4770fe8..583bf74 100644
  }
  
  function developmentPrimaryRuntime(): string {
-@@ -516,7 +518,8 @@ async function main(): Promise<void> {
+@@ -517,7 +519,8 @@ async function main(): Promise<void> {
      owner => isMandatory() || updateOverlays.input(owner).blocked)
    const backend = new DesktopBackendController((onFailure) => {
      const hostInspectPort = developmentHostInspectPort(development)
@@ -343,10 +343,10 @@ index 9a72fd2..4be008c 100644
    await expect(host.start()).rejects.toThrow('invalid IPC event')
    expect(changed.mock.calls).toEqual([[null]])
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index 2032564..448241c 100644
+index 3b1e63e..df5a5d1 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -475,7 +475,10 @@ describe('desktop main startup', () => {
+@@ -476,7 +476,10 @@ describe('desktop main startup', () => {
      harness.app.isPackaged = packaged
      await readyForUpdate()
      const host = harness.hosts[0]!
@@ -358,7 +358,7 @@ index 2032564..448241c 100644
      expect(host.primaryRuntime).toBe(packaged
        ? join('desktop-test-resources', 'runtime', 'primary-runtime') : 'test-primary-runtime')
      expect(host.packageManager).toMatchObject({
-@@ -2521,7 +2524,7 @@ describe('desktop main startup', () => {
+@@ -2556,7 +2559,7 @@ describe('desktop main startup', () => {
      await Promise.all([retry, secondRetry, harness.navigated.promise])
      expect(harness.applyRelease).toHaveBeenCalledTimes(1)
      expect(harness.hosts[0]).toMatchObject({
@@ -367,7 +367,7 @@ index 2032564..448241c 100644
        runtime: join(harness.app.getAppPath(), 'dsh'),
        primaryRuntime: join('desktop-test-resources', 'runtime', 'primary-runtime'),
        profile: 'desktop-test-profile',
-@@ -2544,7 +2547,7 @@ describe('desktop main startup', () => {
+@@ -2579,7 +2582,7 @@ describe('desktop main startup', () => {
      harness.prepared.resolve()
      await harness.hostStarted.promise
      const project = join(harness.app.getAppPath(), '.desktop-build', 'development', 'project')

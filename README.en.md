@@ -18,6 +18,8 @@ actually been tested.
 
 ![The DeepSeek Harness desktop interface in normal mode (KDE)](docs/screenshot.png)
 
+![The DeepSeek Harness desktop interface in frameless mode (KDE)](docs/screenshot-frameless.png)
+
 ![The DeepSeek Harness desktop interface in glass mode (Hyprland)](docs/screenshot-glass.png)
 
 ## What this project produces
