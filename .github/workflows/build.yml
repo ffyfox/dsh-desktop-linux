@@ -224,6 +224,12 @@ jobs:
           grep -q '^DisableSandboxFilesystem' "$conf" || sed -i '/^\[options\]/a DisableSandboxFilesystem' "$conf"
           grep -q '^DisableSandboxSyscalls' "$conf" || sed -i '/^\[options\]/a DisableSandboxSyscalls' "$conf"
           grep -nE '^(#?DownloadUser|DisableSandbox)' "$conf"
+          # makepkg 的包扩展名钉成 .pkg.tar.zst：Arch Linux ARM 的镜像与官方镜像配置不一致
+          # （run 41858509080 的 aarch64 明明出了包，pkgbuild/ 里却找不到 *.pkg.tar.zst），
+          # 钉死之后下游的校验、上传、取件都只认这一个扩展名。当前值一并打出来便于排查。
+          grep -nE '^(PKGEXT|PKGDEST|SRCDEST)' /etc/makepkg.conf || true
+          printf '\nPKGEXT=".pkg.tar.zst"\n' >> /etc/makepkg.conf
+          grep -n '^PKGEXT' /etc/makepkg.conf
 
       # 必须在 checkout 之前：镜像里没有 git，而 actions/checkout 要调它。
       # 一次 -Syu 再装是 Arch 的正确姿势（避免部分升级）。git 依赖 shadow，
@@ -297,12 +303,14 @@ jobs:
           # aarch64 出现过），再往 $HOME / /root / /tmp 找一遍并挪回 pkgbuild/，
           # 免得后面上传那步直接扑空。
           mapfile -t found < <(find pkgbuild /home/builder /root /tmp -maxdepth 6 \
-                                 -name 'dsh-desktop-linux-*.pkg.tar.zst' -print 2>/dev/null)
+                                 -name 'dsh-desktop-linux-*' -print 2>/dev/null)
           if (( ${#found[@]} == 0 )); then
-            echo "没找到 .pkg.tar.zst（查过 pkgbuild/、/home/builder、/root、/tmp）" >&2
-            ls -la pkgbuild | head -20 >&2
+            echo "没找到任何 dsh-desktop-linux-*（查过 pkgbuild/、/home/builder、/root、/tmp）" >&2
+            ls -la pkgbuild >&2
             exit 1
           fi
+          printf '候选包 %d 个：\n' "${#found[@]}"
+          printf '  %s\n' "${found[@]}"
           pkg="${found[0]}"
           if [[ "$pkg" != pkgbuild/* ]]; then
             echo "包落在 $pkg，挪回 pkgbuild/" >&2
