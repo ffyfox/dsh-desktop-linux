@@ -2,8 +2,6 @@
 
 **中文** | [English](README.en.md)
 
-> 本项目为独立社区项目。**不是** DeepSeek 官方产品，与 DeepSeek 无隶属关系。
-
 把 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 官方桌面端
 （`apps/desktop` 的 Electron 应用）的**打包流水线**移植到 Linux，产出
 AppImage / deb / rpm / Arch 包。
@@ -11,7 +9,6 @@ AppImage / deb / rpm / Arch 包。
 上游目前明确不支持 Linux（`apps/desktop/packaging/README.md`：*"Linux is not a supported
 Desktop release target."*）。本项目补的就是这一块：让官方打包流水线认得 `linux-x64` 与
 `linux-arm64` 并产出安装包。
-当前验证范围见[验证状态](#验证状态)。
 
 ![DeepSeek Harness 桌面端普通模式界面（KDE）](docs/screenshot.png)
 
@@ -31,19 +28,14 @@ Desktop release target."*）。本项目补的就是这一块：让官方打包�
 
 ## 安装
 
-可从 [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases) 下载 AppImage / deb / rpm 产物，以及 x86_64 / aarch64 的 Arch 包（`.pkg.tar.zst`）。
+可从 [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases) 下载 AppImage / deb / rpm / Arch 包。
 
 | 发行版 | 格式 | 安装方式 |
 |---|---|---|
 | 通用 | AppImage | `chmod +x` 后直接运行 |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
-| Arch Linux | `.pkg.tar.zst` | Release 提供 x86_64 / aarch64 包：`sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`；也可用仓库自带的 PKGBUILD 本地 `makepkg`（未发布到 AUR），见 [Arch 包](#arch-包) |
-
-AppImage / deb / rpm 是 **unsigned** 构建（文件名里带 `-unsigned`）；Arch 包按 pacman 规范命名，不带这个词。安装后 `dsh://` 链接会交给它处理。
-
-从 2026-11 的下一个版本起，同一页面也提供 **arm64**（文件名带 `linux-arm64`，rpm 里写 `aarch64`）的
-AppImage / deb / rpm。arm64 产物由 CI 在原生 arm64 机器上构建，并做启动检查；目前还没有实体设备实测。
+| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`；也可本地构建，见 [Arch 包](#arch-包) |
 
 ## 从源码构建
 
@@ -88,10 +80,8 @@ deb / rpm 的 `Maintainer:` / `Homepage:` 来自 `upstream/apps/desktop/.env.lin
 
 ## Arch 包
 
-两种装法：直接用 Release 里的包（x86_64 或 aarch64），或用仓库自带的 PKGBUILD 本地构建。
-
 ```bash
-# Release 提供的包（从 0.2.2rc1 起，文件名为 dsh-desktop-linux-<版本>-1-<架构>.pkg.tar.zst）
+# Release 提供的包
 sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst
 ```
 
@@ -101,12 +91,9 @@ sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst
 cd pkgbuild && makepkg -si
 ```
 
-x86_64 与 aarch64 都出，但**只能在各自的机器上原生构建**（打包流水线在 prepare 阶段会真的执行
-目标平台的 Electron / Node / Python）。aarch64 那份由 CI 在 arm64 runner 上用 Arch Linux ARM 容器
-构建，与 arm64 的 AppImage / deb / rpm 一样还没有实体设备实测。本项目不发布到 AUR；这个包与 AUR
-上的 `deepseek-harness-desktop` 撞同一个图标路径（PKGBUILD 里的 `conflicts`），装之前先卸掉对方。
-
 Arch 包只装未打包目录进 `/opt/deepseek-harness-desktop`，`/usr/bin/deepseek-harness` 是符号链接。
+
+由于 AUR 暂停账号注册等客观原因，本项目不发布到 AUR。
 
 ## 它是怎么工作的
 
@@ -186,9 +173,8 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
 
 ## 验证状态
 
-**当前实测环境较少，后续会尽可能拓展。** 下面两张表随反馈更新——欢迎在
-[Issues](https://github.com/ffyfox/dsh-desktop-linux/issues) 报告你的结果，能用和不能用
-都欢迎。
+**当前实测环境较少，后续会尽可能拓展。** 下面两张表随反馈更新——如果发现适配问题，欢迎在
+[Issues](https://github.com/ffyfox/dsh-desktop-linux/issues) 提出。
 
 ### 环境
 
@@ -200,11 +186,10 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
 | Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **已实测**，正常（托盘宿主 Ubuntu 自带） |
 | Debian 13 · GNOME 48 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
 | Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
+| aarch64 | 已在 CI 通过构建与启动冒烟 |
 | 其他发行版（Linux Mint / CachyOS 等） | 未验证 |
 | 其他DE/WM（Xfce / Sway 等） | 未验证 |
 | X11 | 未验证 |
-| aarch64（CI 构建 + 启动冒烟） | 已在 CI 通过构建与启动冒烟（2026-11-01） |
-| 麒麟桌面 V10 SP1 · aarch64 · glibc 2.31 | 待反馈（issue #11） |
 
 ### 产物
 
@@ -213,9 +198,9 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
 | AppImage | **已实测**：`chmod +x` → 启动 → 托盘、关窗 → 退出 |
 | deb | **已实测**：`apt install` → 启动 → 托盘、关窗 → 退出 |
 | rpm | **已实测**：`dnf install` → 启动 → 托盘、关窗 → 退出 |
-| Arch 包 | **x86_64 已实测**：`makepkg` → `pacman -U` 安装 → 启动、沙箱、卸载；aarch64 已在 CI 构建，尚未在实体设备实测。从 0.2.2rc1 起 Release 也直接提供两种架构 |
+| Arch 包 | **x86_64 已实测**：`makepkg` → `pacman -U` 安装 → 启动、沙箱、卸载 |
 | `linux-unpacked` | **已实测**：`verify.sh --runtime` 活体矩阵 |
-| arm64 AppImage / deb / rpm | 已在 CI 构建并冒烟通过（2026-11-01） |
+| arm64 AppImage / deb / rpm | 已在 CI 构建并冒烟通过 |
 
 ## 已知限制
 
@@ -246,10 +231,9 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
   同一个请求里的 `device_model` 又是 `linux-x64` 或 `linux-arm64`。
 - **`linux-unpacked`（arm64 上是 `linux-arm64-unpacked`）约 1.1G。** asar 关闭后是小文件目录树，
   AppImage 压成 squashfs 后 339M，但首次启动的文件读取比 asar 多。
-- **arm64 只在 CI 里构建和冒烟，没有实体设备实测。** 目标环境（例如麒麟桌面 V10 SP1，glibc 2.31）
-  待用户反馈。x64 的本地语音转写包（`sherpa-onnx`）要求 glibc 2.32；arm64 的对应预编译包只要求
-  2.17，理论上 2.31 上也能用，待实机确认。
 
 ## 许可
 
 MIT
+
+DeepSeek Harness 本身由 DeepSeek 开发。本项目是独立的社区项目，不是 DeepSeek 官方产品，与 DeepSeek 无隶属关系。

@@ -2,9 +2,6 @@
 
 [中文](README.md) | **English**
 
-> An independent community project. **Not** an official DeepSeek product, and not
-> affiliated with DeepSeek.
-
 Ports the **packaging pipeline** of the official
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) desktop app
 (the Electron application in `apps/desktop`) to Linux, producing
@@ -13,8 +10,7 @@ AppImage / deb / rpm / Arch packages.
 Upstream explicitly does not support Linux today (`apps/desktop/packaging/README.md`:
 *"Linux is not a supported Desktop release target."*). This project fills exactly
 that gap: it teaches the official packaging pipeline about `linux-x64` and
-`linux-arm64` and emits installable artifacts. See [Validation status](#validation-status) for what has
-actually been tested.
+`linux-arm64` and emits installable artifacts.
 
 ![The DeepSeek Harness desktop interface in normal mode (KDE)](docs/screenshot.png)
 
@@ -35,23 +31,14 @@ workspace build, then package with electron-builder.
 
 ## Install
 
-Download the AppImage, deb and rpm artifacts — plus the x86_64 and aarch64 Arch packages (`.pkg.tar.zst`) — from [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases).
+Download the AppImage, deb, rpm and Arch packages from [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases).
 
 | Distribution | Format | How |
 |---|---|---|
 | Any | AppImage | `chmod +x`, run it |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
-| Arch Linux | `.pkg.tar.zst` | Releases carry the x86_64 and aarch64 packages: `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`; or build it locally with the PKGBUILD in this repo (not published to the AUR) — see [Arch package](#arch-package) |
-
-The AppImage, deb and rpm are **unsigned** builds (the file name carries `-unsigned`);
-the Arch package follows pacman's naming and does not. Once installed, `dsh://` links
-are handed to it.
-
-From the next release after 2026-11, the same page also carries **arm64** builds
-(file names carry `linux-arm64`; the rpm says `aarch64`) in AppImage, deb and rpm.
-CI builds them on a native arm64 machine and runs a launch smoke test; they have
-not been tried on a physical arm64 device yet.
+| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`; or build it locally — see [Arch package](#arch-package) |
 
 ## Building from source
 
@@ -103,11 +90,8 @@ dying with `SyntaxError` in the middle of the packaging pipeline.
 
 ## Arch package
 
-Two ways in: install the prebuilt package (x86_64 or aarch64) from Releases, or
-build it locally with the PKGBUILD in this repo.
-
 ```bash
-# Package from Releases (since 0.2.2rc1, named dsh-desktop-linux-<version>-1-<arch>.pkg.tar.zst)
+# Package from Releases
 sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst
 ```
 
@@ -117,16 +101,10 @@ sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst
 cd pkgbuild && makepkg -si
 ```
 
-Both x86_64 and aarch64 ship, but each **must be built natively on its own
-architecture** (the packaging pipeline really executes the target platform's
-Electron / Node / Python during prepare). CI builds the aarch64 one on an arm64
-runner inside an Arch Linux ARM container, and like the arm64 AppImage / deb / rpm it
-has not been tried on a physical device yet. This project is not published to the
-AUR; the package collides with the AUR `deepseek-harness-desktop` on one icon path
-(see `conflicts` in the PKGBUILD), so remove that one first.
-
 The Arch package installs the unpacked tree into `/opt/deepseek-harness-desktop`
 and symlinks `/usr/bin/deepseek-harness`.
+
+This project is not published to the AUR, since AUR account registration is currently paused.
 
 ## How it works
 
@@ -226,8 +204,8 @@ restore (a tiling window manager places the window itself).
 ## Validation status
 
 **Only a few environments have been tested so far, and we intend to widen that coverage.**
-Both tables below are kept up to date as reports come in — please tell us how it goes in
-[Issues](https://github.com/ffyfox/dsh-desktop-linux/issues), whether it works or not.
+Both tables below are kept up to date as reports come in — if you run into an adaptation
+problem, please open an [issue](https://github.com/ffyfox/dsh-desktop-linux/issues).
 
 ### Environment
 
@@ -239,11 +217,10 @@ Both tables below are kept up to date as reports come in — please tell us how 
 | Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **Tested**, works (Ubuntu ships the tray host) |
 | Debian 13 · GNOME 48 · Wayland · x86_64 | **Tested**, works (the tray needs an extra extension, see [Known limitations](#known-limitations)) |
 | Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **Tested**, works (the tray needs an extra extension, see [Known limitations](#known-limitations)) |
+| aarch64 | CI build and launch smoke passed |
 | Other distributions (Linux Mint / CachyOS, …) | Not tested |
 | Other desktops / WMs (Xfce, Sway, …) | Not tested |
 | X11 | Not tested |
-| aarch64 (CI build + launch smoke) | CI build and launch smoke passed (2026-11-01) |
-| Kylin Desktop V10 SP1 · aarch64 · glibc 2.31 | Awaiting a report (issue #11) |
 
 ### Artifacts
 
@@ -252,9 +229,9 @@ Both tables below are kept up to date as reports come in — please tell us how 
 | AppImage | **Tested**: `chmod +x` → launch → tray, window close → quit |
 | deb | **Tested**: `apt install` → launch → tray, window close → quit |
 | rpm | **Tested**: `dnf install` → launch → tray, window close → quit |
-| Arch package | **x86_64 tested**: `makepkg` → `pacman -U` → launch, sandbox, uninstall; aarch64 is built in CI but not yet tried on hardware. Since 0.2.2rc1 the release also ships both |
+| Arch package | **x86_64 tested**: `makepkg` → `pacman -U` → launch, sandbox, uninstall |
 | `linux-unpacked` | **Tested**: `verify.sh --runtime` live matrix |
-| arm64 AppImage / deb / rpm | Built and smoke-tested in CI (2026-11-01) |
+| arm64 AppImage / deb / rpm | Built and smoke-tested in CI |
 
 ## Known limitations
 
@@ -292,11 +269,9 @@ Both tables below are kept up to date as reports come in — please tell us how 
 - **`linux-unpacked` (on arm64: `linux-arm64-unpacked`) is about 1.1G.** With asar
   disabled it is a tree of small files; the AppImage compresses it to 339M, but first
   launch reads more files than an asar build would.
-- **arm64 is built and smoke-tested in CI only, never on physical hardware.** Target
-  environments such as Kylin Desktop V10 SP1 (glibc 2.31) are waiting for a report. The x64
-  speech-to-text binding (`sherpa-onnx`) needs glibc 2.32; its arm64 prebuilt only needs 2.17,
-  so on 2.31 it should work there too — to be confirmed on real hardware.
 
 ## License
 
 MIT
+
+DeepSeek Harness itself is developed by DeepSeek. This project is an independent community effort; it is not an official DeepSeek product and is not affiliated with DeepSeek.
