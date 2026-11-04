@@ -24,7 +24,10 @@ _commit='66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db'
 _srcdirname="deepseek-harness-$_tag"
 
 pkgdesc='Official DeepSeek Harness desktop application (Electron shell around a bundled dsh runtime)'
-# aarch64 走 Arch Linux ARM 本机 makepkg（CI 的 archlinux 容器只有 x86_64）；该架构尚未实测。
+# 两个架构都出，但都必须在各自的机器上原生打：package-target 的宿主守卫要求宿主架构 == 目标
+# 架构（交叉构建在 prepare 阶段就会去执行目标平台的 Electron/Node/Python）。所以 CI 是两个
+# arch job：x86_64 跑在 ubuntu-latest + archlinux 镜像，aarch64 跑在 ubuntu-24.04-arm +
+# Arch Linux ARM 镜像。makepkg 侧按 $CARCH 选目标，见 build() 与 package()。
 arch=('x86_64' 'aarch64')
 url='https://github.com/ffyfox/dsh-desktop-linux'
 license=('MIT')
@@ -51,6 +54,25 @@ makedepends=('nodejs' 'pnpm' 'python')
 conflicts=('deepseek-harness-desktop')
 options=('!strip' '!debug' '!emptydirs')
 install="$pkgname.install"
+
+# makepkg 的 $CARCH → 上游的构建目标与「未打包目录」名。arm64 的未打包目录带架构后缀是
+# 补丁 0009 定的（electron-builder 以 x64 为默认架构，arm64 那个叫 linux-arm64-unpacked），
+# 与 scripts/verify.sh 里的同名映射一致。
+_dsh_target() {
+  case "${CARCH:-x86_64}" in
+    x86_64)  printf 'linux-x64' ;;
+    aarch64) printf 'linux-arm64' ;;
+    *)       return 1 ;;
+  esac
+}
+
+_dsh_unpacked_dir() {
+  case "${CARCH:-x86_64}" in
+    x86_64)  printf 'linux-unpacked' ;;
+    aarch64) printf 'linux-arm64-unpacked' ;;
+    *)       return 1 ;;
+  esac
+}
 
 source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harness/archive/refs/tags/$_tag.tar.gz"
         # 补丁必须平铺（见文件头说明），顺序即文件名顺序
@@ -235,14 +257,24 @@ EOF
   # 该镜像的清单与 GitHub 官方那份逐字节相同，CI（GitHub runner）不需要这个变量。
   node apps/desktop/node_modules/electron/install.js
 
-  # 只要未打包目录：Arch 包直接把 linux-unpacked 装进 /opt，不需要再套一层 AppImage/deb/rpm。
-  "$PNPM" --dir apps/desktop run package:linux:x64:dir
+  # 只要未打包目录：Arch 包直接把未打包树装进 /opt，不需要再套一层 AppImage/deb/rpm。
+  local target
+  if ! target="$(_dsh_target)"; then
+    error "不支持的目标架构：${CARCH:-未设置}"
+    return 1
+  fi
+  "$PNPM" --dir apps/desktop run "package:${target}:dir"
 }
 
 package() {
   cd "$_srcdirname"
 
-  local unpacked="apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/linux-unpacked"
+  local target unpacked
+  if ! target="$(_dsh_target)" || ! unpacked="$(_dsh_unpacked_dir)"; then
+    error "不支持的目标架构：${CARCH:-未设置}"
+    return 1
+  fi
+  unpacked="apps/desktop/.desktop-build/targets/${target}/unsigned-artifacts/${unpacked}"
   if [[ ! -d "$unpacked" ]]; then
     error "找不到 $unpacked，构建产物路径可能变了"
     return 1

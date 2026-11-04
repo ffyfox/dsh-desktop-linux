@@ -35,17 +35,18 @@ workspace build, then package with electron-builder.
 
 ## Install
 
-Download the AppImage, deb and rpm artifacts from [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases).
+Download the AppImage, deb and rpm artifacts — plus the x86_64 and aarch64 Arch packages (`.pkg.tar.zst`) — from [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases).
 
 | Distribution | Format | How |
 |---|---|---|
 | Any | AppImage | `chmod +x`, run it |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
-| Arch Linux | PKGBUILD | Shipped in the repo, built locally with `makepkg` (not published to the AUR) — see [Arch package](#arch-package) |
+| Arch Linux | `.pkg.tar.zst` | Releases carry the x86_64 and aarch64 packages: `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`; or build it locally with the PKGBUILD in this repo (not published to the AUR) — see [Arch package](#arch-package) |
 
-Artifacts are **unsigned** builds (the file name carries `-unsigned`). Once
-installed, `dsh://` links are handed to it.
+The AppImage, deb and rpm are **unsigned** builds (the file name carries `-unsigned`);
+the Arch package follows pacman's naming and does not. Once installed, `dsh://` links
+are handed to it.
 
 From the next release after 2026-11, the same page also carries **arm64** builds
 (file names carry `linux-arm64`; the rpm says `aarch64`) in AppImage, deb and rpm.
@@ -102,15 +103,27 @@ dying with `SyntaxError` in the middle of the packaging pipeline.
 
 ## Arch package
 
-The PKGBUILD consumes upstream's release tarball and does not depend on the
-`./upstream` checkout:
+Two ways in: install the prebuilt package (x86_64 or aarch64) from Releases, or
+build it locally with the PKGBUILD in this repo.
 
 ```bash
+# Package from Releases (since 0.2.2rc1, named dsh-desktop-linux-<version>-1-<arch>.pkg.tar.zst)
+sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst
+```
+
+```bash
+# Local build: the PKGBUILD consumes upstream's release tarball and needs no ./upstream checkout
 ./scripts/pkgbuild-dir.sh     # flatten into ./pkgbuild
 cd pkgbuild && makepkg -si
 ```
 
-This project is not published to the AUR; the PKGBUILD is for local builds only.
+Both x86_64 and aarch64 ship, but each **must be built natively on its own
+architecture** (the packaging pipeline really executes the target platform's
+Electron / Node / Python during prepare). CI builds the aarch64 one on an arm64
+runner inside an Arch Linux ARM container, and like the arm64 AppImage / deb / rpm it
+has not been tried on a physical device yet. This project is not published to the
+AUR; the package collides with the AUR `deepseek-harness-desktop` on one icon path
+(see `conflicts` in the PKGBUILD), so remove that one first.
 
 The Arch package installs the unpacked tree into `/opt/deepseek-harness-desktop`
 and symlinks `/usr/bin/deepseek-harness`.
@@ -239,7 +252,7 @@ Both tables below are kept up to date as reports come in — please tell us how 
 | AppImage | **Tested**: `chmod +x` → launch → tray, window close → quit |
 | deb | **Tested**: `apt install` → launch → tray, window close → quit |
 | rpm | **Tested**: `dnf install` → launch → tray, window close → quit |
-| Arch package | **Tested**: `makepkg` → `pacman -U` → launch, sandbox, uninstall |
+| Arch package | **x86_64 tested**: `makepkg` → `pacman -U` → launch, sandbox, uninstall; aarch64 is built in CI but not yet tried on hardware. Since 0.2.2rc1 the release also ships both |
 | `linux-unpacked` | **Tested**: `verify.sh --runtime` live matrix |
 | arm64 AppImage / deb / rpm | Built and smoke-tested in CI (2026-11-01) |
 

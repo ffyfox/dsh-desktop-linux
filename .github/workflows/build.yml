@@ -180,13 +180,36 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # Arch 包（PKGBUILD）单独一个 job：跑在 archlinux 容器里，与上面的 electron-builder
-  # 流水线无关。PKGBUILD 直接吃上游 release 源码包，不依赖 ./upstream 检出。
+  # Arch 包（PKGBUILD）单独一个 job：跑在 Arch 容器里，与上面的 electron-builder 流水线无关。
+  # PKGBUILD 直接吃上游 release 源码包，不依赖 ./upstream 检出。
+  #
+  # 两种架构各跑一份，且都必须原生构建（package-target 的宿主守卫要求宿主架构 == 目标架构，
+  # 交叉构建会在 prepare 阶段去执行目标平台的 Electron/Node/Python）。官方 archlinux 镜像
+  # 只有 amd64，所以 aarch64 那份跑在 arm64 runner 上、用社区维护的 Arch Linux ARM 镜像。
+  # x86_64 的 artifact 名保持原样（本机 AGENTS.local 与以往发版都按这个名字取件），
+  # 只有 aarch64 那份带 -aarch64 后缀。
   arch:
-    runs-on: ubuntu-latest
+    name: arch-${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runs-on: ubuntu-latest
+            image: archlinux:latest
+            artifact: deepseek-harness-desktop-arch
+          - arch: aarch64
+            runs-on: ubuntu-24.04-arm
+            image: menci/archlinuxarm:base-devel
+            artifact: deepseek-harness-desktop-arch-aarch64
+    runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 120
+    # 写进包内 metadata 的 Packager。不设就是 makepkg 的默认值 "Unknown Packager"
+    # （本机装出来的包实测就是它，issue #13 里这也是要补的一条）。
+    env:
+      PACKAGER: 'ffyfox <299493445+ffyfox@users.noreply.github.com>'
     container:
-      image: archlinux:latest
+      image: ${{ matrix.image }}
       options: --user root
     steps:
       # 必须在 checkout 之前：镜像里没有 git，而 actions/checkout 要调它。
@@ -246,7 +269,38 @@ jobs:
 
       - name: makepkg
         working-directory: pkgbuild
-        run: runuser -u builder -- makepkg -C --nocheck
+        # runuser 切成 builder 身份后也要拿到 PACKAGER，所以显式再传一次。
+        run: runuser -u builder -- env PACKAGER="$PACKAGER" makepkg -C --nocheck
+
+      # 对外发 Arch 包，就得有人看一眼它长什么样（issue #13）：包名与 PKGBUILD 一致、
+      # metadata 的 Packager 不是 "Unknown Packager"、装进 /opt 的关键路径都在。
+      # 不做真安装：pacman -U 装进临时 root 要连带解析 gtk3 那套 depends，为一条断言不值当。
+      - name: 校验包（元数据 + 关键路径）
+        run: |
+          set -euo pipefail
+          pkg="$(printf '%s\n' pkgbuild/*.pkg.tar.zst)"
+          # pacman 的架构名与 uname -m 在两种目标上同名（x86_64 / aarch64）。
+          want="$(bash -c 'source ./PKGBUILD; printf "%s-%s" "$pkgver" "$pkgrel"')-$(uname -m)"
+          if [[ "$(basename "$pkg")" != "$want.pkg.tar.zst" ]]; then
+            echo "包名 $(basename "$pkg") 与 PKGBUILD 的 $want 不一致" >&2
+            exit 1
+          fi
+          pacman -Qip "$pkg"
+          got="$(pacman -Qip "$pkg" | sed -n 's/^Packager *: //p')"
+          if [[ "$got" != "$PACKAGER" ]]; then
+            echo "Packager 实际是 [$got]，期望 [$PACKAGER]" >&2
+            exit 1
+          fi
+          listing="$(bsdtar -tf "$pkg")"
+          for path in opt/deepseek-harness-desktop/deepseek-harness \
+                      usr/bin/deepseek-harness \
+                      usr/share/applications/deepseek-harness.desktop; do
+            if ! grep -Fqx "$path" <<<"$listing"; then
+              echo "包里没有 $path" >&2
+              exit 1
+            fi
+          done
+          echo "校验通过：$(basename "$pkg")"
 
       # 包级别 namcap 对「自带完整运行时、装进 /opt」的应用必然报 error，多数不是 PKGBUILD
       # 的缺陷，所以不当门禁：
@@ -267,7 +321,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: deepseek-harness-desktop-arch
+          name: ${{ matrix.artifact }}
           path: |
             pkgbuild/*.pkg.tar.zst
           include-hidden-files: true

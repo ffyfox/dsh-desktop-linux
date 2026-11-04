@@ -67,6 +67,18 @@ jobs:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
 
+      # Arch 包是独立的 job、独立的 artifact 名（deepseek-harness-desktop-arch 与
+      # -arch-aarch64），不在上面那个 pattern 里；arm64-deb-only 同理，它故意不带前缀。
+      # 两个架构都解包到同一个 assets/，下面的上传循环就自动带上它们。
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deepseek-harness-desktop-arch*
+          merge-multiple: true
+          path: assets
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+
       - name: 上传并核对 digest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -80,6 +92,14 @@ jobs:
             echo "没有下载到任何产物（run ${{ inputs.run_id }} 的 artifacts 为空？）" >&2
             exit 1
           fi
+          # 从 0.2.2rc1 起每个 Release 都要带两种架构的 Arch 包（issue #13）；缺哪个
+          # 就直接红，别静悄悄少传一个。
+          for want_arch in x86_64 aarch64; do
+            if ! compgen -G "assets/*-${want_arch}.pkg.tar.zst" >/dev/null; then
+              echo "缺少 $want_arch 的 Arch 包 —— artifact deepseek-harness-desktop-arch* 看看" >&2
+              exit 1
+            fi
+          done
           printf '准备上传 %d 个文件\n' "${#files[@]}"
           gh release upload "$TAG" "${files[@]}" --clobber
 

@@ -31,16 +31,16 @@ Desktop release target."*）。本项目补的就是这一块：让官方打包�
 
 ## 安装
 
-可从 [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases) 下载 AppImage / deb / rpm 产物。
+可从 [Releases](https://github.com/ffyfox/dsh-desktop-linux/releases) 下载 AppImage / deb / rpm 产物，以及 x86_64 / aarch64 的 Arch 包（`.pkg.tar.zst`）。
 
 | 发行版 | 格式 | 安装方式 |
 |---|---|---|
 | 通用 | AppImage | `chmod +x` 后直接运行 |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
-| Arch Linux | PKGBUILD | 仓库自带，本地 `makepkg` 构建（未发布到 AUR），见 [Arch 包](#arch-包) |
+| Arch Linux | `.pkg.tar.zst` | Release 提供 x86_64 / aarch64 包：`sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`；也可用仓库自带的 PKGBUILD 本地 `makepkg`（未发布到 AUR），见 [Arch 包](#arch-包) |
 
-产物是 **unsigned** 构建（文件名里带 `-unsigned`）。安装后 `dsh://` 链接会交给它处理。
+AppImage / deb / rpm 是 **unsigned** 构建（文件名里带 `-unsigned`）；Arch 包按 pacman 规范命名，不带这个词。安装后 `dsh://` 链接会交给它处理。
 
 从 2026-11 的下一个版本起，同一页面也提供 **arm64**（文件名带 `linux-arm64`，rpm 里写 `aarch64`）的
 AppImage / deb / rpm。arm64 产物由 CI 在原生 arm64 机器上构建，并做启动检查；目前还没有实体设备实测。
@@ -88,16 +88,25 @@ deb / rpm 的 `Maintainer:` / `Homepage:` 来自 `upstream/apps/desktop/.env.lin
 
 ## Arch 包
 
-PKGBUILD 直接吃上游的 release 源码包，不依赖 `./upstream` 检出：
+两种装法：直接用 Release 里的包（x86_64 或 aarch64），或用仓库自带的 PKGBUILD 本地构建。
 
 ```bash
+# Release 提供的包（从 0.2.2rc1 起，文件名为 dsh-desktop-linux-<版本>-1-<架构>.pkg.tar.zst）
+sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst
+```
+
+```bash
+# 本地构建：PKGBUILD 直接吃上游 release 源码包，不依赖 ./upstream 检出
 ./scripts/pkgbuild-dir.sh     # 摊平成 ./pkgbuild
 cd pkgbuild && makepkg -si
 ```
 
-本项目不发布到 AUR，PKGBUILD 只用于本地构建。
+x86_64 与 aarch64 都出，但**只能在各自的机器上原生构建**（打包流水线在 prepare 阶段会真的执行
+目标平台的 Electron / Node / Python）。aarch64 那份由 CI 在 arm64 runner 上用 Arch Linux ARM 容器
+构建，与 arm64 的 AppImage / deb / rpm 一样还没有实体设备实测。本项目不发布到 AUR；这个包与 AUR
+上的 `deepseek-harness-desktop` 撞同一个图标路径（PKGBUILD 里的 `conflicts`），装之前先卸掉对方。
 
-Arch 包只出未打包目录装进 `/opt/deepseek-harness-desktop`，`/usr/bin/deepseek-harness` 是符号链接。
+Arch 包只装未打包目录进 `/opt/deepseek-harness-desktop`，`/usr/bin/deepseek-harness` 是符号链接。
 
 ## 它是怎么工作的
 
@@ -204,7 +213,7 @@ DSH_DESKTOP_FRAMELESS=1 deepseek-harness
 | AppImage | **已实测**：`chmod +x` → 启动 → 托盘、关窗 → 退出 |
 | deb | **已实测**：`apt install` → 启动 → 托盘、关窗 → 退出 |
 | rpm | **已实测**：`dnf install` → 启动 → 托盘、关窗 → 退出 |
-| Arch 包 | **已实测**：`makepkg` → `pacman -U` 安装 → 启动、沙箱、卸载 |
+| Arch 包 | **x86_64 已实测**：`makepkg` → `pacman -U` 安装 → 启动、沙箱、卸载；aarch64 已在 CI 构建，尚未在实体设备实测。从 0.2.2rc1 起 Release 也直接提供两种架构 |
 | `linux-unpacked` | **已实测**：`verify.sh --runtime` 活体矩阵 |
 | arm64 AppImage / deb / rpm | 已在 CI 构建并冒烟通过（2026-11-01） |
 
