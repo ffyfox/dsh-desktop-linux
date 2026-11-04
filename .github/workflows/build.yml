@@ -292,8 +292,9 @@ jobs:
         run: |
           set -euo pipefail
           pkg="$(printf '%s\n' pkgbuild/*.pkg.tar.zst)"
-          # pacman 的架构名与 uname -m 在两种目标上同名（x86_64 / aarch64）。
-          want="$(bash -c 'source ./PKGBUILD; printf "%s-%s" "$pkgver" "$pkgrel"')-$(uname -m)"
+          # 包名 = <pkgname>-<pkgver>-<pkgrel>-<arch>.pkg.tar.zst；pacman 的架构名与
+          # uname -m 在两种目标上同名（x86_64 / aarch64）。
+          want="$(bash -c 'source ./PKGBUILD; printf "%s-%s-%s" "$pkgname" "$pkgver" "$pkgrel"')-$(uname -m)"
           if [[ "$(basename "$pkg")" != "$want.pkg.tar.zst" ]]; then
             echo "包名 $(basename "$pkg") 与 PKGBUILD 的 $want 不一致" >&2
             exit 1
