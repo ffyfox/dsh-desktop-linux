@@ -554,3 +554,14 @@ arm64 目标折进现有补丁，不新增编号；文件名保留 `-x64` 的历
 - **`apply-patches.sh --check` 对 `0017` 必然失败**，旧补丁同样：它逐补丁对空树试打，而 `0017` 的上下文含 `0008` 新增的行（见开头那条例外）。对应 CI 的是顺序 `git apply`，makepkg 那侧是 `patch -Np1`。
 
 - 验证（2026-11-03）：17 个补丁在真源码包上按序 `patch -Np1` 全过，84 个触及文件与三路合并树逐字节一致；`makepkg --verifysource` 19 项通过；`build.sh --all` 一次出三格式；`verify.sh --runtime` 46 通过 / 0 失败；上游桌面单测 2115 通过 / 0 失败 / 63 跳过。
+
+## 2026-11-04：0.2.2-rc.1（轻量同步）
+
+基线 `dsh-v0.2.2-rc.1`（`66491b05`）。上游这版相对 alpha.3 只有 4 个提交、387 个路径 / 387 行，**全是 `package.json` 的版本行**：378 个把 `0.2.2-alpha.3` 提到 `0.2.2-rc.1`，9 个 `vendor/*/package.json` 把预发版号转正式（cordis `4.0.6-alpha.2→4.1.0`、cosmokit `1.8.7-alpha.2→1.9.0`、schemastery `3.18.6-alpha.2→3.19.0`、timer `1.1.8-alpha.2→1.2.0`，hmr / include / loader / logger-console / group 同批）。零源码改动、零依赖范围改动、零 lockfile 改动，所以 17 个补丁**逐字节零重生**。
+
+- **唯一压在补丁落点上的变更是 `apps/desktop/package.json` 的版本行**，而它正是 `0006` 的目标文件。`0006` 的 hunk 在第 38 行、版本行在第 3 行，上下文不重叠，照旧能打。它的 `index 5d4f00e..72de86a` 仍写着 alpha.3 的 blob（新基线是 `00eee14`）——`patch` 与 `git apply` 都不读这一行，下次完整重生时会自动更新，这次刻意不动。
+
+- **`arch` 里的 `aarch64` 这回是真的了。** 2026-11-01 那条记录写着「PKGBUILD 的 `arch` 加 `aarch64`（只支持 Arch Linux ARM 本机 makepkg）」，但 `build()` 当时写死 `package:linux:x64:dir`、`package()` 读 `targets/linux-x64`，ALARM 上根本做不出来 —— 声明与实现不一致。这一版把两处都按 makepkg 的 `$CARCH` 分支：x86_64 → `linux-x64` / `linux-unpacked`，aarch64 → `linux-arm64` / `linux-arm64-unpacked`（后者是补丁 0009 定的目录名，映射与 `scripts/verify.sh` 一致）。CI 的 arch job 也从一个变成矩阵：x86_64 用官方 `archlinux` 镜像跑在 `ubuntu-latest`，aarch64 跑在 `ubuntu-24.04-arm` 上、用社区维护的 `menci/archlinuxarm`（官方镜像只有 amd64）。两种架构都必须原生构建，交叉构建在 prepare 阶段就会去执行目标平台的 Electron / Node / Python；aarch64 的包与 arm64 的 AppImage / deb / rpm 一样，尚未在实体设备实测。
+
+- 验证（2026-11-04）：17 个补丁在 rc.1 的 worktree 上按序 `patch -Np1` 全过（72 个文件改动 + 12 个新增）；`apply-patches.sh` 的 `git apply` 顺序应用通过（`--check` 对 `0017` 仍必然失败，原因见 11-03 那条）；`makepkg --verifysource` 19 项通过；`build.sh --all` 三格式一次出齐（`0.2.2-rc.1`）；`verify.sh --runtime` 46 通过 / 0 失败 / 4 跳过；上游桌面单测 2115 通过 / 0 失败 / 63 跳过。
+
