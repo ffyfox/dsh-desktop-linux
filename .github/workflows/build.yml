@@ -212,6 +212,19 @@ jobs:
       image: ${{ matrix.image }}
       options: --user root
     steps:
+      # Arch Linux ARM 的镜像里 pacman 7 的下载沙箱在 GitHub 的容器里起不来：
+      # landlock_create_ruleset 被 seccomp 拦掉，`-Syu` 直接报
+      # "restricting filesystem access failed … switching to sandbox user 'alpm' failed"。
+      # 关掉这两层并取消 DownloadUser 即可；只影响这一次性构建容器。
+      # 官方 archlinux 镜像目前没这个毛病，但同样跑一遍没有副作用。
+      - name: 关掉 pacman 的下载沙箱
+        run: |
+          conf=/etc/pacman.conf
+          sed -i 's/^DownloadUser/#DownloadUser/; s/^#\?DisableSandboxFilesystem/DisableSandboxFilesystem/; s/^#\?DisableSandboxSyscalls/DisableSandboxSyscalls/' "$conf"
+          grep -q '^DisableSandboxFilesystem' "$conf" || sed -i '/^\[options\]/a DisableSandboxFilesystem' "$conf"
+          grep -q '^DisableSandboxSyscalls' "$conf" || sed -i '/^\[options\]/a DisableSandboxSyscalls' "$conf"
+          grep -nE '^(#?DownloadUser|DisableSandbox)' "$conf"
+
       # 必须在 checkout 之前：镜像里没有 git，而 actions/checkout 要调它。
       # 一次 -Syu 再装是 Arch 的正确姿势（避免部分升级）。git 依赖 shadow，
       # 所以 useradd 跟着就有；sudo / fakeroot 由 base-devel 带进来。

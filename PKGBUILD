@@ -74,6 +74,16 @@ _dsh_unpacked_dir() {
   esac
 }
 
+# 上游的 npm 脚本名用的是 electron-builder 的架构词（x64 / arm64），与目录名
+# （linux-x64 / linux-arm64）不是一个写法：脚本是 package:linux:x64:dir。
+_dsh_pkgarch() {
+  case "${CARCH:-x86_64}" in
+    x86_64)  printf 'x64' ;;
+    aarch64) printf 'arm64' ;;
+    *)       return 1 ;;
+  esac
+}
+
 source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harness/archive/refs/tags/$_tag.tar.gz"
         # 补丁必须平铺（见文件头说明），顺序即文件名顺序
         '0001-desktop-target-model-add-linux-x64.patch'
@@ -258,12 +268,12 @@ EOF
   node apps/desktop/node_modules/electron/install.js
 
   # 只要未打包目录：Arch 包直接把未打包树装进 /opt，不需要再套一层 AppImage/deb/rpm。
-  local target
-  if ! target="$(_dsh_target)"; then
+  local pkgarch
+  if ! pkgarch="$(_dsh_pkgarch)"; then
     error "不支持的目标架构：${CARCH:-未设置}"
     return 1
   fi
-  "$PNPM" --dir apps/desktop run "package:${target}:dir"
+  "$PNPM" --dir apps/desktop run "package:linux:${pkgarch}:dir"
 }
 
 package() {
