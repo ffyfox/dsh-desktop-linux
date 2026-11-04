@@ -283,7 +283,9 @@ jobs:
       - name: makepkg
         working-directory: pkgbuild
         # runuser 切成 builder 身份后也要拿到 PACKAGER，所以显式再传一次。
-        run: runuser -u builder -- env PACKAGER="$PACKAGER" makepkg -C --nocheck
+        # PKGDEST 钉在当前目录：run 41855701710 的 aarch64 里 makepkg 报了 Finished making，
+        # pkgbuild/ 下却没有包文件（官方 archlinux 镜像没这毛病），显式钉住就不用赌镜像配置。
+        run: runuser -u builder -- env PACKAGER="$PACKAGER" PKGDEST="$PWD" makepkg -C --nocheck
 
       # 对外发 Arch 包，就得有人看一眼它长什么样（issue #13）：包名与 PKGBUILD 一致、
       # metadata 的 Packager 不是 "Unknown Packager"、装进 /opt 的关键路径都在。
@@ -291,7 +293,22 @@ jobs:
       - name: 校验包（元数据 + 关键路径）
         run: |
           set -euo pipefail
-          pkg="$(printf '%s\n' pkgbuild/*.pkg.tar.zst)"
+          # 正常情况下包就在 pkgbuild/；镜像若把 PKGDEST 指到别处（run 41855701710 的
+          # aarch64 出现过），再往 $HOME / /root / /tmp 找一遍并挪回 pkgbuild/，
+          # 免得后面上传那步直接扑空。
+          mapfile -t found < <(find pkgbuild /home/builder /root /tmp -maxdepth 6 \
+                                 -name 'dsh-desktop-linux-*.pkg.tar.zst' -print 2>/dev/null)
+          if (( ${#found[@]} == 0 )); then
+            echo "没找到 .pkg.tar.zst（查过 pkgbuild/、/home/builder、/root、/tmp）" >&2
+            ls -la pkgbuild | head -20 >&2
+            exit 1
+          fi
+          pkg="${found[0]}"
+          if [[ "$pkg" != pkgbuild/* ]]; then
+            echo "包落在 $pkg，挪回 pkgbuild/" >&2
+            cp -f "$pkg" pkgbuild/
+            pkg="pkgbuild/$(basename "$pkg")"
+          fi
           # 包名 = <pkgname>-<pkgver>-<pkgrel>-<arch>.pkg.tar.zst；pacman 的架构名与
           # uname -m 在两种目标上同名（x86_64 / aarch64）。
           want="$(bash -c 'source ./PKGBUILD; printf "%s-%s-%s" "$pkgname" "$pkgver" "$pkgrel"')-$(uname -m)"
