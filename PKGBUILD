@@ -42,7 +42,7 @@ license=('MIT')
 # ldd/NEEDED 里也没有），图标本身不需要 libappindicator；但托盘菜单要靠
 # libdbusmenu-glib.so.4 才能导出（二进制里有这个库名和 dbusmenu_* 符号名，却不在 NEEDED 里）。
 # 缺了它，托盘图标还在、右键菜单是空的——等于没有退出入口。
-depends=('gtk3' 'nss' 'libnotify' 'libxss' 'libxtst' 'xdg-utils' 'at-spi2-core'
+depends=('gtk3' 'nss' 'libnotify' 'libxtst' 'xdg-utils' 'at-spi2-core'
          'libsecret' 'alsa-lib' 'dbus' 'libxcrypt-compat' 'libdbusmenu-glib')
 # python 是 node-gyp 的后备：正常情况下 node-pty / sharp / koffi / native-system 都命中预编译
 # 产物（实测这次构建没有编译任何东西），但预编译缺失时 pnpm install 会退回源码编译。
@@ -109,7 +109,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harnes
 sha256sums=('416750920b64272899259c26b2fa0a4341132c9c19b43337da502ab7ebd599f1'
             '2973f38d8ff3af960d8dde75458976e03db18cf9e2aafb470633b5f9592c42aa'
             '179b7809d2ae55da64959fe263b8927825a1d3e3633e99cc2dd75fd22c0be443'
-            '6c5f21088f37bf5c57c49f96758563ff531a0dce590ba749f14967847bbe5f77'
+            '5c4f15c78431b53979d52b7b3c72c2d24af9170c1930e5df2118e1a94e6b54b9'
             '86ce03a77b1d12570739328bed54a8575e301deed0f48d14c259a7b40c762ddc'
             'c699b949e642c9a136cec85467a3e081028d22c7cfeefca42a5314af0b54a97c'
             'ad7d6a8da15d8c0d729af0f456fcad795502efd4413306c6ce6698fcb5b54f6f'
