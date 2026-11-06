@@ -1,5 +1,29 @@
+diff --git a/apps/desktop/electron-builder.config.d.mts b/apps/desktop/electron-builder.config.d.mts
+index 2973a6ea..55411cbd 100644
+--- a/apps/desktop/electron-builder.config.d.mts
++++ b/apps/desktop/electron-builder.config.d.mts
+@@ -46,6 +46,19 @@ export interface DesktopElectronBuilderConfig {
+       readonly signingHashAlgorithms: readonly string[]
+     }
+   }
++  readonly linux: {
++    readonly target: readonly string[]
++  }
++  readonly deb: {
++    readonly packageName: 'deepseek-harness'
++    readonly packageCategory: 'devel'
++    readonly depends: readonly string[]
++  }
++  readonly rpm: {
++    readonly packageName: 'deepseek-harness'
++    readonly packageCategory: 'Development/Tools'
++    readonly depends: readonly string[]
++  }
+   readonly nsis: {
+     readonly uninstallDisplayName: '${productName}'
+     readonly include: string
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index cf0c19e..47460ad 100644
+index cf0c19e8..fb3234c1 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -23,7 +23,8 @@ import {
@@ -50,7 +74,7 @@ index cf0c19e..47460ad 100644
      electronDist: buildPaths.electron,
      electronFuses: { runAsNode: true },
      beforeBuild: async () => {
-@@ -253,9 +267,38 @@ export function createElectronBuilderConfig(
+@@ -253,8 +267,47 @@ export function createElectronBuilderConfig(
        target: ['nsis'],
      },
      linux: {
@@ -72,7 +96,7 @@ index cf0c19e..47460ad 100644
 +      // fpm records the maintainer in the Debian control file and the RPM header; AppImage carries none.
 +      ...(linuxPackages === undefined ? {} : { maintainer: linuxPackages.maintainer }),
 +      target: linuxFormats ?? ['AppImage'],
-     },
++    },
 +    // The legacy AppImage toolset otherwise writes "Exec=AppRun --no-sandbox %U", which turns off the
 +    // Chromium sandbox for every launch from the desktop menu. An explicitly empty argument list keeps
 +    // that flag out of the entry and leaves AppRun's own "unshare -Ur true" probe in charge: it adds the
@@ -85,8 +109,48 @@ index cf0c19e..47460ad 100644
 +    // rejects it with "Tag takes single token only", so both formats name the package explicitly.
 +    // The category is explicit for the same reason: fpm otherwise stamps Debian's Section and RPM's
 +    // Group as "default", which names neither a Debian section nor an RPM group.
-+    deb: { packageName: 'deepseek-harness', packageCategory: 'devel' },
-+    rpm: { packageName: 'deepseek-harness', packageCategory: 'Development/Tools' },
++    // electron-builder replaces its complete default dependency list when depends is set. Keep every
++    // default except libxss1/libXScrnSaver: Electron neither links nor loads XScreenSaver on Linux.
++    deb: {
++      packageName: 'deepseek-harness',
++      packageCategory: 'devel',
++      depends: ['libgtk-3-0', 'libnotify4', 'libnss3', 'libxtst6', 'xdg-utils', 'libatspi2.0-0', 'libuuid1', 'libsecret-1-0'],
++    },
++    rpm: {
++      packageName: 'deepseek-harness',
++      packageCategory: 'Development/Tools',
++      depends: ['gtk3', 'libnotify', 'nss', '(libXtst or libXtst6)', 'xdg-utils', 'at-spi2-core', '(libuuid or libuuid1)'],
+     },
      nsis: {
        uninstallDisplayName: '${productName}',
-       installerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),
+diff --git a/apps/desktop/tests/installer-packaging.spec.ts b/apps/desktop/tests/installer-packaging.spec.ts
+index 1e438ded..17f62e25 100644
+--- a/apps/desktop/tests/installer-packaging.spec.ts
++++ b/apps/desktop/tests/installer-packaging.spec.ts
+@@ -102,6 +102,26 @@ describe('installer preparation preserves application dependencies', () => {
+     expect(config.artifactName).toBe('deepseek-harness-${version}-${os}-${arch}-unsigned.${ext}')
+   })
+ 
++  it('keeps explicit deb and rpm dependencies without libXScreenSaver', async () => {
++    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
++    const config = createElectronBuilderConfig({
++      DSH_DESKTOP_APP_ID: 'com.example.installer',
++      DSH_DESKTOP_TARGET_PLATFORM: 'linux',
++      DSH_DESKTOP_TARGET_ARCH: 'x64',
++      DSH_DESKTOP_UNSIGNED: '1',
++      DSH_DESKTOP_TARGET_FORMATS: 'deb,rpm',
++      DSH_DESKTOP_LINUX_MAINTAINER: 'Example Maintainer <maintainer@example.com>',
++      DSH_DESKTOP_LINUX_HOMEPAGE: 'https://example.com',
++    }, 'linux', 'x64')
++    expect(config.linux.target).toEqual(['deb', 'rpm'])
++    expect(config.deb.depends).toEqual([
++      'libgtk-3-0', 'libnotify4', 'libnss3', 'libxtst6', 'xdg-utils', 'libatspi2.0-0', 'libuuid1', 'libsecret-1-0',
++    ])
++    expect(config.rpm.depends).toEqual([
++      'gtk3', 'libnotify', 'nss', '(libXtst or libXtst6)', 'xdg-utils', 'at-spi2-core', '(libuuid or libuuid1)',
++    ])
++  })
++
+   it('packages every preload entry point the shell loads', async () => {
+     const { readdirSync, readFileSync } = await import('node:fs')
+     const sourceDirectory = new URL('../src/', import.meta.url)

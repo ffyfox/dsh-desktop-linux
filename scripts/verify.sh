@@ -352,6 +352,45 @@ else
   skip "没有当前基线（$EXPECTED_VERSION）的 AppImage，跳过 .desktop 检查"
 fi
 
+# Electron 既不链接也不加载 XScreenSaver；fpm 的默认依赖表却仍会把它写进 control。
+# 显式 depends 会替换整个默认数组，所以这里同时由上游 spec 固定其余默认依赖，包级检查只盯移除项。
+for a in "${fresh_artifacts[@]}"; do
+  case "$a" in
+    *.deb)
+      if command -v dpkg-deb >/dev/null 2>&1; then
+        if ! deb_depends="$(dpkg-deb -f "$a" Depends 2>/dev/null)"; then
+          bad "无法读取 $(basename "$a") 的 Depends"
+        elif [[ "$deb_depends" == *libxss1* ]]; then
+          bad "$(basename "$a") 仍依赖 libxss1"
+        else
+          ok "$(basename "$a") 不依赖 libxss1"
+        fi
+      else
+        skip "缺少 dpkg-deb，跳过 $(basename "$a") 的依赖检查"
+      fi
+      ;;
+    *.rpm)
+      if command -v rpm >/dev/null 2>&1; then
+        if ! rpm_depends="$(rpm -qp --requires "$a" 2>/dev/null)"; then
+          bad "无法读取 $(basename "$a") 的 Requires"
+        elif [[ "$rpm_depends" == *libXScrnSaver* ]]; then
+          bad "$(basename "$a") 仍依赖 libXScrnSaver"
+        else
+          ok "$(basename "$a") 不依赖 libXScrnSaver"
+        fi
+      else
+        skip "缺少 rpm，跳过 $(basename "$a") 的依赖检查"
+      fi
+      ;;
+  esac
+done
+arch_depends="$(bash -c 'source "$1" >/dev/null 2>&1; printf " %s " "${depends[@]}"' _ "$ROOT/PKGBUILD")"
+if [[ "$arch_depends" == *' libxss '* ]]; then
+  bad "PKGBUILD 仍依赖 libxss"
+else
+  ok "PKGBUILD 不依赖 libxss"
+fi
+
 # PKGBUILD 手写一份 .desktop（Arch 包不走 fpm），内容取自上游 deb 里 electron-builder 生成的那份。
 pkg_desktop="$(awk '/applications\/deepseek-harness\.desktop/{f=1;next} f&&/^EOF$/{exit} f' "$ROOT/PKGBUILD" 2>/dev/null)"
 if [[ -n "$pkg_desktop" ]]; then
