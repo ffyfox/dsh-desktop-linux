@@ -429,9 +429,11 @@ fi
 
 # Linux 上客户端把 x-client-platform 报成 desktop-mac：platform === 'win32' ? 'desktop-win' : 'desktop-mac'。
 # 这是记录在案的行为（不是缺陷），但它意味着 Platform 侧看到的是一台 macOS 客户端。
-if [[ -n "$NODE" && -f "$APPDSH/node_modules/@deepseek-ai/dsh-deepseek-account/lib/index.js" ]]; then
+# 0.2.2-rc.2 起这个函数只能从 ./client-metadata 子路径拿到（包根不再转出），而该子路径在产物里
+# 落在 lib/types/client-metadata.js —— tsdown 只把入口打成 lib/index.js。
+if [[ -n "$NODE" && -f "$APPDSH/node_modules/@deepseek-ai/dsh-deepseek-account/lib/types/client-metadata.js" ]]; then
   platform_header="$("$NODE" --input-type=module -e "
-    const { platformClientHeaders } = await import('$APPDSH/node_modules/@deepseek-ai/dsh-deepseek-account/lib/index.js')
+    const { platformClientHeaders } = await import('$APPDSH/node_modules/@deepseek-ai/dsh-deepseek-account/lib/types/client-metadata.js')
     const c = { version: '0', locale: 'en-US', timezoneOffsetSeconds: 0 }
     process.stdout.write(['linux', 'darwin', 'null'].map(p =>
       p === 'null' ? platformClientHeaders(null, c)['x-client-platform']

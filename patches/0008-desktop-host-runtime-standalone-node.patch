@@ -1,8 +1,8 @@
 diff --git a/apps/cli/tests/desktop-host.e2e.ts b/apps/cli/tests/desktop-host.e2e.ts
-index c1f42d8..48e1724 100644
+index a0e0ab9..2bf59a8 100644
 --- a/apps/cli/tests/desktop-host.e2e.ts
 +++ b/apps/cli/tests/desktop-host.e2e.ts
-@@ -75,7 +75,10 @@ it.each([false, true])('settles startup after parent IPC disconnect (boot failur
+@@ -69,7 +69,10 @@ it.each([false, true])('settles startup after parent IPC disconnect (boot failur
      })
      expect(boot.packageManager.command).toBe(process.execPath)
      expect(boot.packageManager.args).toEqual(['--expose-internals', pnpm])
@@ -15,17 +15,17 @@ index c1f42d8..48e1724 100644
      child.disconnect()
      const exitCode = await exited
 diff --git a/apps/desktop-host/src/cli.ts b/apps/desktop-host/src/cli.ts
-index 6c890f8..174b14b 100644
+index 10757b7..a5be600 100644
 --- a/apps/desktop-host/src/cli.ts
 +++ b/apps/desktop-host/src/cli.ts
 @@ -1,5 +1,6 @@
  /** Public dsh commands using the immutable runtime carried by the Desktop installation. */
  
 +import { existsSync } from 'node:fs'
- import { delimiter, dirname, join, resolve } from 'node:path'
+ import { basename, delimiter, dirname, join, resolve } from 'node:path'
  import { runCli } from '@deepseek-ai/dsh/lib/bin.js'
- import { installOfficeEngineResolution, runtimeArchivePath } from './office-engine.ts'
-@@ -26,11 +27,28 @@ export async function runDesktopCli(runtimeDir: string, supportDir: string): Pro
+ 
+@@ -33,11 +34,28 @@ export async function runDesktopCli(supportDir: string): Promise<void> {
    })
  }
  
@@ -49,17 +49,17 @@ index 6c890f8..174b14b 100644
      await installWindowsCliSignals()
    }
    const runtimeDir = resolve(import.meta.dirname, '../../../..')
--  await runDesktopCli(runtimeDir, join(dirname(runtimeArchivePath(runtimeDir) ?? runtimeDir), 'runtime'))
+-  await runDesktopCli(join(dirname(runtimeArchivePath(runtimeDir) ?? runtimeDir), 'runtime'))
 +  const archive = runtimeArchivePath(runtimeDir)
 +  // An ASAR build keeps the payload at resources/app.asar/dsh, so the runtime sits beside the archive.
 +  const supportDir = archive === undefined ? supportDirBesidePayload(runtimeDir) : join(dirname(archive), 'runtime')
-+  await runDesktopCli(runtimeDir, supportDir)
++  await runDesktopCli(supportDir)
  }
 diff --git a/apps/desktop-host/src/index.ts b/apps/desktop-host/src/index.ts
-index 31bbbff..1674f64 100644
+index 966e51a..0c53fd5 100644
 --- a/apps/desktop-host/src/index.ts
 +++ b/apps/desktop-host/src/index.ts
-@@ -39,7 +39,12 @@ async function main(): Promise<void> {
+@@ -37,7 +37,12 @@ async function main(): Promise<void> {
          command: process.execPath,
          args: ['--expose-internals', process.argv[5]],
          env: {
@@ -74,7 +74,7 @@ index 31bbbff..1674f64 100644
            PATH: `${process.argv[6] ?? ''}${delimiter}${process.env.PATH ?? ''}`,
          },
 diff --git a/apps/desktop/scripts/node-bin/node b/apps/desktop/scripts/node-bin/node
-index ad24172..f0b8d89 100755
+index ad24172..f0b8d89 100644
 --- a/apps/desktop/scripts/node-bin/node
 +++ b/apps/desktop/scripts/node-bin/node
 @@ -1,3 +1,14 @@
@@ -94,7 +94,7 @@ index ad24172..f0b8d89 100755
 +fi
  exec "$DSH_DESKTOP_NODE_EXECUTABLE" --expose-internals "$@"
 diff --git a/apps/desktop/src/host-process.ts b/apps/desktop/src/host-process.ts
-index 338f93b..3856f7e 100644
+index 8e26fb8..1bd5b65 100644
 --- a/apps/desktop/src/host-process.ts
 +++ b/apps/desktop/src/host-process.ts
 @@ -1,10 +1,10 @@
@@ -119,7 +119,7 @@ index 338f93b..3856f7e 100644
     * @param runtimeDir - Immutable packages carried by the current application.
     * @param projectDir - Desktop plugin profile and child working directory.
     * @param inspectPort - Optional loopback inspector port for workspace development.
-@@ -189,7 +189,7 @@ export class DesktopHostProcess {
+@@ -188,7 +188,7 @@ export class DesktopHostProcess {
     * @param onPluginOperation - Optional diagnostic sink; malformed records are ignored without failing the Host.
     */
    constructor(
@@ -128,7 +128,7 @@ index 338f93b..3856f7e 100644
      private readonly runtimeDir: string,
      private readonly projectDir: string,
      private readonly inspectPort?: number,
-@@ -209,7 +209,7 @@ export class DesktopHostProcess {
+@@ -208,7 +208,7 @@ export class DesktopHostProcess {
    async start(): Promise<DesktopHostReady> {
      if (this.child !== undefined) return this.readyPromise
      const entry = join(this.runtimeDir, 'node_modules', '@deepseek-ai', 'dsh-desktop-host', 'lib', 'index.js')
@@ -147,10 +147,10 @@ index 338f93b..3856f7e 100644
      })
      this.child = child
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index d8d0e30..d4f90a9 100644
+index 8f9cd82..5c2a2a3 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -61,6 +61,7 @@ import { readDesktopSettings } from './settings.ts'
+@@ -65,6 +65,7 @@ import { readDesktopSettings } from './settings.ts'
  import { readDesktopLocaleCache, writeDesktopLocaleCache } from './locale-cache.ts'
  import { DesktopUpdateDialog, type UpdateDialogOptions } from './update-dialog.ts'
  import { readDesktopRuntime } from './runtime-tree.ts'
@@ -158,7 +158,7 @@ index d8d0e30..d4f90a9 100644
  import { DesktopBrowserGuests } from './browser-guests.ts'
  import { installDesktopShortcuts } from './keyboard.ts'
  import { DesktopUpdateOverlays } from './update-overlay.ts'
-@@ -196,21 +197,22 @@ protocol.registerSchemesAsPrivileged([{
+@@ -200,21 +201,22 @@ protocol.registerSchemesAsPrivileged([{
  
  interface RuntimeResources {
    readonly nodeBin: string
@@ -184,7 +184,7 @@ index d8d0e30..d4f90a9 100644
  }
  
  function developmentPrimaryRuntime(): string {
-@@ -517,7 +519,8 @@ async function main(): Promise<void> {
+@@ -533,7 +535,8 @@ async function main(): Promise<void> {
      owner => isMandatory() || updateOverlays.input(owner).blocked)
    const backend = new DesktopBackendController((onFailure) => {
      const hostInspectPort = developmentHostInspectPort(development)
@@ -343,10 +343,10 @@ index 9a72fd2..4be008c 100644
    await expect(host.start()).rejects.toThrow('invalid IPC event')
    expect(changed.mock.calls).toEqual([[null]])
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index 3b1e63e..df5a5d1 100644
+index 17e16ce..0f661c7 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -476,7 +476,10 @@ describe('desktop main startup', () => {
+@@ -507,7 +507,10 @@ describe('desktop main startup', () => {
      harness.app.isPackaged = packaged
      await readyForUpdate()
      const host = harness.hosts[0]!
@@ -358,7 +358,7 @@ index 3b1e63e..df5a5d1 100644
      expect(host.primaryRuntime).toBe(packaged
        ? join('desktop-test-resources', 'runtime', 'primary-runtime') : 'test-primary-runtime')
      expect(host.packageManager).toMatchObject({
-@@ -2556,7 +2559,7 @@ describe('desktop main startup', () => {
+@@ -2997,7 +3000,7 @@ describe('desktop main startup', () => {
      await Promise.all([retry, secondRetry, harness.navigated.promise])
      expect(harness.applyRelease).toHaveBeenCalledTimes(1)
      expect(harness.hosts[0]).toMatchObject({
@@ -367,7 +367,7 @@ index 3b1e63e..df5a5d1 100644
        runtime: join(harness.app.getAppPath(), 'dsh'),
        primaryRuntime: join('desktop-test-resources', 'runtime', 'primary-runtime'),
        profile: 'desktop-test-profile',
-@@ -2579,7 +2582,7 @@ describe('desktop main startup', () => {
+@@ -3020,7 +3023,7 @@ describe('desktop main startup', () => {
      harness.prepared.resolve()
      await harness.hostStarted.promise
      const project = join(harness.app.getAppPath(), '.desktop-build', 'development', 'project')
@@ -428,16 +428,29 @@ index 5050e4f..282ca17 100644
      PATH: `/desktop/bin${delimiter}/user/bin`,
    })
  })
+diff --git a/apps/desktop/tests/office-resources.e2e.ts b/apps/desktop/tests/office-resources.e2e.ts
+index ae62655..a0b3104 100644
+--- a/apps/desktop/tests/office-resources.e2e.ts
++++ b/apps/desktop/tests/office-resources.e2e.ts
+@@ -65,7 +65,7 @@ describe.skipIf(!existsSync(builtHost))('built Desktop Host Office resources', (
+       writeFileSync(join(paths.profile, 'cordis.patch.yml'), '- id: webserver\n  config:\n    host: 127.0.0.1\n    port: 0\n')
+       installSkillProbe(paths.profile)
+       const primaryRuntime = mode === 'relative-source' ? 'runtime/primary-runtime' : join(runtime, 'primary-runtime')
+-      host = new DesktopHostProcess(process.execPath, project, paths.profile, undefined,
++      host = new DesktopHostProcess({ executable: process.execPath, electron: true }, project, paths.profile, undefined,
+         process.env, (error) => { failures.push(error) }, primaryRuntime)
+       const { url } = await host.start()
+       // The authenticated URL exchanges its token for a session cookie by redirecting.
 diff --git a/apps/desktop/tests/welcome-flow.e2e.ts b/apps/desktop/tests/welcome-flow.e2e.ts
-index ce1dc89..620cbb1 100644
+index f298fd1..1885359 100644
 --- a/apps/desktop/tests/welcome-flow.e2e.ts
 +++ b/apps/desktop/tests/welcome-flow.e2e.ts
-@@ -126,7 +126,7 @@ describe.skipIf(!existsSync(builtHost))('built Desktop welcome flow', () => {
+@@ -88,7 +88,7 @@ describe.skipIf(!existsSync(builtHost))('built Desktop welcome flow', () => {
        let hostOrigin = ''
        const restart = async (): Promise<void> => {
          await host?.stop()
--        host = new DesktopHostProcess(process.execPath, project, paths.profile)
-+        host = new DesktopHostProcess({ executable: process.execPath, electron: true }, project, paths.profile)
+-        host = new DesktopHostProcess(process.execPath, project, paths.profile, undefined,
++        host = new DesktopHostProcess({ executable: process.execPath, electron: true }, project, paths.profile, undefined,
+           process.env, undefined, join(root, 'runtime', 'primary-runtime'))
          const { url } = await host.start()
          hostOrigin = new URL(url).origin
-         let cookie = ''

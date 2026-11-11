@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/desktop-upload-plan.ts b/apps/desktop/scripts/desktop-upload-plan.ts
-index 1461444..44a8421 100644
+index 39ff954..c33f0e1 100644
 --- a/apps/desktop/scripts/desktop-upload-plan.ts
 +++ b/apps/desktop/scripts/desktop-upload-plan.ts
 @@ -21,6 +21,8 @@ const TARGETS = {

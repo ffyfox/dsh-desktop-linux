@@ -1,5 +1,5 @@
 diff --git a/.gitignore b/.gitignore
-index 4d52487..abe1a38 100644
+index 6255c70..664daad 100644
 --- a/.gitignore
 +++ b/.gitignore
 @@ -2,6 +2,7 @@ CLAUDE.local.md
@@ -71,10 +71,10 @@ index ec9da72..76c07e5 100644
    options?: { unsigned?: boolean, prepareOnly?: boolean, skipNotarization?: boolean },
  ): void
 diff --git a/apps/desktop/scripts/desktop-package-environment.mjs b/apps/desktop/scripts/desktop-package-environment.mjs
-index 27a7f92..23a0c37 100644
+index 83e9dbb..79627c3 100644
 --- a/apps/desktop/scripts/desktop-package-environment.mjs
 +++ b/apps/desktop/scripts/desktop-package-environment.mjs
-@@ -7,7 +7,8 @@ import { parseEnv } from 'node:util'
+@@ -7,7 +7,8 @@ import { readDesktopPackageSettings as readSettings } from './desktop-file-setti
  import { resolveDesktopAppId, resolveMacOSNotarizationEnvironment, resolveMacOSSigningEnvironment, resolveNpmRegistry } from './desktop-release-environment.mjs'
  import { resolveDesktopAutoUpdateConfig } from './desktop-auto-update-environment.mjs'
  import { createWindowsTokenSigner } from './windows-sign.mjs'
@@ -91,10 +91,10 @@ index 27a7f92..23a0c37 100644
 -const AMBIENT_RELEASE_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|MANDATORY_UPDATE_.*|WINDOWS_.*|MACOS_.*)|APPLE_.*|(?:WIN_)?CSC_.*|DOWNLOAD_(?:TEST|PROD)_.*)$/iu
 +const LINUX_SETTING = /^DSH_DESKTOP_LINUX_(?:MAINTAINER|HOMEPAGE)$/u
 +const AMBIENT_RELEASE_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|MANDATORY_UPDATE_.*|WINDOWS_.*|MACOS_.*|LINUX_.*)|APPLE_.*|(?:WIN_)?CSC_.*|DOWNLOAD_(?:TEST|PROD)_.*)$/iu
- const FILE_SETTINGS = ['DSH_DESKTOP_WINDOWS_CER_FILE', 'DSH_DESKTOP_WINDOWS_SIGNTOOL', 'APPLE_API_KEY', 'APPLE_KEYCHAIN', 'CSC_LINK']
  
  /**
-@@ -40,7 +42,7 @@ export function localMacOSPackageEnvironment(environment = process.env) {
+  * Select local macOS test defaults without reading dotenv files or inheriting release settings.
+@@ -39,7 +41,7 @@ export function localMacOSPackageEnvironment(environment = process.env) {
   * Any defined Mac ZIP override rejects Windows, including an empty value; nonempty Windows overrides reject macOS.
   * PACKAGE_TEST_RELEASE_ID overrides the test preset only; blank retains its configured ID.
   * PACKAGE_WINDOWS_COMPRESSION_LEVEL selects 3 or 7 for Windows workflow builds; blank retains the file setting.
@@ -103,7 +103,7 @@ index 27a7f92..23a0c37 100644
   * @param {NodeJS.ProcessEnv} environment Parent environment, retained only for unrelated build tools.
   * @param {string} appRoot Desktop application directory; relative credential paths resolve here.
   * @param {{ unsigned?: boolean, prepareOnly?: boolean }} options Unsigned presets and Windows preparation-only presets never read signing credentials.
-@@ -59,14 +61,18 @@ export function loadDesktopPackageEnvironment(platform, environment = process.en
+@@ -58,14 +60,18 @@ export function loadDesktopPackageEnvironment(platform, environment = process.en
      if (!['3', '7'].includes(zipCompression)) throw new Error('desktop package: workflow ZIP compression must be 3 or 7')
    }
    const preset = environment.DSH_PACKAGING_PRESET
@@ -124,7 +124,7 @@ index 27a7f92..23a0c37 100644
    const publicPlatformSetting = platform === 'win32'
      ? /^DSH_DESKTOP_WINDOWS_(?:SIGNATURE_CACHE_(?:DIR|CONCURRENCY)|PACK_CONCURRENCY|COMPRESSION_LEVEL)$/u
      : /^DSH_DESKTOP_MACOS_(?:SIGNATURE_CACHE_DIR|PACK_CONCURRENCY|ZIP_COMPRESSION_LEVEL|DOWNLOAD_PROXY|NOTARIZATION_PROXY)$/u
-@@ -148,7 +154,7 @@ function requireReadableFile(environment, name) {
+@@ -113,7 +119,7 @@ function requireReadableFile(environment, name) {
  /**
   * Validate the packaging mode before preparation without invoking a token or Apple's services.
   * @param {NodeJS.ProcessEnv} environment Selected local defaults or file-owned release settings.
@@ -133,7 +133,7 @@ index 27a7f92..23a0c37 100644
   * @param {{ unsigned?: boolean, prepareOnly?: boolean, skipNotarization?: boolean }} options Explicit packaging mode.
   * @returns {void}
   */
-@@ -156,9 +162,22 @@ export function validateDesktopPackageEnvironment(environment, target, options =
+@@ -121,9 +127,22 @@ export function validateDesktopPackageEnvironment(environment, target, options =
    resolveDesktopTargetBuildPaths(environment, target.platform, target.arch)
    resolveDesktopAppId(environment)
    resolveNpmRegistry(environment)
@@ -158,7 +158,7 @@ index 27a7f92..23a0c37 100644
    if (options.unsigned) return
    if (!options.prepareOnly) resolveDesktopAutoUpdateConfig(environment, target.platform, target.arch)
    if (target.platform === 'win32') {
-@@ -169,7 +188,7 @@ export function validateDesktopPackageEnvironment(environment, target, options =
+@@ -134,7 +153,7 @@ export function validateDesktopPackageEnvironment(environment, target, options =
        keyContainer: environment.DSH_DESKTOP_WINDOWS_KEY_CONTAINER,
      })
      if (!options.prepareOnly) resolveWindowsSignatureCacheDirectory(environment)

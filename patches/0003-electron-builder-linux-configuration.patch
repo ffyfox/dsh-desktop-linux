@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/electron-builder.config.d.mts b/apps/desktop/electron-builder.config.d.mts
-index 2973a6ea..55411cbd 100644
+index 2973a6e..55411cb 100644
 --- a/apps/desktop/electron-builder.config.d.mts
 +++ b/apps/desktop/electron-builder.config.d.mts
 @@ -46,6 +46,19 @@ export interface DesktopElectronBuilderConfig {
@@ -23,7 +23,7 @@ index 2973a6ea..55411cbd 100644
      readonly uninstallDisplayName: '${productName}'
      readonly include: string
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index cf0c19e8..fb3234c1 100644
+index d5522e3..bb2973e 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -23,7 +23,8 @@ import {
@@ -51,7 +51,7 @@ index cf0c19e8..fb3234c1 100644
    if (resolvedPlatform === 'win32') installWindowsDirectoryInstaller()
    const macOSSigning = packagesMacOS && !unsigned ? resolveMacOSSigningEnvironment(env) : undefined
    if (packagesMacOS && !unsigned && !skipNotarization) resolveMacOSNotarizationEnvironment(env)
-@@ -111,6 +118,10 @@ export function createElectronBuilderConfig(
+@@ -113,6 +120,10 @@ export function createElectronBuilderConfig(
        dshDesktopAppId: appId,
        dshDesktopUpdateChannel: update?.channel ?? 'nightly',
        ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
@@ -62,7 +62,7 @@ index cf0c19e8..fb3234c1 100644
        ...buildVersion === productVersion ? {} : { version: buildVersion },
        ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
      },
-@@ -120,7 +131,10 @@ export function createElectronBuilderConfig(
+@@ -122,7 +133,10 @@ export function createElectronBuilderConfig(
      // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
      artifactName: `deepseek-harness-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
      directories: { output: output.directory },
@@ -74,7 +74,7 @@ index cf0c19e8..fb3234c1 100644
      electronDist: buildPaths.electron,
      electronFuses: { runAsNode: true },
      beforeBuild: async () => {
-@@ -253,8 +267,47 @@ export function createElectronBuilderConfig(
+@@ -255,8 +269,47 @@ export function createElectronBuilderConfig(
        target: ['nsis'],
      },
      linux: {
@@ -124,7 +124,7 @@ index cf0c19e8..fb3234c1 100644
      nsis: {
        uninstallDisplayName: '${productName}',
 diff --git a/apps/desktop/tests/installer-packaging.spec.ts b/apps/desktop/tests/installer-packaging.spec.ts
-index 1e438ded..17f62e25 100644
+index 1e438de..17f62e2 100644
 --- a/apps/desktop/tests/installer-packaging.spec.ts
 +++ b/apps/desktop/tests/installer-packaging.spec.ts
 @@ -102,6 +102,26 @@ describe('installer preparation preserves application dependencies', () => {

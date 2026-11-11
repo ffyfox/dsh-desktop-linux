@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 1fb6ac4..5c53a2d 100644
+index 3d2a0ec..4fdf59b 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -291,6 +291,9 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -297,6 +297,9 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        devTools: true,
      },
    })
@@ -12,7 +12,7 @@ index 1fb6ac4..5c53a2d 100644
    window.webContents.setWindowOpenHandler(({ url }) => {
      if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
      return { action: 'deny' }
-@@ -349,7 +352,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -362,7 +365,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        const messages = currentDesktopLocale().messages
        Menu.buildFromTemplate(items.map(item => ({
          ...item,
@@ -22,7 +22,7 @@ index 1fb6ac4..5c53a2d 100644
            ? { label: messages[item.role as keyof typeof messages] } : {}),
          accelerator: '',
        }))).popup({ window })
-@@ -1124,7 +1128,8 @@ async function main(): Promise<void> {
+@@ -1275,7 +1279,8 @@ async function main(): Promise<void> {
      ...(process.platform === 'win32' ? { icon: nativeImage.createFromPath(trayIconPath) } : {}),
    })
  
@@ -32,7 +32,7 @@ index 1fb6ac4..5c53a2d 100644
      ipcMain.handle(DESKTOP_IPC.windowsMenu, (event, name: unknown, x: unknown, y: unknown) => {
        assertDesktopSender(event, ['app'])
        if (mainWindow === undefined || event.sender !== mainWindow.webContents
-@@ -1165,7 +1170,8 @@ async function main(): Promise<void> {
+@@ -1316,7 +1321,8 @@ async function main(): Promise<void> {
        // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
        const validColor = (value: unknown): value is string => typeof value === 'string'
          && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
@@ -74,10 +74,10 @@ index 61fda9e..364f580 100644
    let active = true
    const disposeHandlers = (): void => {
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index ade4687..cea28c9 100644
+index 8d49aba..a80dbf8 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -127,6 +127,7 @@ const harness = await vi.hoisted(async () => {
+@@ -130,6 +130,7 @@ const harness = await vi.hoisted(async () => {
      }
      static getAllWindows() { return windows.filter(window => !window.destroyed) }
      setMenu() {}
@@ -139,10 +139,10 @@ index e59b7eb..735b77f 100644
    syncWindowsAppearance()
    expect(send).not.toHaveBeenCalled()
 diff --git a/apps/desktop/tests/welcome-startup.spec.ts b/apps/desktop/tests/welcome-startup.spec.ts
-index 4ae8743..625949c 100644
+index 1f9bc8a..2c226ec 100644
 --- a/apps/desktop/tests/welcome-startup.spec.ts
 +++ b/apps/desktop/tests/welcome-startup.spec.ts
-@@ -74,6 +74,7 @@ vi.mock('electron', () => ({
+@@ -77,6 +77,7 @@ vi.mock('electron', () => ({
      static getAllWindows() { return [] }
      once(name: string, callback: () => void) { if (name === 'ready-to-show') this.ready = callback; return this }
      on() { return this }

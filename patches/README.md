@@ -565,3 +565,23 @@ arm64 目标折进现有补丁，不新增编号；文件名保留 `-x64` 的历
 
 - 验证（2026-11-04）：17 个补丁在 rc.1 的 worktree 上按序 `patch -Np1` 全过（72 个文件改动 + 12 个新增）；`apply-patches.sh` 的 `git apply` 顺序应用通过（`--check` 对 `0017` 仍必然失败，原因见 11-03 那条）；`makepkg --verifysource` 19 项通过；`build.sh --all` 三格式一次出齐（`0.2.2-rc.1`）；`verify.sh --runtime` 46 通过 / 0 失败 / 4 跳过；上游桌面单测 2115 通过 / 0 失败 / 63 跳过。
 
+
+## 2026-11-11：0.2.2-rc.2（完整同步）
+
+基线 `dsh-v0.2.2-rc.2`（`ddac9676`）。相对 rc.1 是 **1568 个提交、4645 个文件、+160844 / −58399** —— 两周的上游主干，和上一版的「4 个提交全是版本号」正好是两个极端。13 个补丁的目标文件被改动，`0004` `0010` `0011` `0012` 一字未动。
+
+- **上游把 Host 的 office 那条线整个重写了。** `apps/desktop-host/src/office-engine.ts`（48 行）与 `office.ts`（38 行）删除：`installOfficeEngineResolution()` 没了，改成 Host 入口自己把 `process.argv[4]` 记进 `process.env.DSH_PRIMARY_RUNTIME`；`runtimeArchivePath()` 搬进 `src/cli.ts`。同期 `libreoffice-kit` 0.1.5 → 0.2.3。`0008` / `0009` / `0017` 因此**重新推导而不是三路合并**：三者的 `import` 行换成新家，0017 的 `index.ts` 只剩「把 `DSH_DESKTOP_RESOURCES_PATH` 回填成 `process.resourcesPath`」这一块，替上游补 office 引擎的那部分整段删掉。
+
+- **更新渠道改名。** `desktop-release-store.ts` 的 `channel` 从 `['nightly','latest']` 变 `['nightly','stable']`，`electron-builder-config.mjs` 与 `desktop-upload-plan.ts` 同时删掉「stable 渠道不许预发布版本」的两处守卫。`0001` / `0002` / `0003` 的 JSDoc 与上下文跟着改；Linux 不进这两条守卫，语义无变化。
+
+- **发布设置读取被抽走。** `desktop-package-environment.mjs` 的 dotenv 读取整段移进新的 `desktop-file-settings.mjs`（`readDesktopPackageSettings`）。`0005` 从未改过那个函数本体，Linux 白名单都在常量与平台选择处，所以只重排了常量块，不搬家。
+
+- **侧栏重构。** `SidebarRoot.tsx` +105/−70、`SidebarRoot.module.css` +168/−33、新增 `scroll-handoff.ts`（插件入口收进「更多」、插件导航与会话列表共用滚动区）；`AppFrame.module.css` +10/−26、`PluginManagerPage.module.css` +82/−14。`0018` 的玻璃模式靠类名后缀命中哈希类名，逐条复核后三个选择器仍然成立：`[class*="sidebarCol"]`（在 `AppFrame.module.css`）、`[class$="newSession"]`、`[class$="_fade"]`。
+
+- **两个补丁新增了「上游文件」**（不在原补丁的目标列表里）：
+  - `0001` 加 `apps/desktop/scripts/retain-desktop-ci.ts`：上游的发布路由（`desktop-publish-route.ts`）只认 mac/win，而我们的 target 联合多了 linux，`route.target.includes(target)` 过不了类型检查；改成 `(route.target as readonly string[]).includes(target)`，路由表本身不动。
+  - `0008` 加 `apps/desktop/tests/office-resources.e2e.ts`：rc.2 新增的 e2e，构造 `DesktopHostProcess` 用的是字符串可执行文件，要改成 `DesktopNodeRuntime` 对象。
+
+- **仓库脚本一处修正**：`scripts/verify.sh` 的客户端身份检查改从 `@deepseek-ai/dsh-deepseek-account/lib/types/client-metadata.js` 取 `platformClientHeaders` —— rc.2 起这个函数只从 `./client-metadata` 子路径导出（包根不再转出），而 tsdown 只把入口打成 `lib/index.js`，子路径落在 `lib/types/`。
+
+- 验证（2026-11-11）：17 个补丁在 rc.2 worktree 上按序 `git apply` 与 `patch -Np1` 都全过，两条路线打出来的树与三路合并树逐字节一致；`0004`/`0010`/`0011`/`0012` 重生后与仓库原文件 `cmp` 逐字节相同；`makepkg --verifysource` 19 项通过；`build.sh --all` 三格式一次出齐（`0.2.2-rc.2`）；`verify.sh --runtime` 49 通过 / 0 失败 / 1 跳过；上游桌面单测 2348 通过 / 0 失败 / 65 跳过。

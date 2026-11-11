@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/package.json b/apps/desktop/package.json
-index 5d4f00e..72de86a 100644
+index f13ba31..2f8783d 100644
 --- a/apps/desktop/package.json
 +++ b/apps/desktop/package.json
-@@ -38,6 +38,10 @@
+@@ -39,6 +39,10 @@
      "package:win:x64": "tsx scripts/package-target.ts win-x64",
      "package:win:x64:unsigned": "tsx scripts/package-target.ts win-x64 --unsigned",
      "package:win:x64:dir": "tsx scripts/package-target.ts win-x64 --dir",
@@ -14,13 +14,13 @@ index 5d4f00e..72de86a 100644
      "upload:mac:x64": "tsx scripts/upload-target.ts mac-x64",
      "upload:win:x64": "tsx scripts/upload-target.ts win-x64",
 diff --git a/packages/client/ui-brand-official/src/client/index.ts b/packages/client/ui-brand-official/src/client/index.ts
-index 332a5f6..05e32a6 100644
+index e5dc78b..75cc2d5 100644
 --- a/packages/client/ui-brand-official/src/client/index.ts
 +++ b/packages/client/ui-brand-official/src/client/index.ts
-@@ -14,7 +14,10 @@ export const inject = ['slots']
-  * @param ctx - Client root context.
-  */
- export function apply(ctx: ClientContext): void {
+@@ -18,7 +18,10 @@ export function apply(ctx: ClientContext): void {
+     name: 'conversation.hero.frame',
+     id: 'pixel-whale',
+   }, PixelWhale))
 -  if (process.env.DSH_CLIENT_BUILD_PROFILE !== 'official') return
 +  // Linux packages are unsigned, so packaging selects the local client profile; those
 +  // release packages still carry the official brand. A build that selects no profile
@@ -30,29 +30,34 @@ index 332a5f6..05e32a6 100644
      ctx.slots.inject('sidebar.brand.name', function* () {
        yield ctx.slots.register({ name: 'sidebar.brand.mark' }, OfficialBrandMark)
 diff --git a/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx b/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx
-index 47e3206..8a53d98 100644
+index 306023b..3475150 100644
 --- a/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx
 +++ b/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx
-@@ -40,11 +40,23 @@ describe('official browser-brand plugin', () => {
+@@ -46,13 +46,26 @@ describe('official browser-brand plugin', () => {
      expect(inject).toEqual(['slots'])
    })
  
--  it('leaves every slot empty outside the official build profile', async () => {
+-  it('keeps local sidebar branding and provides the same blank-home feedback', async () => {
 +  it('fills the brand holes for the local profile Linux release packages use', async () => {
      vi.stubEnv('DSH_CLIENT_BUILD_PROFILE', 'local')
      const subject = await bench()
      await subject.ctx.plugin({ inject: [...inject], apply }).await()
--    for (const hole of HOLES) expect(subject.slots.entries(hole)).toHaveLength(0)
+-    expect(subject.slots.entries('sidebar.brand.mark')).toHaveLength(0)
+-    expect(subject.slots.entries('sidebar.brand.name')).toHaveLength(0)
+-    expect(subject.slots.entries('conversation.hero.frame')).toHaveLength(1)
 +    for (const hole of HOLES) expect(subject.slots.entries(hole)).toHaveLength(1)
 +  })
 +
-+  it('leaves every slot empty when no build profile is selected', async () => {
++  it('leaves the sidebar brand holes empty when no build profile is selected', async () => {
 +    const saved = process.env.DSH_CLIENT_BUILD_PROFILE
 +    Reflect.deleteProperty(process.env, 'DSH_CLIENT_BUILD_PROFILE')
 +    try {
 +      const subject = await bench()
 +      await subject.ctx.plugin({ inject: [...inject], apply }).await()
-+      for (const hole of HOLES) expect(subject.slots.entries(hole)).toHaveLength(0)
++      expect(subject.slots.entries('sidebar.brand.mark')).toHaveLength(0)
++      expect(subject.slots.entries('sidebar.brand.name')).toHaveLength(0)
++      // The blank-home frame belongs to every build, so it keeps its occupant without a profile.
++      expect(subject.slots.entries('conversation.hero.frame')).toHaveLength(1)
 +    } finally {
 +      if (saved !== undefined) process.env.DSH_CLIENT_BUILD_PROFILE = saved
 +    }

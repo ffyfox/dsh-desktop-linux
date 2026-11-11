@@ -1,9 +1,9 @@
 diff --git a/apps/desktop-host/src/index.ts b/apps/desktop-host/src/index.ts
-index 1674f64..25a96dd 100644
+index 0c53fd5..c972b35 100644
 --- a/apps/desktop-host/src/index.ts
 +++ b/apps/desktop-host/src/index.ts
-@@ -19,6 +19,18 @@ import { installPlatformSessionPublisher } from './platform-session.ts'
- import { installOfficeEngineResolution } from './office-engine.ts'
+@@ -16,6 +16,18 @@ import { installDesktopQuitInspection } from './quit-inspection.ts'
+ import { installPlatformSessionPublisher } from './platform-session.ts'
  import { installOperationDiagnostics } from './operation-diagnostics.ts'
  
 +// An Electron process exposes its resources directory as `process.resourcesPath`; a standalone Node
@@ -22,10 +22,10 @@ index 1674f64..25a96dd 100644
    const runId = randomUUID() as PluginOperationRunId
    if (process.connected) process.send?.({ type: 'starting', runId }, (error) => { if (error !== null) console.error(error) })
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 5c53a2d..a08fe1a 100644
+index 4fdf59b..b6add2e 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -199,6 +199,8 @@ interface RuntimeResources {
+@@ -203,6 +203,8 @@ interface RuntimeResources {
    readonly nodeBin: string
    /** Electron executable that runs this application. */
    readonly electron: string
@@ -34,7 +34,7 @@ index 5c53a2d..a08fe1a 100644
    readonly pnpm: string
    readonly dsh: string
  }
-@@ -212,7 +214,7 @@ function runtimeResources(): RuntimeResources {
+@@ -216,7 +218,7 @@ function runtimeResources(): RuntimeResources {
        : join(process.resourcesPath, 'runtime', 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs'))
    const dsh = (development ? process.env.DSH_DESKTOP_DSH_DIR : undefined)
      ?? (development ? join(app.getAppPath(), '.desktop-build', 'development', 'project') : join(app.getAppPath(), 'dsh'))
@@ -43,7 +43,7 @@ index 5c53a2d..a08fe1a 100644
  }
  
  function developmentPrimaryRuntime(): string {
-@@ -524,7 +526,14 @@ async function main(): Promise<void> {
+@@ -540,7 +542,14 @@ async function main(): Promise<void> {
    const backend = new DesktopBackendController((onFailure) => {
      const hostInspectPort = developmentHostInspectPort(development)
      const host = new DesktopHostProcess(

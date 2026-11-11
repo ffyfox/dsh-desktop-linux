@@ -149,19 +149,19 @@ index 0000000..97512e7
 +  return tint > 100 ? null : tint
 +}
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index a08fe1a..bd63c59 100644
+index b6add2e..fcd8a4e 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -33,6 +33,8 @@ import { installMicrophonePermissions } from './microphone-permissions.ts'
+@@ -36,6 +36,8 @@ import { installMicrophonePermissions } from './microphone-permissions.ts'
  import { DesktopBackendController } from './backend-controller.ts'
  import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
  import { readDeviceInfo } from './device-info.ts'
 +import { GLASS_ARGUMENT, desktopGlass, glassTint } from './glass-mode.ts'
 +import { glassDocument } from './glass-document.ts'
  import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
+ import type { DesktopMessages } from './locale.ts'
  import { claimDesktopSingleInstance } from './single-instance.ts'
- import { desktopUpdateChannel } from './update-channel.ts'
-@@ -261,12 +263,19 @@ function platformLoginUrl(authorizeUrl: string): string {
+@@ -266,12 +268,19 @@ function platformLoginUrl(authorizeUrl: string): string {
  }
  
  function createWindow(preload: string, show = false, primary = false): BrowserWindow {
@@ -179,9 +179,9 @@ index a08fe1a..bd63c59 100644
 +      backgroundColor: '#00000000',
 +    } : {}),
      ...(process.platform === 'win32' && primary ? {
+       backgroundColor: chromeFallbackFill(),
        titleBarStyle: 'hidden' as const,
-       titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
-@@ -291,11 +300,16 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -297,11 +306,16 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        webSecurity: true,
        webviewTag: primary,
        devTools: true,
@@ -200,7 +200,7 @@ index a08fe1a..bd63c59 100644
    window.webContents.setWindowOpenHandler(({ url }) => {
      if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
      return { action: 'deny' }
-@@ -783,7 +797,10 @@ async function main(): Promise<void> {
+@@ -818,7 +832,10 @@ async function main(): Promise<void> {
      if (url.hostname === 'app') {
        if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname.startsWith('/assets/')
          || ['/favicon.svg', '/manifest.webmanifest'].includes(url.pathname)) {
@@ -232,7 +232,7 @@ index f17cbdb..aa938fc 100644
    // the same marker and appearance reporting as Windows.
    if (process.platform !== 'win32' && process.platform !== 'linux') return
 diff --git a/apps/desktop/src/web-document.ts b/apps/desktop/src/web-document.ts
-index a74ea7c..0628f4e 100644
+index 15f289e..51c23fb 100644
 --- a/apps/desktop/src/web-document.ts
 +++ b/apps/desktop/src/web-document.ts
 @@ -13,9 +13,10 @@ const BOOT = '<script>globalThis.__DSH_BOOT_READY__ = Promise.withResolvers()</s
@@ -361,7 +361,7 @@ index 0000000..cd8d2df
 +  })
 +})
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index cea28c9..dc20ae2 100644
+index a80dbf8..bb0be60 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
 @@ -2,6 +2,8 @@ import { parsePluginOperationRecord } from '@deepseek-ai/dsh-plugin-manager/diag
@@ -373,7 +373,7 @@ index cea28c9..dc20ae2 100644
  import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
  import type { IpcMainInvokeEvent } from 'electron'
  import { join } from 'node:path'
-@@ -127,7 +129,8 @@ const harness = await vi.hoisted(async () => {
+@@ -130,7 +132,8 @@ const harness = await vi.hoisted(async () => {
      }
      static getAllWindows() { return windows.filter(window => !window.destroyed) }
      setMenu() {}
@@ -383,8 +383,8 @@ index cea28c9..dc20ae2 100644
      getContentBounds() { return { x: 0, y: 0, width: 900, height: 650 } }
      setBounds() {}
      setTitle = vi.fn()
-@@ -918,6 +921,76 @@ describe('desktop main startup', () => {
-     expect(harness.hosts).toHaveLength(0)
+@@ -1241,6 +1244,76 @@ describe('desktop main startup', () => {
+     expect(harness.nativeTheme.themeSource).toBe('dark')
    })
  
 +  it('keeps the in-page caption configuration on linux without glass mode', async () => {
@@ -495,7 +495,7 @@ index 735b77f..3b5069e 100644
    vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
    vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading')
 diff --git a/apps/desktop/tests/web-document.spec.ts b/apps/desktop/tests/web-document.spec.ts
-index 0fd9b59..ef31960 100644
+index 6507712..723a4f0 100644
 --- a/apps/desktop/tests/web-document.spec.ts
 +++ b/apps/desktop/tests/web-document.spec.ts
 @@ -27,6 +27,21 @@ it('serves the Web entry and assets without starting or contacting a Host', asyn
@@ -521,10 +521,10 @@ index 0fd9b59..ef31960 100644
    const fetch = vi.fn().mockResolvedValueOnce(new Response(null, { status: 303, headers: { 'set-cookie': 'session=owned; HttpOnly; SameSite=Strict' } }))
      .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
 diff --git a/packages/client/ui-layout/src/client/AppFrame.module.css b/packages/client/ui-layout/src/client/AppFrame.module.css
-index fa1065d..671c141 100644
+index dd4a89c..6c9d42e 100644
 --- a/packages/client/ui-layout/src/client/AppFrame.module.css
 +++ b/packages/client/ui-layout/src/client/AppFrame.module.css
-@@ -205,6 +205,30 @@
+@@ -189,6 +189,30 @@
    left: 12px;
  }
  
@@ -629,10 +629,10 @@ index 8aff85d..b55793b 100644
      selectedSessionTitle = 'Session title'
      const { instance, frame, slotCalls, getByTestId } = mountFrame()
 diff --git a/packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css b/packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css
-index 4b7b5f5..7fb29c6 100644
+index f7fac78..7fe6f45 100644
 --- a/packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css
 +++ b/packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css
-@@ -166,8 +166,10 @@
+@@ -174,8 +174,10 @@
  /* macOS hiddenInset titlebar: the frame's top clearance keeps the head below
     the window's top strip in both sidebar states so it never jumps, and the head
     owns the window drag over its own box — clearance included — so this page's
@@ -646,7 +646,7 @@ index 4b7b5f5..7fb29c6 100644
  }
  
 diff --git a/packages/client/ui-schedule/src/client/TaskManagerPage.module.css b/packages/client/ui-schedule/src/client/TaskManagerPage.module.css
-index 62f10d6..3845850 100644
+index 6abf1a1..c30ea02 100644
 --- a/packages/client/ui-schedule/src/client/TaskManagerPage.module.css
 +++ b/packages/client/ui-schedule/src/client/TaskManagerPage.module.css
 @@ -63,8 +63,10 @@
@@ -663,7 +663,7 @@ index 62f10d6..3845850 100644
  }
  
 diff --git a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
-index 387b6f8..e579e06 100644
+index a9de416..ddcd042 100644
 --- a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
 +++ b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
 @@ -208,6 +208,11 @@
@@ -679,10 +679,10 @@ index 387b6f8..e579e06 100644
     tucks 12px back under it, still clear of the toggle (28px control centered
     in the strip ends at y 40). */
 diff --git a/packages/client/ui-sidebar/src/client/SidebarRoot.tsx b/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
-index f03ecc3..5250480 100644
+index b573b19..297fbbb 100644
 --- a/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
 +++ b/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
-@@ -253,6 +253,13 @@ export function SidebarRoot({
+@@ -278,6 +278,13 @@ export function SidebarRoot({
    }
  
    const darwinDesktop = isDarwinDesktop()
@@ -696,7 +696,7 @@ index f03ecc3..5250480 100644
    // Rail resting state is the whale mark; hovering swaps in the panel icon
    // (the expand affordance, figma sidebar-hover flow). Expanded it is a plain
    // panel icon.
-@@ -300,8 +307,11 @@ export function SidebarRoot({
+@@ -325,8 +332,11 @@ export function SidebarRoot({
        onPointerLeave={() => { armLinger() }}
      >
        {/* macOS hiddenInset titlebar: the strip shares the row with the
@@ -710,7 +710,7 @@ index f03ecc3..5250480 100644
        <div className={css.logoRow} data-window-drag>
          {/* Expanded, the brand doubles as a New Session shortcut while the
              access snapshot allows `session/create` — except on
-@@ -350,7 +360,7 @@ export function SidebarRoot({
+@@ -375,7 +385,7 @@ export function SidebarRoot({
                </button>
              )
          })()}
@@ -720,10 +720,10 @@ index f03ecc3..5250480 100644
  
        {/* The label fades before the hover/focus shortcut, including on translucent backgrounds. */}
 diff --git a/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx b/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx
-index ee09e12..24286f7 100644
+index f6b1b39..4855352 100644
 --- a/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx
 +++ b/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx
-@@ -422,6 +422,17 @@ it('keeps the macOS sidebar toggle in its top strip', () => {
+@@ -465,6 +465,17 @@ it('keeps the macOS sidebar toggle in its top strip', () => {
    expect(shell.trackEntryClick).toHaveBeenCalledExactlyOnceWith({ menu_name: 'new_session', position: 'sidebar' })
  })
  
