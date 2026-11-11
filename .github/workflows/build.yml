@@ -350,8 +350,9 @@ jobs:
       # 元数据与三个路径，从没被真的打开过。原先「不做真安装」的理由（pacman -U 要连带解析
       # gtk3 那套 depends）已经不成立 —— 上面「装 depends」那步为了构建已经把 depends 全套装好，
       # 这里只是本地安装。装完按同样的判据起一次窗口（scripts/smoke-display.sh）。
+      # Arch 里 /usr/bin/xauth 属于 xorg-xauth，没有叫 xauth 的包（Arch 与 ALARM 都是）。
       - name: 装启动冒烟依赖
-        run: pacman -S --noconfirm --needed xorg-server-xvfb xdotool imagemagick xauth
+        run: pacman -S --noconfirm --needed xorg-server-xvfb xdotool imagemagick xorg-xauth
 
       - name: 安装并启动冒烟
         env:
