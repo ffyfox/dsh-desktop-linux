@@ -109,7 +109,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harnes
 sha256sums=('d376fe64ec4b7c9b5837fb1155ed3a48e7e0e5f5b0aae0b91d9fb836daa8c20e'
             'c033622b52004495bb07612703fcd48613da91be47af8ef18cd27cf3f352b289'
             '7f3bc091d65f2dc404944cc9200e2108ddf73a57a3cb08fb45bac64eb5908eae'
-            'e16fd7668cde79ad037f09f393f0262796392503af2a6994c686aea2a7ab541d'
+            '98c923ed30f1ec038315abead7f38cbb105026f60c42c651c95f16bf5e363cf0'
             '86ce03a77b1d12570739328bed54a8575e301deed0f48d14c259a7b40c762ddc'
             '5d17926b28bb6d8cc16565197e9e1dc758a1e003303c52eeaaf8cc39c1f1fd1d'
             'e3debef4f1fb3e4694bf659cf771e7e7a2f5d85072f11f354041ab3043dae529'

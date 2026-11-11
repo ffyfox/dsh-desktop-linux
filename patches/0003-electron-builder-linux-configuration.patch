@@ -124,10 +124,10 @@ index d5522e3..bb2973e 100644
      nsis: {
        uninstallDisplayName: '${productName}',
 diff --git a/apps/desktop/tests/installer-packaging.spec.ts b/apps/desktop/tests/installer-packaging.spec.ts
-index 1e438de..17f62e2 100644
+index 1e438de..6ca1e1d 100644
 --- a/apps/desktop/tests/installer-packaging.spec.ts
 +++ b/apps/desktop/tests/installer-packaging.spec.ts
-@@ -102,6 +102,26 @@ describe('installer preparation preserves application dependencies', () => {
+@@ -102,6 +102,32 @@ describe('installer preparation preserves application dependencies', () => {
      expect(config.artifactName).toBe('deepseek-harness-${version}-${os}-${arch}-unsigned.${ext}')
    })
  
@@ -143,12 +143,18 @@ index 1e438de..17f62e2 100644
 +      DSH_DESKTOP_LINUX_HOMEPAGE: 'https://example.com',
 +    }, 'linux', 'x64')
 +    expect(config.linux.target).toEqual(['deb', 'rpm'])
-+    expect(config.deb.depends).toEqual([
-+      'libgtk-3-0', 'libnotify4', 'libnss3', 'libxtst6', 'xdg-utils', 'libatspi2.0-0', 'libuuid1', 'libsecret-1-0',
-+    ])
-+    expect(config.rpm.depends).toEqual([
-+      'gtk3', 'libnotify', 'nss', '(libXtst or libXtst6)', 'xdg-utils', 'at-spi2-core', '(libuuid or libuuid1)',
-+    ])
++    // fpm replaces its entire default dependency list the moment `depends` is set, so these arrays must
++    // keep tracking upstream: derive the expectation from app-builder-lib itself instead of copying it,
++    // or a default added by a future electron-builder release is dropped in silence. getDefaultDepends is
++    // private in app-builder-lib's own typings, hence the cast — if upstream renames it this test fails
++    // loudly instead of hiding the drift.
++    const { default: FpmTarget } = await import('app-builder-lib/out/targets/FpmTarget.js')
++    const fpmDefaults = (FpmTarget as unknown as {
++      prototype: { getDefaultDepends(target: string): string[] }
++    }).prototype
++    const withoutScreenSaver = (list: readonly string[], removed: string) => list.filter(entry => entry !== removed)
++    expect(config.deb.depends).toEqual(withoutScreenSaver(fpmDefaults.getDefaultDepends('deb'), 'libxss1'))
++    expect(config.rpm.depends).toEqual(withoutScreenSaver(fpmDefaults.getDefaultDepends('rpm'), 'libXScrnSaver'))
 +  })
 +
    it('packages every preload entry point the shell loads', async () => {
