@@ -341,6 +341,39 @@ jobs:
           done
           echo "校验通过：$(basename "$pkg")"
 
+      # 包得体不等于能启动：AppImage/deb/rpm 那条流水线有启动冒烟，Arch 包此前只核对了
+      # 元数据与三个路径，从没被真的打开过。原先「不做真安装」的理由（pacman -U 要连带解析
+      # gtk3 那套 depends）已经不成立 —— 上面「装 depends」那步为了构建已经把 depends 全套装好，
+      # 这里只是本地安装。装完按同样的判据起一次窗口（scripts/smoke-display.sh）。
+      - name: 装启动冒烟依赖
+        run: pacman -S --noconfirm --needed xorg-server-xvfb xdotool imagemagick xauth
+
+      - name: 安装并启动冒烟
+        env:
+          SMOKE_OUT: ${{ runner.temp }}/dsh-smoke-arch
+        run: |
+          set -euo pipefail
+          pkg="$(find pkgbuild -maxdepth 1 -name 'dsh-desktop-linux-*.pkg.tar.zst' -print -quit)"
+          [[ -n "$pkg" ]] || { echo "pkgbuild/ 里没有包文件" >&2; exit 1; }
+          pacman -U --noconfirm "$pkg"
+          pacman -Q dsh-desktop-linux
+          # 符号链接要解得开：/usr/bin/deepseek-harness -> /opt/deepseek-harness-desktop/...
+          test -x /usr/bin/deepseek-harness
+          # makepkg 拒绝 root，应用也不该在 root 下跑：换成构建用户，并给它可写的截图目录。
+          mkdir -p "$SMOKE_OUT"
+          chown builder:builder "$SMOKE_OUT"
+          runuser -u builder -- env SMOKE_OUT="$SMOKE_OUT" \
+            ./scripts/smoke-display.sh /usr/bin/deepseek-harness "${{ matrix.arch }}"
+
+      - name: 保留冒烟截图
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-smoke-${{ matrix.arch }}
+          path: ${{ runner.temp }}/dsh-smoke-arch/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
       # 包级别 namcap 对「自带完整运行时、装进 /opt」的应用必然报 error，多数不是 PKGBUILD
       # 的缺陷，所以不当门禁：
       #   - "ELF files outside of a valid path ('opt/')"：namcap 自己把 opt/ 归到
