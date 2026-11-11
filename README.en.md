@@ -7,16 +7,18 @@ Ports the **packaging pipeline** of the official
 (the Electron application in `apps/desktop`) to Linux, producing
 AppImage / deb / rpm / Arch packages.
 
-Upstream explicitly does not support Linux today (`apps/desktop/packaging/README.md`:
-*"Linux is not a supported Desktop release target."*). This project fills exactly
-that gap: it teaches the official packaging pipeline about `linux-x64` and
-`linux-arm64` and emits installable artifacts.
+Upstream does not support Linux today; this project fills that gap: it teaches
+the official packaging pipeline about `linux-x64` and `linux-arm64` and emits
+installable artifacts.
 
 ![The DeepSeek Harness desktop interface in normal mode (KDE)](docs/screenshot.png)
+*Normal mode (KDE Plasma)*
 
 ![The DeepSeek Harness desktop interface in frameless mode (KDE)](docs/screenshot-frameless.png)
+*Frameless mode (KDE Plasma, `DSH_DESKTOP_FRAMELESS=1`)*
 
 ![The DeepSeek Harness desktop interface in glass mode (Hyprland)](docs/screenshot-glass.png)
+*Glass mode (Hyprland, `DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75`)*
 
 ## What this project produces
 
@@ -25,9 +27,6 @@ What this project ships is **the official Electron application itself**:
 - the renderer loads over its own `dsh-app://` protocol rather than connecting to a local web server;
 - it carries its own Node / pnpm / Python runtime and does not use the system Node;
 - it owns `$DSH_HOME/profiles/desktop` exclusively and does not touch the `web` profile.
-
-The cost is a much heavier build: clone the upstream monorepo, run the pnpm
-workspace build, then package with electron-builder.
 
 ## Install
 
@@ -38,7 +37,44 @@ Download the AppImage, deb, rpm and Arch packages from [Releases](https://github
 | Any | AppImage | `chmod +x`, run it |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
-| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`; or build it locally — see [Arch package](#arch-package) |
+| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`; or build locally — see [Building the Arch package](#building-the-arch-package); not published to the AUR since AUR account registration is currently paused. |
+
+## Usage
+
+### Closing, the tray, and quitting
+
+Closing the main window **hides it to the background** by default (the Host and running tasks keep going) instead of quitting:
+
+- **Restore the window**: "Open" in the tray menu, or launch the application again (a second launch only focuses the running instance).
+- **Quit completely**: "Quit" in the tray menu, `Application` → `Exit` in the menu bar, or `Ctrl+Q`.
+
+### Frameless mode
+
+Start the application with this variable to drop window-manager decorations and keep only the window control buttons:
+
+```bash
+DSH_DESKTOP_FRAMELESS=1 deepseek-harness
+```
+
+The window then resembles the official Windows desktop app:
+
+- The system title bar is removed, and the top in-page strip handles dragging and double-click maximize / restore; the style, count, and placement of the window control buttons follow the system GTK theme and decoration layout.
+- **Exclusive with glass mode**: when both variables are `1`, frameless wins and glass mode turns itself off.
+- **Left-side button limitation**: when the system places window buttons on the left, the in-page menus shift right to clear them, but the sidebar toggle at the top is not fully adapted yet.
+
+### Glass mode
+
+To get a frosted-glass sidebar (or unblurred translucency), start the application with an environment variable:
+
+```bash
+DSH_DESKTOP_GLASS=1 deepseek-harness
+```
+
+The window then resembles the official macOS desktop app:
+
+- The native menu bar auto-hides and appears on `Alt`.
+- Sidebar fill defaults to 40% in the light theme and 50% in the dark theme; override with `DSH_DESKTOP_GLASS_TINT=0..100` (raise it when background content makes text hard to read).
+- **Actual appearance depends on the compositor**: Hyprland, niri, and similar compositors support background blur; KDE and GNOME still draw a system title bar and only render translucency without blur — this mode generally looks best under **titlebar-less** tiling window managers.
 
 ## Building from source
 
@@ -49,64 +85,40 @@ Building the rpm additionally needs `rpmbuild` on the system.
 git clone https://github.com/ffyfox/dsh-desktop-linux
 cd dsh-desktop-linux
 
-./scripts/fetch-upstream.sh      # fetch upstream sources (defaults to the tag pinned in PKGBUILD)
-./scripts/apply-patches.sh       # apply the patch series
-./scripts/build.sh --all         # AppImage + deb + rpm
-./scripts/verify.sh --runtime    # verification matrix
+./scripts/fetch-upstream.sh                   # fetch upstream sources (defaults to the tag pinned in PKGBUILD)
+./scripts/apply-patches.sh                    # apply patches and place assets
+pnpm --dir upstream install --frozen-lockfile # install upstream workspace dependencies
+./scripts/build.sh --all                      # AppImage + deb + rpm
+./scripts/verify.sh --runtime                 # verification matrix
 ```
 
-`build.sh` flags: `--dir` (unpacked directory only, fastest), `--appimage`
-(default), `--deb`, `--rpm`, `--all`. The long pole is the pipeline itself
-(`build:official` → `release:pack` → `prepare:*` → `package`); each extra format
-only adds one fpm/AppImage packaging pass, so building formats separately is both
-faster and easier to debug.
+`build.sh` flags: `--dir` (unpacked directory only, fastest for debugging), `--appimage` (default), `--deb`, `--rpm`, `--all`. Most of the time goes into compiling and preparing the runtime, so use `--all` when you need multiple formats in one pass.
 
-Artifacts land in
-`upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/` (on an arm64
-machine: `targets/linux-arm64/…`; `build.sh` picks the target from `uname -m`, and
-cross-building is not supported).
+Artifacts land in `upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/` (on arm64: `targets/linux-arm64/…`; `build.sh` picks the target from `uname -m`, and cross-building is not supported).
 
-The deb / rpm `Maintainer:` / `Homepage:` come from `upstream/apps/desktop/.env.linux`.
-`build.sh` creates it on first run from the repo's `.env.linux.example`, values already filled in.
-To change them, edit that file: **the same-named environment variables are filtered out by
-upstream**, so `DSH_DESKTOP_LINUX_MAINTAINER=… build.sh --deb` is silently ignored.
+The deb / rpm `Maintainer` and `Homepage` come from `upstream/apps/desktop/.env.linux` (generated automatically from `.env.linux.example` on the first `build.sh` run; only that file is read, and same-named environment variables are ignored).
 
 ### Hard requirements
 
-**Node must have TypeScript type stripping enabled.** Release builds from nodejs.org do, but
-distro packages may not, and the build then dies in its first step (`build:official`) with
-`build: Node.js TypeScript type stripping is unavailable`. Use Node from nodejs.org; CI pins Node 24.
+- **Node 24.9+ (with TypeScript type stripping enabled)**: some distro Node packages strip this feature and fail on the very first build step; use an official build from nodejs.org.
+- **pnpm 11 (installed via npm or corepack)**: upstream declares `packageManager: pnpm@11.28.5`, and build scripts invoke the `pnpm` entry directly under `node`. The official standalone installer, Homebrew, and some rolling-release system packages (such as Arch Linux's pnpm 12 after self-management switches to `@pnpm/exe`) provide a native binary entry and fail with `SyntaxError`; `build.sh` and `PKGBUILD` automatically fall back to an isolated copy at `~/.local/share/dsh-pnpm-11` when the system `pnpm` is unusable, which you can prepare in advance:
 
-**pnpm 11 is required, installed via npm or corepack.** The upstream repository declares
-`packageManager: pnpm@11.28.5`, and pnpm 11 switches to that version by itself.
-pnpm 9 fails `pnpm install` with `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`. The official standalone
-installer and Homebrew ship a compiled binary, and three upstream scripts then run
-`node $npm_execpath` and die with `SyntaxError`; `build.sh` falls back to the isolated copy and says so.
+  ```bash
+  npm i --prefix ~/.local/share/dsh-pnpm-11 pnpm@11.28.5
+  ```
 
-**PKGBUILD runs the same check.** `build()` carries an inlined copy of that entry probe: if the
-system pnpm is not 11.x, or the entry it hands to scripts cannot be run by node, it falls back to
-`~/.local/share/dsh-pnpm-11`; if neither works it prints the install command and stops, instead of
-dying with `SyntaxError` in the middle of the packaging pipeline.
+### Building the Arch package
 
-## Arch package
+The `PKGBUILD` builds directly from upstream's release tarball and does not need `./upstream` checked out:
 
 ```bash
-# Package from Releases
-sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst
-```
-
-```bash
-# Local build: the PKGBUILD consumes upstream's release tarball and needs no ./upstream checkout
-./scripts/pkgbuild-dir.sh     # flatten into ./pkgbuild
+./scripts/pkgbuild-dir.sh     # flatten patches and assets into ./pkgbuild
 cd pkgbuild && makepkg -si
 ```
 
-The Arch package installs the unpacked tree into `/opt/deepseek-harness-desktop`
-and symlinks `/usr/bin/deepseek-harness`.
+Supports `x86_64` and `aarch64` (must be built natively on the target architecture).
 
-This project is not published to the AUR, since AUR account registration is currently paused.
-
-## How it works
+## Implementation
 
 ```
 Official Electron shell (apps/desktop)
@@ -115,160 +127,44 @@ Official Electron shell (apps/desktop)
                           └── $DSH_HOME/profiles/desktop
 ```
 
-Three design points worth knowing:
+Three design points:
 
 - **The Host runs on a real Node, not Electron's node mode.** Under Electron's
   node mode `sharp` segfaults while decoding, so on Linux the Host uses the Node
   bundled in primary-runtime. Consequently **Linux artifacts do not put the dsh
   tree into an asar** (a real Node cannot read inside an archive), which is why
-  `linux-unpacked` is large.
-- **The profile is exclusive.** The desktop uses `$DSH_HOME/profiles/desktop`, and
-  the CLI rejects that profile at the argument layer
-  (`error: profile "desktop" is managed exclusively by the Electron application`).
-  Sessions, settings, and credentials still live at the root of `$DSH_HOME`, shared
-  with the CLI. To reuse your web configuration, migrate it once: quit the desktop app,
-  then copy or rename `$DSH_HOME/profiles/web` into place and let the two evolve
-  separately afterwards; sharing a single directory through a symlink works in practice,
-  but the two sides overwrite each other, the desktop's startup recovery acts on that
-  shared directory as well, and unknown problems may appear once the two sides diverge.
-- **Sandboxing.** Where the kernel supports unprivileged user namespaces, the
-  renderer runs in a namespace sandbox (separate user namespace + seccomp); only
-  where it does not does it fall back to a setuid `chrome-sandbox`. The AppImage
-  leaves this to AppRun's own probe, and the deb / rpm / Arch packages make the
-  same decision in their postinst.
+  the installed directory is large.
+- **Exclusive profile.** The desktop app owns `$DSH_HOME/profiles/desktop` exclusively, while sessions, settings, and credentials still live at the root of `$DSH_HOME` shared with the CLI. To reuse your `web` configuration, quit the desktop app and copy or rename `$DSH_HOME/profiles/web` into place; sharing the directory via a symlink also works, but both sides will write to it and unknown issues may occur across larger version gaps.
+- **Sandboxing.** Where the kernel supports unprivileged user namespaces, the renderer uses the namespace sandbox; otherwise it falls back to a setuid `chrome-sandbox`. The AppImage probes this at launch, and the deb / rpm / Arch packages check it in their install scripts.
 
-### Closing, the tray, and quitting
-
-**Closing the window does not fully quit the application — that is upstream's design.** Upstream
-`main.ts` intercepts the main window's `close` and **hides** it instead: the Host keeps running,
-tasks in progress are not interrupted, and session write locks are not released.
-
-Upstream provides no Linux path to **"get back to the hidden window"** or to
-**"fully quit the application"**. Following upstream's implementation on the other platforms,
-patch `0013` adds the tray: the icon stays for the whole run and carries a tray menu.
-
-- To get the window back: the tray menu's "Open", or launch the application again (a second launch
-  only focuses the instance that is already running).
-- To really quit: the tray menu's "Quit", the `Application` → `Quit` menu item, or `Ctrl+Q`.
-
-### Plugin market host version
-
-The plugin market reads the host version correctly ("Host version unknown" is fixed by patch
-`0017`): on Linux the Host process is a standalone Node (see patch `0008`) and has no Electron
-`process.resourcesPath`, so dsh-market's host lookup came up empty. `0017` passes the packaged
-resources root to the Host and republishes it there; the lookup works again, and so do the
-compatibility filter and "update to a compatible version".
-
-### Glass mode
-
-To get a frosted-glass or translucent sidebar, start the application with an
-environment variable:
-
-```bash
-DSH_DESKTOP_GLASS=1 deepseek-harness
-```
-
-The window then follows the official desktop app's macOS layout:
-
-- The native menu bar auto-hides and appears on `Alt`.
-- Sidebar fill defaults: 40% in the light theme, 50% in the dark theme. Override with `DSH_DESKTOP_GLASS_TINT=0..100`.
-- **Blur is up to the compositor**: Hyprland blurs (with `decoration:blur` enabled);
-  niri needs `background-effect { blur true }` in its own configuration;
-  KDE and GNOME do not blur — the sidebar is merely translucent, so raise the fill
-  when text gets hard to read.
-
-### Frameless window
-
-Start the application with this variable to drop the window-manager decorations and keep the
-native window controls:
-
-```bash
-DSH_DESKTOP_FRAMELESS=1 deepseek-harness
-```
-
-The main and welcome windows no longer have a window-manager title bar; the in-page 40px
-caption becomes the title strip, and the window buttons are drawn by Electron itself with
-freedesktop icons — they are not the desktop's own controls. The style follows the GTK theme
-(Breeze themes get a bare glyph that changes colour on hover), and the set and side follow the
-system GTK decoration layout (this machine says `:close`, hence a single close button).
-The caption is also the drag region: drag it to move the window, double-click to maximize or
-restore (a tiling window manager places the window itself).
-
-- **Exclusive with glass mode**: when both variables are `1`, frameless wins, glass mode turns
-  itself off, and one warning goes to stderr — a transparent window gets no native controls
-  overlay, so the two layouts cannot be stacked.
-- Button placement follows the GTK layout. When the system puts the buttons on the left, the
-  in-page menus move past them, but the sidebar toggle keeps its 48px seat; left-side layouts
-  are not fully adapted yet.
+For patch numbering, responsibilities, and low-level details, see [patches/README.md](patches/README.md).
 
 ## Validation status
 
-**Only a few environments have been tested so far, and we intend to widen that coverage.**
-Both tables below are kept up to date as reports come in — if you run into an adaptation
+The table below is updated with testing and feedback — if you run into an adaptation
 problem, please open an [issue](https://github.com/ffyfox/dsh-desktop-linux/issues).
-
-### Environment
 
 | Environment | Status |
 |---|---|
 | Arch Linux · KDE Plasma 6 · Wayland · x86_64 | **Tested**, works |
-| Arch Linux · Hyprland 0.56 · Wayland · x86_64 | **Tested**, works |
+| Arch Linux · Hyprland 0.57 · Wayland · x86_64 | **Tested**, works |
 | Arch Linux · niri 26.04 · Wayland · x86_64 | **Tested**, works |
-| Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **Tested**, works (Ubuntu ships the tray host) |
-| Debian 13 · GNOME 48 · Wayland · x86_64 | **Tested**, works (the tray needs an extra extension, see [Known limitations](#known-limitations)) |
-| Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **Tested**, works (the tray needs an extra extension, see [Known limitations](#known-limitations)) |
-| aarch64 | CI build and launch smoke passed |
+| Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **Tested**, works |
+| Debian 13 · GNOME 48 · Wayland · x86_64 | **Tested**, works (the tray needs an extension, see [Known limitations](#known-limitations)) |
+| Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **Tested**, works (the tray needs an extension, see [Known limitations](#known-limitations)) |
+| aarch64 (AppImage / deb / rpm / Arch package) | Built and launch smoke-tested in CI |
 | Other distributions (Linux Mint / CachyOS, …) | Not tested |
-| Other desktops / WMs (Xfce, Sway, …) | Not tested |
+| Other DEs / WMs (Xfce / Sway, …) | Not tested |
 | X11 | Not tested |
-
-### Artifacts
-
-| Artifact | Status |
-|---|---|
-| AppImage | **Tested**: `chmod +x` → launch → tray, window close → quit |
-| deb | **Tested**: `apt install` → launch → tray, window close → quit |
-| rpm | **Tested**: `dnf install` → launch → tray, window close → quit |
-| Arch package | **x86_64 tested**: `makepkg` → `pacman -U` → launch, sandbox, uninstall |
-| `linux-unpacked` | **Tested**: `verify.sh --runtime` live matrix |
-| arm64 AppImage / deb / rpm | Built and smoke-tested in CI |
 
 ## Known limitations
 
-- **GNOME shows no tray by default — install the extension yourself.** The tray uses freedesktop
-  StatusNotifierItem, and GNOME ships no host for it, so you need `gnome-shell-extension-appindicator`
-  (Ubuntu installs it by default; Debian needs its own `apt install` and Fedora its `dnf install`).
-  Two traps after installing: the extension's UUID is `ubuntu-appindicators@ubuntu.com` (that is the
-  name in Debian 13's 59-4 —
-  the `appindicatorsupport@rgcjonas.gmail.com` of older docs is obsolete), and **newly installed
-  extensions are not hot-loaded**, so you must log out and back in. Without a tray host the icon never
-  appears, and a hidden window can then only be recovered by launching the application again.
-- **The AppImage needs FUSE 2 (`libfuse.so.2`) on the system.** Mainstream distributions now install
-  only FUSE 3 (Debian 13, Ubuntu 26.04 and Fedora 44 all ship just `libfuse3.so.3`), so running it
-  stops at `dlopen(): error loading libfuse.so.2`. Install the matching package — Fedora
-  `sudo dnf install fuse-libs`, Debian 13 and Ubuntu 24.04+ `sudo apt install libfuse2t64`
-  (`libfuse2` on Ubuntu 22.04) — or bypass the mount with
-  `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` (extracts to /tmp, about 1.2G extra).
-  The deb, rpm and Arch packages are unaffected.
-- **No auto-update.** Upstream's mandatory-update policy channel only recognises
-  `desktop-win` / `desktop-mac` client identities, and Linux artifacts carry no
-  update channel, so the Linux build embeds no policy, never polls, and never
-  updates itself.
-- **No "install the command line tool" entry.** The official desktop offers one on macOS and Windows:
-  it puts the bundled `dsh` CLI on your PATH (a privileged symlink at `/usr/local/bin/dsh` on macOS, a
-  user PATH edit on Windows), and upstream implements only those two branches, so the Linux artifacts
-  have none. To use `dsh` in a terminal, install it yourself, or run the copy the application ships
-  (`resources/app/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js`, with the node under
-  `resources/runtime/primary-runtime`).
+- **GNOME shows no tray by default — install and enable the extension.** Install `gnome-shell-extension-appindicator` (preinstalled on Ubuntu; install manually on Debian / Fedora), **log out and back in**, then enable `ubuntu-appindicators@ubuntu.com`. Without an active tray host, a hidden window can only be recovered by launching the application again.
+- **The AppImage needs FUSE 2 (`libfuse.so.2`) on the system.** Mainstream distributions now install only FUSE 3 by default, so running the AppImage directly fails with `dlopen(): error loading libfuse.so.2`. Install the matching package — Fedora `sudo dnf install fuse-libs`, Debian 13 and Ubuntu 24.04+ `sudo apt install libfuse2t64` (`libfuse2` on Ubuntu 22.04) — or bypass it with `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage`.
+- **No auto-update.** Upstream's update channels only target Windows and macOS; the Linux build embeds no update policy and does not auto-update.
+- **No "install the command line tool" entry.** Upstream only implements the menu action that adds `dsh` to PATH on macOS and Windows; to use `dsh` in a terminal, install it yourself or invoke the bundled `resources/app/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js` (with the node under `resources/runtime/primary-runtime`).
 - **Unsigned.** Artifacts are unsigned builds.
-- **Platform sees a Linux client as macOS.** Upstream maps client identity with
-  `platform === 'win32' ? 'desktop-win' : 'desktop-mac'`, so Linux lands on
-  `desktop-mac`. That follows from upstream's `'darwin' | 'win32' | null` union
-  and is not introduced here; the same request reports `device_model` as
-  `linux-x64` or `linux-arm64`.
-- **`linux-unpacked` (on arm64: `linux-arm64-unpacked`) is about 1.1G.** With asar
-  disabled it is a tree of small files; the AppImage compresses it to 339M, but first
-  launch reads more files than an asar build would.
+- **Platform sees a Linux client as macOS.** Upstream maps client identity with `platform === 'win32' ? 'desktop-win' : 'desktop-mac'`, so Linux lands on `desktop-mac` (`device_model` in the same request is still `linux-x64` or `linux-arm64`).
 
 ## License
 

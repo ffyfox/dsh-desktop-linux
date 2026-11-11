@@ -6,15 +6,17 @@
 （`apps/desktop` 的 Electron 应用）的**打包流水线**移植到 Linux，产出
 AppImage / deb / rpm / Arch 包。
 
-上游目前明确不支持 Linux（`apps/desktop/packaging/README.md`：*"Linux is not a supported
-Desktop release target."*）。本项目补的就是这一块：让官方打包流水线认得 `linux-x64` 与
+上游目前不支持 Linux；本项目将其补齐：让官方打包流水线认得 `linux-x64` 与
 `linux-arm64` 并产出安装包。
 
 ![DeepSeek Harness 桌面端普通模式界面（KDE）](docs/screenshot.png)
+*普通模式（KDE Plasma）*
 
 ![DeepSeek Harness 桌面端无边框模式界面（KDE）](docs/screenshot-frameless.png)
+*无边框模式（KDE Plasma，`DSH_DESKTOP_FRAMELESS=1`）*
 
 ![DeepSeek Harness 桌面端玻璃模式界面（Hyprland）](docs/screenshot-glass.png)
+*玻璃模式（Hyprland，`DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75`）*
 
 ## 项目产物
 
@@ -23,8 +25,6 @@ Desktop release target."*）。本项目补的就是这一块：让官方打包�
 - 渲染走自己的 `dsh-app://` 协议，而不是去连一个本地 Web 服务；
 - 内置 Node / pnpm / Python 运行时，不依赖系统 Node；
 - 独占 `$DSH_HOME/profiles/desktop`，不占用 `web` profile。
-
-代价是构建重得多：要拉上游 monorepo、跑 pnpm workspace 构建、再用 electron-builder 打包。
 
 ## 安装
 
@@ -35,7 +35,44 @@ Desktop release target."*）。本项目补的就是这一块：让官方打包�
 | 通用 | AppImage | `chmod +x` 后直接运行 |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
-| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`；也可本地构建，见 [Arch 包](#arch-包) |
+| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`；也可本地构建，见[构建 Arch 包](#构建-arch-包)；由于 AUR 暂停账号注册等原因，本项目不发布到 AUR。 |
+
+## 使用
+
+### 关窗、托盘与退出
+
+关闭主窗口默认只会**隐藏到后台**（Host 与正在执行的任务继续运行），不会退出程序：
+
+- **找回窗口**：托盘菜单「打开」，或再次启动应用（第二次启动只会聚焦已有实例）。
+- **完全退出**：托盘菜单「退出」、菜单栏「应用」→「退出」、或 `Ctrl+Q`。
+
+### 无边框模式
+
+想让窗口去掉系统装饰、只保留窗口控制按钮，加环境变量启动：
+
+```bash
+DSH_DESKTOP_FRAMELESS=1 deepseek-harness
+```
+
+开启后窗口样式近似官方 Windows 桌面端：
+
+- 去掉系统标题栏，改由页面内顶部区域负责拖拽移动与双击最大化 / 还原；窗口控制按钮的样式、数量与位置跟随系统 GTK 主题及装饰布局。
+- **与玻璃模式互斥**：两个变量同时设为 `1` 时，无边框优先，玻璃模式自动关闭。
+- **左置按钮限制**：系统把窗口按钮放在左侧时，页面内菜单会自动右移避让，但侧栏顶部的切换钮暂未完整适配。
+
+### 玻璃模式
+
+想让侧栏呈现毛玻璃效果（或无模糊半透明效果），加环境变量启动：
+
+```bash
+DSH_DESKTOP_GLASS=1 deepseek-harness
+```
+
+开启后窗口样式近似官方 macOS 桌面端：
+
+- 原生菜单栏自动隐藏，按 `Alt` 唤出。
+- 侧栏浓度默认浅色 40%、深色 50%，可通过 `DSH_DESKTOP_GLASS_TINT=0..100` 调整，文字受背景干扰时可调高。
+- **实际观感取决于合成器**：Hyprland、niri 等支持背景模糊；KDE 与 GNOME 仍带系统标题栏且仅呈半透明、无模糊——此模式在**无系统标题栏**的平铺窗口管理器下可能观感更佳。
 
 ## 从源码构建
 
@@ -46,56 +83,40 @@ Desktop release target."*）。本项目补的就是这一块：让官方打包�
 git clone https://github.com/ffyfox/dsh-desktop-linux
 cd dsh-desktop-linux
 
-./scripts/fetch-upstream.sh      # 拉上游源码（默认用 PKGBUILD 里钉的 tag）
-./scripts/apply-patches.sh       # 打补丁
-./scripts/build.sh --all         # AppImage + deb + rpm
-./scripts/verify.sh --runtime    # 验证矩阵
+./scripts/fetch-upstream.sh                   # 拉上游源码（默认用 PKGBUILD 里钉的 tag）
+./scripts/apply-patches.sh                    # 打补丁并放置资源
+pnpm --dir upstream install --frozen-lockfile # 安装上游工作区依赖
+./scripts/build.sh --all                      # AppImage + deb + rpm
+./scripts/verify.sh --runtime                 # 验证矩阵
 ```
 
-`build.sh` 的参数：`--dir`（只出未打包目录，最快）、`--appimage`（默认）、`--deb`、`--rpm`、`--all`。
-整条流水线（`build:official` → `release:pack` → `prepare:*` → `package`）才是耗时大头，
-多打一种格式只多一次 fpm/AppImage 打包，所以分开跑更快，也更容易定位失败。
+`build.sh` 参数：`--dir`（仅生成未打包目录，调试最快）、`--appimage`（默认）、`--deb`、`--rpm`、`--all`。耗时大头在前面的编译与运行时准备，需要多种格式时建议用 `--all` 一次跑完。
 
-产物落在 `upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/`（arm64 机器上是
-`targets/linux-arm64/…`；`build.sh` 按 `uname -m` 自动选目标，交叉构建不受支持）。
+产物落在 `upstream/apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/`（arm64 机器上是 `targets/linux-arm64/…`；`build.sh` 按 `uname -m` 自动选目标，不支持交叉构建）。
 
-deb / rpm 的 `Maintainer:` / `Homepage:` 来自 `upstream/apps/desktop/.env.linux`。`build.sh`
-首次运行就从仓库里的 `.env.linux.example` 生成，值已经填好。要换成你自己的，改那个文件即可：
-**同名环境变量会被上游整个滤掉**，`DSH_DESKTOP_LINUX_MAINTAINER=… build.sh --deb` 静默无效。
+deb / rpm 的 `Maintainer` 与 `Homepage` 取自 `upstream/apps/desktop/.env.linux`（首次运行 `build.sh` 时自动从 `.env.linux.example` 生成；只认该文件，不读同名环境变量）。
 
 ### 硬性前提
 
-**Node 要带 TypeScript 类型剥离。** nodejs.org 的官方包 24 都有，但**发行版自己打的可能没有**，
-构建会在第一步 `build:official` 报
-`build: Node.js TypeScript type stripping is unavailable`。用官方 Node（我们 CI 钉的是 Node 24）。
+- **Node 24.9+（需支持 TypeScript 类型剥离）**：部分发行版自己打的 Node 裁掉了该特性，会在构建第一步报错；请使用 nodejs.org 官方包。
+- **pnpm 11（需通过 npm 或 corepack 安装）**：上游声明 `packageManager: pnpm@11.28.5`，且构建脚本会直接用 `node` 执行 `pnpm` 入口。官方 standalone 安装器、Homebrew，以及部分滚动发行版的系统包（如 Arch Linux 的 pnpm 12 自管理切换后）给的是二进制入口（`@pnpm/exe`），会报 `SyntaxError`；`build.sh` 与 `PKGBUILD` 检测到系统 `pnpm` 不合用时会自动回退到隔离版 `~/.local/share/dsh-pnpm-11`，可提前装好：
 
-**必须用 pnpm 11，而且要是 npm 或 corepack 装的那种。** 上游仓库声明
-`packageManager: pnpm@11.28.5`，pnpm 11 会自己切到该版本；pnpm 9 会在 `pnpm install` 报
-`ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`。官方 standalone 安装器与 Homebrew 给的是编译好的二进制，
-上游三处脚本会 `node $npm_execpath` 而报 `SyntaxError`；`build.sh` 碰到这种会退到隔离版并说明。
+  ```bash
+  npm i --prefix ~/.local/share/dsh-pnpm-11 pnpm@11.28.5
+  ```
 
-**PKGBUILD 做同一套检查。** 它在 `build()` 里内联了同样的入口探测：系统 pnpm 不是 11.x、或它
-交给脚本的入口不能被 node 执行时，退到隔离版 `~/.local/share/dsh-pnpm-11`；两者都不可用则打印
-安装命令后停下，而不是以 `SyntaxError` 的形式炸在打包流水线中途。
+### 构建 Arch 包
 
-## Arch 包
+`PKGBUILD` 直接使用上游 release 源码包构建，不依赖 `./upstream` 检出：
 
 ```bash
-# Release 提供的包
-sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst
-```
-
-```bash
-# 本地构建：PKGBUILD 直接吃上游 release 源码包，不依赖 ./upstream 检出
-./scripts/pkgbuild-dir.sh     # 摊平成 ./pkgbuild
+./scripts/pkgbuild-dir.sh     # 摊平补丁与资源到 ./pkgbuild
 cd pkgbuild && makepkg -si
 ```
 
-Arch 包只装未打包目录进 `/opt/deepseek-harness-desktop`，`/usr/bin/deepseek-harness` 是符号链接。
+支持 `x86_64` 与 `aarch64`（需在对应架构下原生构建）。
 
-由于 AUR 暂停账号注册等客观原因，本项目不发布到 AUR。
-
-## 它是怎么工作的
+## 实现机制
 
 ```
 官方 Electron 壳（apps/desktop）
@@ -104,133 +125,42 @@ Arch 包只装未打包目录进 `/opt/deepseek-harness-desktop`，`/usr/bin/dee
                        └── $DSH_HOME/profiles/desktop
 ```
 
-三个值得知道的设计点：
+三个设计点：
 
 - **Host 跑在真 Node 上，不是 Electron 的 node 模式。** Electron 的 node 模式下 `sharp` 解码会段错误，
   所以 Linux 的 Host 改走 primary-runtime 自带的 Node。连带地，**Linux 产物的 dsh 目录树不放进 asar**
-  （真 Node 读不了归档），这是 `linux-unpacked` 体积偏大的原因。
-- **profile 是独占的。** 桌面端用 `$DSH_HOME/profiles/desktop`，CLI 连参数层面都拒绝这个 profile
-  （`error: profile "desktop" is managed exclusively by the Electron application`）。
-  会话、设置、凭据仍在 `$DSH_HOME` 根上，与 CLI 共享。想复用 web 的配置就做一次性迁移：退出桌面端后把
-  `$DSH_HOME/profiles/web` 复制或改名过去，之后两边各自演化；用符号链接共用同一份目录实测可行，但两边会
-  互相改写，桌面端的启动恢复动作也会作用到这份共享目录，两边版本跨度较大时可能出现未知问题。
-- **沙箱。** 内核支持非特权 user namespace 时走 namespace 沙箱（渲染进程在独立 user namespace + seccomp）；
-  不支持才退回 setuid `chrome-sandbox`。AppImage 交给 AppRun 自己探测，deb / rpm / Arch 包在
-  postinst 里做同样的判断。
+  （真 Node 读不了归档），这是安装目录体积偏大的原因。
+- **profile 独占。** 桌面端独占 `$DSH_HOME/profiles/desktop`，会话、设置与凭据仍在 `$DSH_HOME` 根下与 CLI 共享。若想复用 `web` 的配置，退出桌面端后把 `$DSH_HOME/profiles/web` 复制或改名过去即可；也可通过符号链接共用该目录，但两边会互相改写，版本跨度较大时可能出现未知问题。
+- **沙箱。** 内核支持非特权 user namespace 时走 namespace 沙箱；不支持才退回 setuid `chrome-sandbox`。AppImage 在启动时探测，deb / rpm / Arch 包在安装脚本里判断。
 
-### 关窗、托盘与退出
-
-**关窗不会完全退出程序——这是上游的设计。** 上游 `main.ts` 拦截主窗口的 `close`
-并改为**隐藏**：Host 继续跑、正在跑的任务不中断，会话写锁也不释放。
-
-上游没有给 Linux 准备 **「回到隐藏窗口」** 或 **「完全退出程序」** 的路径。
-参考上游在其他平台的实现，补丁 `0013` 把托盘补上：图标常驻，带托盘菜单。
-
-- 找回窗口：托盘菜单「打开」，或再启动一次（第二次启动只聚焦已有实例）。
-- 完全退出：托盘菜单「退出」、菜单栏 `Application` → `Quit`、或 `Ctrl+Q`。
-
-### 插件市场的宿主版本
-
-设置 → 插件市场里能正常读到宿主版本（「宿主版本未知」已由补丁 `0017` 修复）：Linux 的
-Host 进程是独立 Node（见补丁 `0008`），没有 Electron 的 `process.resourcesPath`，
-dsh-market 的宿主探测会落空；`0017` 把打包安装的 resources 根传给 Host 并回填，
-探测恢复，兼容性筛选与「更新到兼容版本」随之可用。
-
-### 玻璃模式
-
-想让侧栏呈现毛玻璃或半透明效果，加环境变量启动：
-
-```bash
-DSH_DESKTOP_GLASS=1 deepseek-harness
-```
-
-开启后窗口近似官方桌面端 macOS 版布局：
-
-- 原生菜单栏自动隐藏，按 `Alt` 才出现。
-- 侧栏浓度默认值：浅色主题 40%，深色主题 50%。可通过 `DSH_DESKTOP_GLASS_TINT=0..100` 调整。
-- **有没有模糊取决于合成器**：Hyprland 能模糊（要开着 `decoration:blur`）；
-  niri 要自己在配置里开 `background-effect { blur true }`；
-  KDE 与 GNOME 不模糊，只是半透明——文字受背景干扰时可把浓度调高。
-
-### 无边框窗口
-
-想让窗口去掉系统装饰、只留原生按钮，加环境变量启动：
-
-```bash
-DSH_DESKTOP_FRAMELESS=1 deepseek-harness
-```
-
-主窗口和欢迎窗都不再有窗口管理器的标题栏，标题区改由页面内那条 40px 的 caption 提供；
-窗口按钮由 Electron 自己画在条的一侧（不是桌面自己那套控件）：样式跟 GTK 主题
-（Breeze 系主题下是无底 ✕、悬停变色），数量和位置跟 GTK 装饰布局走——本机是 `:close`，
-所以只有一个关闭钮。
-这条 caption 同时是拖动区：拖拽移动窗口，双击最大化 / 还原（平铺窗口管理器下窗口位置由布局决定）。
-
-- **与玻璃模式互斥**：两个变量同时设成 `1` 时，无边框优先，玻璃模式自动关闭，并在 stderr
-  打一条警告——透明窗拿不到原生按钮的覆盖层，两者叠不起来。
-- 按钮位置跟 GTK 布局走。系统把按钮放在左侧时，页面内菜单会跟着安全区右移，
-  但侧栏顶部的切换钮仍按左侧 48px 摆放——左置布局暂未完整适配。
+补丁系列的编号、职责划分与底层细节见 [patches/README.md](patches/README.md)。
 
 ## 验证状态
 
-**当前实测环境较少，后续会尽可能拓展。** 下面两张表随反馈更新——如果发现适配问题，欢迎在
+下表随测试和反馈更新——如果发现适配问题，欢迎在
 [Issues](https://github.com/ffyfox/dsh-desktop-linux/issues) 提出。
-
-### 环境
 
 | 环境 | 状态 |
 |---|---|
 | Arch Linux · KDE Plasma 6 · Wayland · x86_64 | **已实测**，正常 |
-| Arch Linux · Hyprland 0.56 · Wayland · x86_64 | **已实测**，正常 |
+| Arch Linux · Hyprland 0.57 · Wayland · x86_64 | **已实测**，正常 |
 | Arch Linux · niri 26.04 · Wayland · x86_64 | **已实测**，正常 |
-| Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **已实测**，正常（托盘宿主 Ubuntu 自带） |
+| Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **已实测**，正常 |
 | Debian 13 · GNOME 48 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
 | Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
-| aarch64 | 已在 CI 通过构建与启动冒烟 |
+| aarch64（AppImage / deb / rpm / Arch 包） | 已在 CI 通过构建与启动冒烟 |
 | 其他发行版（Linux Mint / CachyOS 等） | 未验证 |
-| 其他DE/WM（Xfce / Sway 等） | 未验证 |
+| 其他 DE/WM（Xfce / Sway 等） | 未验证 |
 | X11 | 未验证 |
-
-### 产物
-
-| 产物 | 状态 |
-|---|---|
-| AppImage | **已实测**：`chmod +x` → 启动 → 托盘、关窗 → 退出 |
-| deb | **已实测**：`apt install` → 启动 → 托盘、关窗 → 退出 |
-| rpm | **已实测**：`dnf install` → 启动 → 托盘、关窗 → 退出 |
-| Arch 包 | **x86_64 已实测**：`makepkg` → `pacman -U` 安装 → 启动、沙箱、卸载 |
-| `linux-unpacked` | **已实测**：`verify.sh --runtime` 活体矩阵 |
-| arm64 AppImage / deb / rpm | 已在 CI 构建并冒烟通过 |
 
 ## 已知限制
 
-- **GNOME 默认看不到托盘，要自己装扩展。** 托盘走 freedesktop 的 StatusNotifierItem，GNOME 本体
-  不提供宿主，装 `gnome-shell-extension-appindicator` 才有（Ubuntu 默认已装；Debian 要自己
-  `apt install`，Fedora 要 `dnf install`）。装完还有两个坑：扩展 UUID 是
-  `ubuntu-appindicators@ubuntu.com`（Debian 13 的 59-4 就是这个名字，旧文档里的
-  `appindicatorsupport@rgcjonas.gmail.com` 已废弃），而且**新装的
-  扩展不会热加载**，得注销重登才生效。没有托盘宿主时图标不会出现，关窗后就只能靠二次
-  启动把窗口找回。
-- **AppImage 要系统提供 FUSE 2（`libfuse.so.2`）。** 主流发行版现在默认只装 FUSE 3（Debian 13、
-  Ubuntu 26.04、Fedora 44 实测都只有 `libfuse3.so.3`），直接运行会报
-  `dlopen(): error loading libfuse.so.2`。装对应包即可：Fedora `sudo dnf install fuse-libs`、
-  Debian 13 与 Ubuntu 24.04+ `sudo apt install libfuse2t64`（Ubuntu 22.04 是 `libfuse2`）；
-  或 `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` 绕过（解包到 /tmp，多占约 1.2 G）。
-  deb / rpm / Arch 包不受影响。
-- **没有自动更新。** 上游的强制更新策略通道只认 `desktop-win` / `desktop-mac` 客户端身份，
-  Linux 产物也没有更新通道，所以 Linux 版不嵌入策略、不轮询、不会自己更新。
-- **没有「安装命令行工具」入口。** 官方桌面端在 macOS / Windows 上能从菜单把自带的 `dsh` CLI 装进
-  PATH（macOS 提权建 `/usr/local/bin/dsh` 符号链接，Windows 写用户 PATH）；上游只实现了这两条分支，
-  Linux 产物不提供。想在终端用 `dsh` 得自己装，或直接用应用自带的那份
-  （`resources/app/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js`，配 `resources/runtime/primary-runtime`
-  里的 node）。
+- **GNOME 默认看不到托盘，需安装并启用扩展。** 需安装 `gnome-shell-extension-appindicator`（Ubuntu 默认已装；Debian / Fedora 需手动安装），**注销重登**后启用 `ubuntu-appindicators@ubuntu.com`。未启用托盘时，关窗后只能靠二次启动把窗口找回。
+- **AppImage 要系统提供 FUSE 2（`libfuse.so.2`）。** 主流发行版现在默认只装 FUSE 3，直接运行会报 `dlopen(): error loading libfuse.so.2`。装对应包即可：Fedora `sudo dnf install fuse-libs`、Debian 13 与 Ubuntu 24.04+ `sudo apt install libfuse2t64`（Ubuntu 22.04 为 `libfuse2`）；或用 `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` 绕过。
+- **没有自动更新。** 上游更新通道仅面向 Windows 与 macOS，Linux 版不嵌入更新策略、不会自动更新。
+- **没有「安装命令行工具」入口。** 上游仅在 macOS / Windows 实现了从菜单把 `dsh` CLI 装进 PATH 的分支；在终端使用 `dsh` 需自行安装，或直接调用应用自带的 `resources/app/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js`（配 `resources/runtime/primary-runtime` 里的 node）。
 - **不签名。** 产物是 unsigned 构建。
-- **Platform 侧会把 Linux 客户端认成 macOS。** 上游的客户端身份映射是
-  `platform === 'win32' ? 'desktop-win' : 'desktop-mac'`，Linux 落到 `desktop-mac`。
-  这是上游类型联合 `'darwin' | 'win32' | null` 的结果，不是本项目引入的；
-  同一个请求里的 `device_model` 又是 `linux-x64` 或 `linux-arm64`。
-- **`linux-unpacked`（arm64 上是 `linux-arm64-unpacked`）约 1.1G。** asar 关闭后是小文件目录树，
-  AppImage 压成 squashfs 后 339M，但首次启动的文件读取比 asar 多。
+- **Platform 侧会把 Linux 客户端认成 macOS。** 上游客户端身份映射为 `platform === 'win32' ? 'desktop-win' : 'desktop-mac'`，Linux 落到 `desktop-mac`（同一请求里的 `device_model` 仍为 `linux-x64` 或 `linux-arm64`）。
 
 ## 许可
 
