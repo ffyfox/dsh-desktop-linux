@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 3d2a0ec..4fdf59b 100644
+index 3d2a0ec..b67e46c 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
 @@ -297,6 +297,9 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
@@ -22,7 +22,52 @@ index 3d2a0ec..4fdf59b 100644
            ? { label: messages[item.role as keyof typeof messages] } : {}),
          accelerator: '',
        }))).popup({ window })
-@@ -1275,7 +1279,8 @@ async function main(): Promise<void> {
+@@ -1195,9 +1199,32 @@ async function main(): Promise<void> {
+     ] },
+     { label: messages.speechMenu, submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] },
+   ] })
++  // Editor-owned history listens to key events rather than Chromium's native undo stack, so both the
++  // in-page caption menu and the native menu bar drive the same synthetic keys.
++  const editItem = (label: string, keyCode: string, modifiers: Array<'control'>, accelerator?: string): MenuItemConstructorOptions => ({
++    label,
++    ...(accelerator === undefined ? {} : { accelerator }),
++    click: () => {
++      shortcuts.sendEditingKey(keyCode, modifiers)
++    },
++  })
++  const editMenuItems = (messages: DesktopMessages): MenuItemConstructorOptions[] => [
++    editItem(messages.undo, 'Z', ['control'], 'Ctrl+Z'),
++    editItem(messages.redo, 'Y', ['control'], 'Ctrl+Y'),
++    { type: 'separator' },
++    editItem(messages.cut, 'X', ['control'], 'Ctrl+X'),
++    editItem(messages.copy, 'C', ['control'], 'Ctrl+C'),
++    editItem(messages.paste, 'V', ['control'], 'Ctrl+V'),
++    editItem(messages.delete, 'Delete', []),
++    { type: 'separator' },
++    editItem(messages.selectAll, 'A', ['control'], 'Ctrl+A'),
++  ]
+   const platformMenus = (): MenuItemConstructorOptions[] => darwin
+     ? [shortcuts.fileMenu(currentDesktopLocale().messages), macEditMenu(currentDesktopLocale().messages), { role: 'windowMenu' }]
+-    : [{ role: 'editMenu' }]
++    // Electron labels its `editMenu` role in its own locale, which stays English whatever the application
++    // language; the native bar is only reachable on Linux, where glass mode reveals it with Alt, so it
++    // carries the same labelled items as the in-page caption menu.
++    : [{ label: currentDesktopLocale().messages.edit, submenu: editMenuItems(currentDesktopLocale().messages) }]
+   const hideCommands: MenuItemConstructorOptions[] = darwin
+     ? [{ role: 'hide', label: currentDesktopLocale().messages.hideApplication },
+       { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
+@@ -1226,8 +1253,9 @@ async function main(): Promise<void> {
+     { role: 'toggleDevTools', label: currentDesktopLocale().messages.toggleDevToolsMenu },
+     { type: 'separator' },
+     ...hideCommands,
++    // macOS names the item after the application; Windows and Linux use the plain action verb.
+     { role: 'quit', ...(darwin ? { label: currentDesktopLocale().messages.quitApplication }
+-      : process.platform === 'win32' ? { label: currentDesktopLocale().messages.exitApplication } : {}) },
++      : { label: currentDesktopLocale().messages.exitApplication }) },
+   ]
+   const devToolsF12Shortcut: MenuItemConstructorOptions = { role: 'toggleDevTools', visible: false, accelerator: 'F12' }
+   const windowsDevToolsShortcuts: MenuItemConstructorOptions[] = [
+@@ -1275,7 +1303,8 @@ async function main(): Promise<void> {
      ...(process.platform === 'win32' ? { icon: nativeImage.createFromPath(trayIconPath) } : {}),
    })
  
@@ -32,7 +77,36 @@ index 3d2a0ec..4fdf59b 100644
      ipcMain.handle(DESKTOP_IPC.windowsMenu, (event, name: unknown, x: unknown, y: unknown) => {
        assertDesktopSender(event, ['app'])
        if (mainWindow === undefined || event.sender !== mainWindow.webContents
-@@ -1316,7 +1321,8 @@ async function main(): Promise<void> {
+@@ -1284,25 +1313,9 @@ async function main(): Promise<void> {
+         || typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)
+         || x < 0 || y < 0 || x > 100_000 || y > 100_000) throw new Error('desktop menu: invalid popup request')
+       const window = mainWindow
+-      // Editor-owned history listens to key events rather than Chromium's native undo stack.
+-      const editItem = (label: string, keyCode: string, modifiers: Array<'control'>, accelerator?: string): MenuItemConstructorOptions => ({
+-        label,
+-        ...(accelerator === undefined ? {} : { accelerator }),
+-        click: () => {
+-          shortcuts.sendEditingKey(keyCode, modifiers)
+-        },
+-      })
+-      const items: MenuItemConstructorOptions[] = name === 'application' ? applicationItems() : [
+-        editItem(currentDesktopLocale().messages.undo, 'Z', ['control'], 'Ctrl+Z'),
+-        editItem(currentDesktopLocale().messages.redo, 'Y', ['control'], 'Ctrl+Y'),
+-        { type: 'separator' },
+-        editItem(currentDesktopLocale().messages.cut, 'X', ['control'], 'Ctrl+X'),
+-        editItem(currentDesktopLocale().messages.copy, 'C', ['control'], 'Ctrl+C'),
+-        editItem(currentDesktopLocale().messages.paste, 'V', ['control'], 'Ctrl+V'),
+-        editItem(currentDesktopLocale().messages.delete, 'Delete', []),
+-        { type: 'separator' },
+-        editItem(currentDesktopLocale().messages.selectAll, 'A', ['control'], 'Ctrl+A'),
+-      ]
++      const items: MenuItemConstructorOptions[] = name === 'application'
++        ? applicationItems()
++        : editMenuItems(currentDesktopLocale().messages)
+       const zoom = mainWindow.webContents.getZoomFactor()
+       return new Promise<void>((resolve) => {
+         Menu.buildFromTemplate(items).popup({ window, x: Math.round(x * zoom), y: Math.round(y * zoom), callback: resolve })
+@@ -1316,7 +1329,8 @@ async function main(): Promise<void> {
        // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
        const validColor = (value: unknown): value is string => typeof value === 'string'
          && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
@@ -74,7 +148,7 @@ index 61fda9e..364f580 100644
    let active = true
    const disposeHandlers = (): void => {
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index 8d49aba..a80dbf8 100644
+index 8d49aba..ef9cd5d 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
 @@ -130,6 +130,7 @@ const harness = await vi.hoisted(async () => {
@@ -85,6 +159,36 @@ index 8d49aba..a80dbf8 100644
      getContentBounds() { return { x: 0, y: 0, width: 900, height: 650 } }
      setBounds() {}
      setTitle = vi.fn()
+@@ -1426,22 +1427,25 @@ describe('desktop main startup', () => {
+       item.role ?? (item.type === 'separator' ? 'separator' : item.label)
+     const template = harness.menu.buildFromTemplate.mock.calls
+       .map(call => call[0])
+-      .find(items => items.some(item => item.role === 'editMenu'))
++      .find(items => items.some(item => item.role === 'editMenu' || item.label === en.edit))
+     if (template === undefined) throw new Error('application menu missing')
+     expect(template.map(describeItem)).toEqual(platform === 'darwin'
+       ? ['Desktop test', en.fileMenu, 'editMenu', 'windowMenu']
+-      : ['Application', 'editMenu'])
++      // Electron labels the `editMenu` role in its own locale, which stays English, so the native bar
++      // declares the same labelled items as the in-page caption menu instead.
++      : ['Application', en.edit])
+     const describeEdit = (items: MenuItemConstructorOptions[]): unknown[] => items.map(item => Array.isArray(item.submenu)
+       ? [describeItem(item), describeEdit(item.submenu)]
+       : [describeItem(item), item.accelerator, item.visible, item.acceleratorWorksWhenHidden].filter(value => value !== undefined))
+-    const edit = template.find(item => item.role === 'editMenu')!.submenu as MenuItemConstructorOptions[] | undefined
++    const edit = template.find(item => item.role === 'editMenu' || item.label === en.edit)!.submenu as MenuItemConstructorOptions[] | undefined
+     expect(edit === undefined ? undefined : describeEdit(edit)).toEqual(platform === 'darwin'
+       ? [['undo'], ['redo'], ['separator'], ['cut'], ['copy'], ['paste'],
+         ['pasteAndMatchStyle', 'Shift+Command+V'], ['pasteAndMatchStyle', 'Option+Shift+Command+V', false, true],
+         ['delete'], ['selectAll'], ['separator'],
+         [en.substitutionsMenu, [['showSubstitutions'], ['separator'], ['toggleSmartQuotes'], ['toggleSmartDashes'], ['toggleTextReplacement']]],
+         [en.speechMenu, [['startSpeaking'], ['stopSpeaking']]]]
+-      : undefined)
++      : [[en.undo, 'Ctrl+Z'], [en.redo, 'Ctrl+Y'], ['separator'], [en.cut, 'Ctrl+X'], [en.copy, 'Ctrl+C'],
++        [en.paste, 'Ctrl+V'], [en.delete], ['separator'], [en.selectAll, 'Ctrl+A']])
+     const application = template[0]!.submenu as MenuItemConstructorOptions[]
+     expect(application.filter(item => item.visible !== false).map(describeItem)).toEqual(platform === 'darwin'
+       ? ['about', 'separator', en.checkUpdatesMenu, en.cliCommandMenu, 'separator', 'toggleDevTools', 'separator', 'hide', 'hideOthers', 'unhide', 'separator', 'quit']
 diff --git a/apps/desktop/tests/preload-windows.client.spec.ts b/apps/desktop/tests/preload-windows.client.spec.ts
 index e59b7eb..735b77f 100644
 --- a/apps/desktop/tests/preload-windows.client.spec.ts

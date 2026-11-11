@@ -149,7 +149,7 @@ index 0000000..97512e7
 +  return tint > 100 ? null : tint
 +}
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index b6add2e..fcd8a4e 100644
+index d98b494..43e48e3 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
 @@ -36,6 +36,8 @@ import { installMicrophonePermissions } from './microphone-permissions.ts'
@@ -361,7 +361,7 @@ index 0000000..cd8d2df
 +  })
 +})
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index a80dbf8..bb0be60 100644
+index ef9cd5d..fa0e3f9 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
 @@ -2,6 +2,8 @@ import { parsePluginOperationRecord } from '@deepseek-ai/dsh-plugin-manager/diag

@@ -248,6 +248,21 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 同一套属性与度量（`data-windows-titlebar`、`--dsh-windows-titlebar-height: 40px`、
 `--dsh-windows-menu-start`，见 `preload-menu.ts`），所以客户端一个字都没改。
 
+**原生那条菜单栏也归这里。** 非 darwin 的 `platformMenus()` 原本只写 `{ role: 'editMenu' }`，
+而 Electron 的 `editMenu` 角色按**它自己的语言**取标题与子项（英文），于是中文界面上就成了
+「应用 / Edit」。这条菜单栏平时看不见（`setMenuBarVisibility(false)`），只有玻璃模式（`0018`）
+对 Linux 打开 `setAutoHideMenuBar(true)` 之后按 Alt 才露出来 —— 一露就是中英混排。所以这一版把
+caption 弹窗里那份 `editItem` / `editMenuItems` 提到 `main()` 作用域，弹窗与原生菜单共用同一个
+构造器：标题取 `messages.edit`，子项（撤销 / 重做 / 剪切 / 复制 / 粘贴 / 删除 / 全选）取
+`messages.*`，点击走 `shortcuts.sendEditingKey` 合成按键（编辑器自己的历史只认键盘事件，不走
+Chromium 的 undo 栈）。测试上 `main-startup.spec.ts` 的平台菜单用例同步改成「非 darwin 的第二个
+菜单有 label 与子项」而不是「有一个 `editMenu` 角色」。
+
+同一处还有第二个漏项：`applicationItems()` 里退出项的 label 只给了 macOS（「退出 DeepSeek Harness」）
+和 Windows（「退出」），Linux 落进空对象，于是显示 Electron 内置的英文 `Quit` —— 与旁边由 DSH 字典
+提供的「关于 DeepSeek Harness」「检查更新…」「开发者工具」中英混排。非 darwin 分支统一取
+`messages.exitApplication`（中文「退出」），至此原生菜单每一项都走 DSH 字典。
+
 ## 让插件市场认得宿主版本（0017）
 
 | 补丁 | 覆盖文件 | 内容 |

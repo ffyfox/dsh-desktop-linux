@@ -22,7 +22,7 @@ index 0c53fd5..c972b35 100644
    const runId = randomUUID() as PluginOperationRunId
    if (process.connected) process.send?.({ type: 'starting', runId }, (error) => { if (error !== null) console.error(error) })
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 4fdf59b..b6add2e 100644
+index b67e46c..d98b494 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
 @@ -203,6 +203,8 @@ interface RuntimeResources {
