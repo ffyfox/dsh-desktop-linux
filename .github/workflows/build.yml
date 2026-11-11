@@ -304,10 +304,13 @@ jobs:
           # 正常情况下包就在 pkgbuild/；镜像若把 PKGDEST 指到别处（run 41855701710 的
           # aarch64 出现过），再往 $HOME / /root / /tmp 找一遍并挪回 pkgbuild/，
           # 免得后面上传那步直接扑空。
+          # 只认包文件本身。makepkg 会把源码包 <pkgname>-<pkgver>.tar.gz 也放在 pkgbuild/
+          # （还有一份在 pkgbuild/src/），它们同样匹配 dsh-desktop-linux-*；find 的顺序按目录
+          # 项排列走，谁在前没有保证 —— run 43118688101 就抓到了源码包并判成包名不符。
           mapfile -t found < <(find pkgbuild /home/builder /root /tmp -maxdepth 6 \
-                                 -name 'dsh-desktop-linux-*' -print 2>/dev/null)
+                                 -name 'dsh-desktop-linux-*.pkg.tar.zst' -print 2>/dev/null)
           if (( ${#found[@]} == 0 )); then
-            echo "没找到任何 dsh-desktop-linux-*（查过 pkgbuild/、/home/builder、/root、/tmp）" >&2
+            echo "没找到任何 dsh-desktop-linux-*.pkg.tar.zst（查过 pkgbuild/、/home/builder、/root、/tmp）" >&2
             ls -la pkgbuild >&2
             exit 1
           fi
