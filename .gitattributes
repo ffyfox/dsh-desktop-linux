@@ -1,0 +1,3 @@
+# Unified-diff context lines contain a required space before an empty source line.
+# Check source whitespace in upstream before regenerating the patch series.
+patches/*.patch whitespace=-blank-at-eol

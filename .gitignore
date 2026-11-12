@@ -30,3 +30,7 @@ node_modules/
 # 本机专用的指令 overlay（AGENTS.md 的本地补充）
 AGENTS.local.md
 CLAUDE.local.md
+
+# Python relay / validation caches
+__pycache__/
+*.pyc

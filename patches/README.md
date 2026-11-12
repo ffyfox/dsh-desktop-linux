@@ -1,13 +1,13 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `f3803c96`（tag `dsh-v0.2.2-alpha.2`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），当前上游基线由根 `PKGBUILD` 的 `_tag` / `_commit` 固定为 `dsh-v0.2.2-rc.2`。`0020` 基于完整 `0001`–`0019` 前置树，不能单独应用到干净上游。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
 多个补丁触及**，此时必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的
 hunk 一起带进来。
 
-**`0017` 与 `0018` 是这条约定的两个已知例外。**
+**`0017`、`0018` 与 `0020` 是增量依赖例外。** `0020` 从完整前置树生成，只包含客户端外观的最终增量，重生时不得重复收录前置补丁。
 
 `0017` 的 5 个文件（`src/node-environment.ts`、`src/main.ts`、`tests/host-process.spec.ts`、
 `tests/node-environment.spec.ts`、`desktop-host/src/index.ts`）全部也属于 `0008`，而且它的 diff 上下文含
@@ -274,6 +274,8 @@ Chromium 的 undo 栈）。测试上 `main-startup.spec.ts` 的平台菜单用�
 
 ## 让 Linux 也用上「玻璃」布局（0018）
 
+本节记录 `0018` 单独提供的效果；完整系列的默认值、设置优先级及 KDE Wayland blur 以[客户端外观](../docs/client-appearance.md)为准。
+
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
 | `0018-desktop-linux-glass-mode.patch` | `src/glass-mode.ts`（新增）、`src/glass-document.ts`（新增）、`src/main.ts`、`src/preload-windows.ts`、`src/web-document.ts`、`tests/{glass-mode,glass-document,main-startup,preload-windows.client,web-document}.spec.ts`、`packages/client/ui-layout/{src/client/AppFrame.tsx,src/client/AppFrame.module.css,tests/app-frame.client.spec.tsx}`、`packages/client/ui-sidebar/{src/client/SidebarRoot.tsx,src/client/SidebarRoot.module.css,tests/sidebar-root.client.spec.tsx}`、`packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css`、`packages/client/ui-schedule/src/client/TaskManagerPage.module.css` | `DSH_DESKTOP_GLASS=1` 时主窗口改成 `transparent: true` + `#00000000`，preload 通过 `additionalArguments` 拿到 `--dsh-desktop-glass` 后直接返回（不装 caption 标记，于是保持 Web 布局），主进程对 Linux 打开 `setAutoHideMenuBar(true)` 并关掉菜单栏（application menu 仍在，`Alt` 可唤出）。`dsh-app://app` 的文档多一条 `headInjection`：玻璃模式把 `glassDocument(tint)` 塞进 `<head>` —— 一条 `data-dsh-glass` 标记 + 一段 `<style>`：html/body/#root 与 grid frame 清成全透明，侧栏套用从 `packages/client/ui-layout/lib/client.js` 抄来的 macOS 材质（渐变 + `color-mix(… 40%/50%, transparent)`），内容区/右栏/底部保持 `--dsw-alias-bg-base` 实色，侧栏自己的面板与 New Session 按钮按 macOS 的做法重新上色；会话列表底部的渐隐遮罩（`[class$="_fade"]`）按 macOS 的做法隐藏 —— 它的渐变终点是不透明的侧栏填充色，压在透明栏上会变成一道实色带 |
@@ -338,6 +340,8 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
 
 ## 让 Linux 走无边框窗口（0019）
 
+本节记录 `0019` 的控件覆盖层；完整系列使用 `0020` 的独立窗口控制，无边框与玻璃可同时开启，以下互斥说明只适用于 `0019`。
+
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
 | `0019-desktop-linux-frameless.patch` | `src/frameless-mode.ts`（新增）、`src/wayland-csd.ts`（新增）、`src/main.ts`、`src/preload-platform.ts`、`src/preload-menu.ts`、`src/welcome-window.ts`、`src/update-overlay.ts`、`tsconfig.client.json`、`tests/{frameless-mode,main-startup,welcome-window,preload-platform.client,wayland-csd,update-overlay}.spec.ts` | `DSH_DESKTOP_FRAMELESS=1` 时主窗口加 `titleBarStyle: 'hidden'` + `titleBarOverlay`（高度 40、初始色取 `chromeFallbackFill()`），原生按钮由 Electron 自绘（见下），标题区其余部分仍由 0016 的页内 caption 提供；`windowsAppearance` 里 `setTitleBarOverlay` 的门从「只 Windows」放宽到「Windows 或 Linux 无边框」，页面实测出来的侧栏色因此也能刷到原生条上。全屏事件与 preload 的 `data-fullscreen` 监听一并放行到 Linux 无边框（全屏时原生按钮隐藏，caption 要给内容让位）。欢迎窗走同一套覆盖层（高度 42）。`preload-menu.ts` 的菜单起点改成 `max(--dsh-windows-menu-start, env(titlebar-area-x))`，系统把按钮放左侧时菜单跟着安全区右移 |
@@ -393,6 +397,16 @@ KDE Plasma 6（kwin_wayland / Wayland，DPR 2，1536×960）上复核了同一�
 
 Hyprland 那张表里欢迎窗是 620×720、KDE 是 600×700 —— 同一个 `useContentSize`，两边的边框计算不同，都不影响布局。
 GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩阵）；左置按钮布局仍未验证。
+
+## 独立客户端外观与 KDE Wayland 效果（0020）
+
+此增量在 `0001`–`0019` 全部应用后添加独立设置窗口、严格原子持久化、自绘窗口控制和原生 Wayland relay。默认同时开启无边框、12 px 圆角、系统阴影、20% 侧栏透明度及 Wayland 模糊；macOS / Windows / 融和三种标题栏仅改变主窗口，系统边框仍可恢复。Windows 复用上游 caption 和原生弹出菜单，内侧内容圆角使用局部背景衬底；融和将 Logo 与折叠按钮同排。玻璃侧栏不绘制列表底部的不透明渐隐。
+
+外观文件独立存于 Electron userData 的 `desktop/appearance.json`，不读取或修改 API 凭据。写入版本 3，严格读取版本 1 / 2，保留旧透明度并将旧版 `windows` 映射到 `fusion`；读取不写回。保存不改变当前运行，重启必须经过默认取消的原生确认并走正常 Host 关闭流程。
+
+Wayland relay 使用 resources 中捆绑的 primary-runtime Python。KDE Plasma 6.8.2 上通过背景效果协议请求 blur，使用 shadow v2 与透明根裁剪；缺少协议时不保证效果，不修改系统合成器设置或关闭 Chromium 沙箱。设置页保持 sandbox / context isolation / CSP，并校验唯一窗口、主 frame 和精确本地 URL。
+
+`./scripts/check-appearance.sh` 执行上游桌面 / Host 单测和 Python relay 回归。`scripts/smoke-client-settings.py --source /path/to/unpacked --display wayland-1` 在隔离副本验证真实设置、三种样式及三次重启；`--scenario windows-corner` 核对深浅主题、折叠、最大化、全屏及内外圆角 alpha。两者不使用真实用户目录，测试代码不进入正式产物。支持范围和截图见[客户端外观](../docs/client-appearance.md)。
 
 ## Arch 包与 deb/rpm 构建树的差异（无害）
 

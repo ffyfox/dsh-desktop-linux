@@ -17,7 +17,7 @@
 
 pkgname=dsh-desktop-linux
 pkgver=0.2.2rc2
-pkgrel=1
+pkgrel=2
 _tag='dsh-v0.2.2-rc.2'
 _commit='ddac96760b6edf8fa0fe17cbdcf0b512f4c12b2c'
 # GitHub 源码包的顶层目录名 = <repo>-<tag>，tag 自带的 "v" 不剥（实测 dsh-v0.2.1-alpha.2）
@@ -103,6 +103,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harnes
         '0017-desktop-host-resources-path.patch'
         '0018-desktop-linux-glass-mode.patch'
         '0019-desktop-linux-frameless.patch'
+        '0020-desktop-client-appearance.patch'
         # 补丁系列是文本 diff，装不下托盘 PNG —— GNU patch（makepkg 与 PKGBUILD 都用它）
         # 不支持 git 的二进制补丁。所以这张图作为普通本地 source 平铺过来，由 prepare() 放进源码树。
         'tray-linux.png')
@@ -124,6 +125,7 @@ sha256sums=('d376fe64ec4b7c9b5837fb1155ed3a48e7e0e5f5b0aae0b91d9fb836daa8c20e'
             '25dc6ec16f56385f5598378287437f0014ed5ed4fa8884358da11cd15e31a6c4'
             '02b348ecf61e164ac0ed4af10fe1956005bfa5891da646658adafe61dd2339c0'
             'aa0753f9100012ec21bd6030dd8933c5383e5717f243076b9fb7768b896627f3'
+            '7f4dca32c5f86fda62ef4acd4931f3b8db014892a39b7fb907167d88554d2d29'
             'd1153ab7bb1c61ca7f6568b4525f6c3f3c7bf9a9e29af1697f3c02da7dee5322')
 
 prepare() {
@@ -136,7 +138,7 @@ prepare() {
   bsdtar -xf "$srcdir/$pkgname-$pkgver.tar.gz" -C "$srcdir"
   cd "$_srcdirname"
 
-  # 全部补丁都相对同一个基线（$_tag）生成，互相独立，按文件名顺序应用即可。
+  # 补丁按编号应用；0017/0018/0020 依赖前置补丁，完整系列以 $_tag 为基线。
   local patchfile
   for patchfile in "${source[@]}"; do
     [[ "$patchfile" == *.patch ]] || continue

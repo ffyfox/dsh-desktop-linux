@@ -48,33 +48,15 @@ Closing the main window **hides it to the background** by default (the Host and 
 - **Restore the window**: "Open" in the tray menu, or launch the application again (a second launch only focuses the running instance).
 - **Quit completely**: "Quit" in the tray menu, `Application` → `Exit` in the menu bar, or `Ctrl+Q`.
 
-### Frameless mode
+### Client appearance
 
-Start the application with this variable to drop window-manager decorations and keep only the window control buttons:
+“Client settings…” in the tray opens an independent window for macOS / Windows / Blended title bars, 0–32 px corners, system shadows, sidebar glass, and transparency. The settings window keeps its native frame and opaque background. Saving affects the next launch; restarting requires a second confirmation and interrupts running Host tasks.
 
-```bash
-DSH_DESKTOP_FRAMELESS=1 deepseek-harness
-```
+Defaults are macOS traffic lights on the left, frameless windows, 12 px corners, system shadows, 20% transparency, and Wayland blur. Windows retains the upstream separate caption and Application/Edit menus; Blended puts the logo and sidebar toggle on one row. Frameless and glass modes can run together. Advanced settings can restore native window decorations.
 
-The window then resembles the official Windows desktop app:
+![Three title-bar styles](docs/titlebar-styles.png)
 
-- The system title bar is removed, and the top in-page strip handles dragging and double-click maximize / restore; the style, count, and placement of the window control buttons follow the system GTK theme and decoration layout.
-- **Exclusive with glass mode**: when both variables are `1`, frameless wins and glass mode turns itself off.
-- **Left-side button limitation**: when the system places window buttons on the left, the in-page menus shift right to clear them, but the sidebar toggle at the top is not fully adapted yet.
-
-### Glass mode
-
-To get a frosted-glass sidebar (or unblurred translucency), start the application with an environment variable:
-
-```bash
-DSH_DESKTOP_GLASS=1 deepseek-harness
-```
-
-The window then resembles the official macOS desktop app:
-
-- The native menu bar auto-hides and appears on `Alt`.
-- Sidebar fill defaults to 40% in the light theme and 50% in the dark theme; override with `DSH_DESKTOP_GLASS_TINT=0..100` (raise it when background content makes text hard to read).
-- **Actual appearance depends on the compositor**: Hyprland, niri, and similar compositors support background blur; KDE and GNOME still draw a system title bar and only render translucency without blur — this mode generally looks best under **titlebar-less** tiling window managers.
+Before the first save, `DSH_DESKTOP_FRAMELESS`, `DSH_DESKTOP_GLASS`, and `DSH_DESKTOP_GLASS_TINT` still supply initial values; the separate appearance file takes precedence once saved. Native background blur, shadow v2, and transparent corners have been verified on KDE Plasma 6.8.2 / Wayland. Other compositors may provide only some effects. See [Client appearance](docs/client-appearance.en.md) for configuration, migration, restart limits, and verification scope. These features require a build containing the patch; existing releases do not imply inclusion.
 
 ## Building from source
 
@@ -141,7 +123,7 @@ For patch numbering, responsibilities, and low-level details, see [patches/READM
 
 ## Validation status
 
-The table below is updated with testing and feedback — if you run into an adaptation
+The table retains the existing Linux port’s validation scope and does not establish the new appearance effects on every platform. New effects have been verified on KDE Plasma 6.8.2 / Wayland. If you run into an adaptation
 problem, please open an [issue](https://github.com/ffyfox/dsh-desktop-linux/issues).
 
 | Environment | Status |
