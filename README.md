@@ -9,14 +9,20 @@ AppImage / deb / rpm / Arch 包。
 上游目前不支持 Linux；本项目将其补齐：让官方打包流水线认得 `linux-x64` 与
 `linux-arm64` 并产出安装包。
 
-![DeepSeek Harness 桌面端普通模式界面（KDE）](docs/screenshot.png)
-*普通模式（KDE Plasma）*
+<p align="center">
+  <img src="docs/screenshot.png" alt="DeepSeek Harness 桌面端普通模式界面（KDE）"><br>
+  <sub>普通模式（KDE Plasma）</sub>
+</p>
 
-![DeepSeek Harness 桌面端无边框模式界面（KDE）](docs/screenshot-frameless.png)
-*无边框模式（KDE Plasma，`DSH_DESKTOP_FRAMELESS=1`）*
+<p align="center">
+  <img src="docs/screenshot-frameless.png" alt="DeepSeek Harness 桌面端无边框模式界面（KDE）"><br>
+  <sub>无边框模式（KDE Plasma，<code>DSH_DESKTOP_FRAMELESS=1</code>）</sub>
+</p>
 
-![DeepSeek Harness 桌面端玻璃模式界面（Hyprland）](docs/screenshot-glass.png)
-*玻璃模式（Hyprland，`DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75`）*
+<p align="center">
+  <img src="docs/screenshot-glass.png" alt="DeepSeek Harness 桌面端玻璃模式界面（Hyprland）"><br>
+  <sub>玻璃模式（Hyprland，<code>DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75</code>）</sub>
+</p>
 
 ## 项目产物
 
@@ -35,7 +41,7 @@ AppImage / deb / rpm / Arch 包。
 | 通用 | AppImage | `chmod +x` 后直接运行 |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
-| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`；也可本地构建，见[构建 Arch 包](#构建-arch-包)；由于 AUR 暂停账号注册等原因，本项目不发布到 AUR。 |
+| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`（由于 AUR 暂停账号注册等原因，本项目不发布到 AUR） |
 
 ## 使用
 
@@ -73,6 +79,9 @@ DSH_DESKTOP_GLASS=1 deepseek-harness
 - 原生菜单栏自动隐藏，按 `Alt` 唤出。
 - 侧栏浓度默认浅色 40%、深色 50%，可通过 `DSH_DESKTOP_GLASS_TINT=0..100` 调整，文字受背景干扰时可调高。
 - **实际观感取决于合成器**：Hyprland、niri 等支持背景模糊；KDE 与 GNOME 仍带系统标题栏且仅呈半透明、无模糊——此模式在**无系统标题栏**的平铺窗口管理器下可能观感更佳。
+
+> [!TIP]
+> 若希望通过桌面图标或启动器启动时默认开启上述模式，可将环境变量写入 `~/.config/environment.d/dsh-desktop.conf`（注销重登后生效），或将 `/usr/share/applications/deepseek-harness.desktop` 复制到 `~/.local/share/applications/` 并在 `Exec=` 前加 `env 变量=值`。
 
 ## 从源码构建
 
@@ -148,7 +157,8 @@ cd pkgbuild && makepkg -si
 | Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **已实测**，正常 |
 | Debian 13 · GNOME 48 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
 | Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
-| aarch64（AppImage / deb / rpm / Arch 包） | 已在 CI 通过构建与启动冒烟 |
+| 银河麒麟（飞腾 D2000 · aarch64 · deb） | **已实测**，正常（[#11](https://github.com/ffyfox/dsh-desktop-linux/issues/11)） |
+| aarch64（AppImage / rpm / Arch 包） | 已在 CI 通过构建与启动冒烟 |
 | 其他发行版（Linux Mint / CachyOS 等） | 未验证 |
 | 其他 DE/WM（Xfce / Sway 等） | 未验证 |
 | X11 | 未验证 |

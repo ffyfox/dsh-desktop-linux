@@ -11,14 +11,20 @@ Upstream does not support Linux today; this project fills that gap: it teaches
 the official packaging pipeline about `linux-x64` and `linux-arm64` and emits
 installable artifacts.
 
-![The DeepSeek Harness desktop interface in normal mode (KDE)](docs/screenshot.png)
-*Normal mode (KDE Plasma)*
+<p align="center">
+  <img src="docs/screenshot.png" alt="The DeepSeek Harness desktop interface in normal mode (KDE)"><br>
+  <sub><em>Normal mode (KDE Plasma)</em></sub>
+</p>
 
-![The DeepSeek Harness desktop interface in frameless mode (KDE)](docs/screenshot-frameless.png)
-*Frameless mode (KDE Plasma, `DSH_DESKTOP_FRAMELESS=1`)*
+<p align="center">
+  <img src="docs/screenshot-frameless.png" alt="The DeepSeek Harness desktop interface in frameless mode (KDE)"><br>
+  <sub><em>Frameless mode (KDE Plasma, <code>DSH_DESKTOP_FRAMELESS=1</code>)</em></sub>
+</p>
 
-![The DeepSeek Harness desktop interface in glass mode (Hyprland)](docs/screenshot-glass.png)
-*Glass mode (Hyprland, `DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75`)*
+<p align="center">
+  <img src="docs/screenshot-glass.png" alt="The DeepSeek Harness desktop interface in glass mode (Hyprland)"><br>
+  <sub><em>Glass mode (Hyprland, <code>DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75</code>)</em></sub>
+</p>
 
 ## What this project produces
 
@@ -37,7 +43,7 @@ Download the AppImage, deb, rpm and Arch packages from [Releases](https://github
 | Any | AppImage | `chmod +x`, run it |
 | Debian / Ubuntu | deb | `sudo apt install ./deepseek-harness-*.deb` |
 | Fedora / RHEL | rpm | `sudo dnf install ./deepseek-harness-*.rpm` |
-| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst`; or build locally — see [Building the Arch package](#building-the-arch-package); not published to the AUR since AUR account registration is currently paused. |
+| Arch Linux | `.pkg.tar.zst` | `sudo pacman -U ./dsh-desktop-linux-*.pkg.tar.zst` (not published to the AUR since AUR account registration is currently paused) |
 
 ## Usage
 
@@ -75,6 +81,9 @@ The window then resembles the official macOS desktop app:
 - The native menu bar auto-hides and appears on `Alt`.
 - Sidebar fill defaults to 40% in the light theme and 50% in the dark theme; override with `DSH_DESKTOP_GLASS_TINT=0..100` (raise it when background content makes text hard to read).
 - **Actual appearance depends on the compositor**: Hyprland, niri, and similar compositors support background blur; KDE and GNOME still draw a system title bar and only render translucency without blur — this mode generally looks best under **titlebar-less** tiling window managers.
+
+> [!TIP]
+> To enable either mode by default when launching from a desktop icon or app launcher, write the variables to `~/.config/environment.d/dsh-desktop.conf` (takes effect after logging back in), or copy `/usr/share/applications/deepseek-harness.desktop` to `~/.local/share/applications/` and prepend `env VAR=1` before `Exec=`.
 
 ## Building from source
 
@@ -152,7 +161,8 @@ problem, please open an [issue](https://github.com/ffyfox/dsh-desktop-linux/issu
 | Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **Tested**, works |
 | Debian 13 · GNOME 48 · Wayland · x86_64 | **Tested**, works (the tray needs an extension, see [Known limitations](#known-limitations)) |
 | Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **Tested**, works (the tray needs an extension, see [Known limitations](#known-limitations)) |
-| aarch64 (AppImage / deb / rpm / Arch package) | Built and launch smoke-tested in CI |
+| Kylin (Phytium D2000 · aarch64 · deb) | **Tested**, works ([#11](https://github.com/ffyfox/dsh-desktop-linux/issues/11)) |
+| aarch64 (AppImage / rpm / Arch package) | Built and launch smoke-tested in CI |
 | Other distributions (Linux Mint / CachyOS, …) | Not tested |
 | Other DEs / WMs (Xfce / Sway, …) | Not tested |
 | X11 | Not tested |
