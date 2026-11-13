@@ -276,7 +276,7 @@ Chromium 的 undo 栈）。测试上 `main-startup.spec.ts` 的平台菜单用�
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0018-desktop-linux-glass-mode.patch` | `src/glass-mode.ts`（新增）、`src/glass-document.ts`（新增）、`src/main.ts`、`src/preload-windows.ts`、`src/web-document.ts`、`tests/{glass-mode,glass-document,main-startup,preload-windows.client,web-document}.spec.ts`、`packages/client/ui-layout/{src/client/AppFrame.tsx,src/client/AppFrame.module.css,tests/app-frame.client.spec.tsx}`、`packages/client/ui-sidebar/{src/client/SidebarRoot.tsx,src/client/SidebarRoot.module.css,tests/sidebar-root.client.spec.tsx}`、`packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css`、`packages/client/ui-schedule/src/client/TaskManagerPage.module.css` | `DSH_DESKTOP_GLASS=1` 时主窗口改成 `transparent: true` + `#00000000`，preload 通过 `additionalArguments` 拿到 `--dsh-desktop-glass` 后直接返回（不装 caption 标记，于是保持 Web 布局），主进程对 Linux 打开 `setAutoHideMenuBar(true)` 并关掉菜单栏（application menu 仍在，`Alt` 可唤出）。`dsh-app://app` 的文档多一条 `headInjection`：玻璃模式把 `glassDocument(tint)` 塞进 `<head>` —— 一条 `data-dsh-glass` 标记 + 一段 `<style>`：html/body/#root 与 grid frame 清成全透明，侧栏套用从 `packages/client/ui-layout/lib/client.js` 抄来的 macOS 材质（渐变 + `color-mix(… 40%/50%, transparent)`），内容区/右栏/底部保持 `--dsw-alias-bg-base` 实色，侧栏自己的面板与 New Session 按钮按 macOS 的做法重新上色；会话列表底部的渐隐遮罩（`[class$="_fade"]`）按 macOS 的做法隐藏 —— 它的渐变终点是不透明的侧栏填充色，压在透明栏上会变成一道实色带 |
+| `0018-desktop-linux-glass-mode.patch` | `src/glass-mode.ts`（新增）、`src/glass-document.ts`（新增）、`src/main.ts`、`src/preload-windows.ts`、`src/web-document.ts`、`tests/{glass-mode,glass-document,main-startup,preload-windows.client,web-document}.spec.ts`、`packages/client/ui-layout/{src/client/AppFrame.tsx,src/client/AppFrame.module.css,tests/app-frame.client.spec.tsx}`、`packages/client/ui-sidebar/{src/client/SidebarRoot.tsx,src/client/SidebarRoot.module.css,tests/sidebar-root.client.spec.tsx}`、`packages/client/ui-plugin-manager/src/client/PluginManagerPage.module.css`、`packages/client/ui-schedule/src/client/TaskManagerPage.module.css` | `DSH_DESKTOP_GLASS=1` 时主窗口改成 `transparent: true` + `#00000000`，preload 通过 `additionalArguments` 拿到 `--dsh-desktop-glass` 后直接返回（不装 caption 标记，于是保持 Web 布局），主进程对 Linux 打开 `setAutoHideMenuBar(true)` 并关掉菜单栏（application menu 仍在，`Alt` 可唤出）。`dsh-app://app` 的文档多一条 `headInjection`：玻璃模式把 `glassDocument(tint)` 塞进 `<head>` —— 一条 `data-dsh-glass` 标记 + 一段 `<style>`：html/body/#root 与 grid frame 清成全透明，侧栏套用从 `packages/client/ui-layout/lib/client.js` 抄来的 macOS 材质（渐变 + `color-mix(… 40%/50%, transparent)`），内容区/右栏/底部保持 `--dsw-alias-bg-base` 实色，侧栏自己的面板与 New Session 按钮按 macOS 的做法重新上色；会话列表底部的渐隐遮罩（`[class*="scrollFade"]`）按 macOS 的做法隐藏 —— 它的渐变终点是不透明的侧栏填充色，压在透明栏上会变成一道实色带 |
 
 为什么玻璃材质整段走注入的 `<style>` 而不是客户端代码：UI 是打包好的客户端产物，类名是 CSS Module
 哈希，只能靠后缀与结构选择器命中（`[class*="sidebarCol"]`、`[class$="newSession"]`、
@@ -607,7 +607,10 @@ arm64 目标折进现有补丁，不新增编号；文件名保留 `-x64` 的历
 
 - **`0006`**：仅 `apps/desktop/package.json` 第 3 行版本号上下文偏移；`0019`：仅 `tsconfig.client.json` 索引 hash 随 #8342 新增项目引用而更新。
 - **`0008`**：补齐上游 `apps/desktop/scripts/node-bin/node` 本身的 `100755` 文件模式，消除反向 `git apply` 的模式警告。
-- **`0018`**：`SidebarRoot.tsx` / `SidebarRoot.module.css` 与 #8342 新增的 `sidebar.session.action` 插槽及 `.newSessionRow` 无冲突三路合并。
+- **`0018`（含 PR #17 渐隐遮罩修复与单测补全）**：
+  - `SidebarRoot.tsx` / `SidebarRoot.module.css` 与 #8342 新增的 `sidebar.session.action` 插槽及 `.newSessionRow` 无冲突三路合并；
+  - 收下 PR #17 的侧栏白带修复（`Co-authored-by: stvsl`）：上游在 rc.2 侧栏重构时已将底部渐隐遮罩类名改为 `.scrollFade`，导致原 `[class$="_fade"]` 失效，现改用 `[class*="scrollFade"]`（`glass-document.ts` 与 `tests/glass-document.spec.ts`）；
+  - 补全 `packages/client/ui-layout/tests/app-frame.client.spec.tsx` 中 `0018` 玻璃折叠断言遗漏的上游 `drawer: false` 字段。
 - **上游仍然没有 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` / `linux-arm64` 仍只由 `0001` / `0002` 提供。
 
-- 验证（2026-11-13）：17 个补丁在 rc.3 worktree 上按序 `git apply` 与 `patch -Np1` 全过，13 个未受影响补丁 `cmp` 逐字节一致；`makepkg --verifysource` 19 项与 `--nobuild`（`prepare()`）通过。
+- 验证（2026-11-13）：17 个补丁在 rc.3 worktree 上按序 `git apply` 与 `patch -Np1` 全过，13 个未受影响补丁 `cmp` 逐字节一致；`makepkg --verifysource` 19 项通过；`build.sh --all` 三格式一次出齐（AppImage `257dc787…` / deb `ebc02897…` / rpm `1de16212…`，payload 冒烟两轮全过）；`verify.sh --runtime` 49 通过 / 0 失败 / 4 跳过；去代理下上游桌面单测（`apps/desktop/tests` + `apps/desktop-host/tests`）2348 通过 / 0 失败 / 65 跳过，补丁涉及的客户端包测试（`ui-layout` / `ui-sidebar` / `ui-brand-official`）19 文件 281 用例全部通过。

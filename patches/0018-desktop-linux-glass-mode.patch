@@ -1,6 +1,6 @@
 diff --git a/apps/desktop/src/glass-document.ts b/apps/desktop/src/glass-document.ts
 new file mode 100644
-index 0000000..e1ecf93
+index 0000000..54c3ac2
 --- /dev/null
 +++ b/apps/desktop/src/glass-document.ts
 @@ -0,0 +1,113 @@
@@ -94,7 +94,7 @@ index 0000000..e1ecf93
 +/* The list-bottom fade paints a gradient of the opaque sidebar fill. macOS hides it for exactly
 +   this reason (over window vibrancy the gradient is a solid smear, not a fade), so the
 +   translucent column hides it too; without this it reads as a light band above the footer. */
-+html[data-dsh-glass] [class*="sidebarCol"] [class$="_fade"] { display: none; }
++html[data-dsh-glass] [class*="sidebarCol"] [class*="scrollFade"] { display: none; }
 +
 +/* Content, right bar and bottom row remain opaque. */
 +html[data-dsh-glass] [class*="centerCol"],
@@ -258,7 +258,7 @@ index 15f289e..51c23fb 100644
    })
 diff --git a/apps/desktop/tests/glass-document.spec.ts b/apps/desktop/tests/glass-document.spec.ts
 new file mode 100644
-index 0000000..bc1bba4
+index 0000000..9a8022e
 --- /dev/null
 +++ b/apps/desktop/tests/glass-document.spec.ts
 @@ -0,0 +1,41 @@
@@ -266,7 +266,7 @@ index 0000000..bc1bba4
 +import { glassDocument } from '../src/glass-document.ts'
 +
 +/** The list-bottom fade, hidden for the same reason macOS hides it over vibrancy. */
-+const FADE_RULE = 'html[data-dsh-glass] [class*="sidebarCol"] [class$="_fade"] { display: none; }'
++const FADE_RULE = 'html[data-dsh-glass] [class*="sidebarCol"] [class*="scrollFade"] { display: none; }'
 +
 +describe('glassDocument', () => {
 +  it('marks the document before its bundles run and closes its own style block', () => {
@@ -592,7 +592,7 @@ index 23e71c9..e15bf67 100644
    return (
      <div
 diff --git a/packages/client/ui-layout/tests/app-frame.client.spec.tsx b/packages/client/ui-layout/tests/app-frame.client.spec.tsx
-index 8aff85d..b55793b 100644
+index 8aff85d..14e04c3 100644
 --- a/packages/client/ui-layout/tests/app-frame.client.spec.tsx
 +++ b/packages/client/ui-layout/tests/app-frame.client.spec.tsx
 @@ -279,6 +279,32 @@ describe('AppFrame', () => {
@@ -604,7 +604,7 @@ index 8aff85d..b55793b 100644
 +    const { frame, instance, sidebarOwner, queryByTestId } = mountFrame()
 +    act(() => { instance.actions.toggleSidebar() })
 +    expect(tracks(frame)).toEqual([0, 0])
-+    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0 })
++    expect(sidebarOwner()).toEqual({ collapsed: true, width: 0, drawer: false })
 +    expect(frame.querySelector('[data-shell-leading]')).not.toBeNull()
 +    expect(queryByTestId('shell.leading-content')).toBeTruthy()
 +    act(() => { instance.actions.toggleSidebar() })
