@@ -663,10 +663,10 @@ index 6abf1a1..c30ea02 100644
  }
  
 diff --git a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
-index a9de416..ddcd042 100644
+index 3d2e7aa..bad92bc 100644
 --- a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
 +++ b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
-@@ -208,6 +208,11 @@
+@@ -213,6 +213,11 @@
    justify-content: flex-start;
  }
  
@@ -679,7 +679,7 @@ index a9de416..ddcd042 100644
     tucks 12px back under it, still clear of the toggle (28px control centered
     in the strip ends at y 40). */
 diff --git a/packages/client/ui-sidebar/src/client/SidebarRoot.tsx b/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
-index b573b19..297fbbb 100644
+index c8193d2..fdf09fa 100644
 --- a/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
 +++ b/packages/client/ui-sidebar/src/client/SidebarRoot.tsx
 @@ -278,6 +278,13 @@ export function SidebarRoot({
@@ -720,10 +720,10 @@ index b573b19..297fbbb 100644
  
        {/* The label fades before the hover/focus shortcut, including on translucent backgrounds. */}
 diff --git a/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx b/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx
-index f6b1b39..4855352 100644
+index 4ce129f..a85c938 100644
 --- a/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx
 +++ b/packages/client/ui-sidebar/tests/sidebar-root.client.spec.tsx
-@@ -465,6 +465,17 @@ it('keeps the macOS sidebar toggle in its top strip', () => {
+@@ -485,6 +485,17 @@ it('keeps the macOS sidebar toggle in its top strip', () => {
    expect(shell.trackEntryClick).toHaveBeenCalledExactlyOnceWith({ menu_name: 'new_session', position: 'sidebar' })
  })
  

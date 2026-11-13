@@ -838,7 +838,7 @@ index 2100de7..724ab3f 100644
      const window = createWindow()
      const loaded = Promise.withResolvers<undefined>()
 diff --git a/tsconfig.client.json b/tsconfig.client.json
-index f15b785..d663e92 100644
+index f515961..c6bbf8d 100644
 --- a/tsconfig.client.json
 +++ b/tsconfig.client.json
 @@ -21,6 +21,7 @@

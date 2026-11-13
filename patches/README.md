@@ -600,3 +600,14 @@ arm64 目标折进现有补丁，不新增编号；文件名保留 `-x64` 的历
 - **仓库脚本一处修正**：`scripts/verify.sh` 的客户端身份检查改从 `@deepseek-ai/dsh-deepseek-account/lib/types/client-metadata.js` 取 `platformClientHeaders` —— rc.2 起这个函数只从 `./client-metadata` 子路径导出（包根不再转出），而 tsdown 只把入口打成 `lib/index.js`，子路径落在 `lib/types/`。
 
 - 验证（2026-11-11）：17 个补丁在 rc.2 worktree 上按序 `git apply` 与 `patch -Np1` 都全过，两条路线打出来的树与三路合并树逐字节一致；`0004`/`0010`/`0011`/`0012` 重生后与仓库原文件 `cmp` 逐字节相同；`makepkg --verifysource` 19 项通过；`build.sh --all` 三格式一次出齐（`0.2.2-rc.2`）；`verify.sh --runtime` 49 通过 / 0 失败 / 1 跳过；上游桌面单测 2348 通过 / 0 失败 / 65 跳过。
+
+## 2026-11-13：0.2.2-rc.3（轻量同步）
+
+基线 `dsh-v0.2.2-rc.3`（`38a6a5c9`）。相对 rc.2 仅 6 个提交（#8383 CI bubblewrap 缓存、#8385 Windows `restart-status-cwd` 修复、#8342 新增实验插件 `deepseek-chat-import`、#8397 版本号升至 `0.2.2-rc.3`）。`pnpm-lock.yaml` 有更新（+133 行），同步后须重跑 `pnpm install --frozen-lockfile`。17 个补丁中 13 个与 rc.2 逐字节一致，4 个补丁重生：
+
+- **`0006`**：仅 `apps/desktop/package.json` 第 3 行版本号上下文偏移；`0019`：仅 `tsconfig.client.json` 索引 hash 随 #8342 新增项目引用而更新。
+- **`0008`**：补齐上游 `apps/desktop/scripts/node-bin/node` 本身的 `100755` 文件模式，消除反向 `git apply` 的模式警告。
+- **`0018`**：`SidebarRoot.tsx` / `SidebarRoot.module.css` 与 #8342 新增的 `sidebar.session.action` 插槽及 `.newSessionRow` 无冲突三路合并。
+- **上游仍然没有 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` / `linux-arm64` 仍只由 `0001` / `0002` 提供。
+
+- 验证（2026-11-13）：17 个补丁在 rc.3 worktree 上按序 `git apply` 与 `patch -Np1` 全过，13 个未受影响补丁 `cmp` 逐字节一致；`makepkg --verifysource` 19 项与 `--nobuild`（`prepare()`）通过。
