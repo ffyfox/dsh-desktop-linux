@@ -23,7 +23,7 @@
   （AppImage / deb / rpm / Arch）、产物版本，以及能复现的最短步骤。
 - **上游本身的缺陷请报给上游**：上游目前不收外部 PR、issue 也关着，只能走
   [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)。
-  本仓库只处理移植层的问题（打包、Linux 集成、Arch 包）。
+  本仓库只处理移植层的问题（打包、Linux 平台适配）。
 
 ## 提交 PR
 
@@ -37,6 +37,15 @@
   补丁」的隔离树取 diff。这样每个补丁的职责都能单独说清。
 - **动了 `PKGBUILD` 里的 `_tag`，受影响的那批补丁就要重做**，否则
   `scripts/apply-patches.sh` 会直接失败。
+
+## 收录边界
+
+为了控制维护成本并贴合上游体验，提交 PR 前请先确认改动落在本仓库的范围内：
+
+- **只做打包与必要的 Linux 适配**：补丁尽量贴近上游、最小侵入，不改变官方的开箱默认行为，不做下游功能定制分支。
+- **不新增上游没有的独立功能**：不额外引入上游各平台不存在的功能模块、交互流程或配置项。
+- **保持启动链与进程生命周期清晰**：不接管或替换官方的启动入口、进程管理与退出流程。
+- **个性化定制欢迎发到 Discussions 展示**：超出范围的定制方案，建议在 fork 仓库维护或做成独立补丁形式，欢迎在 [Discussions](https://github.com/ffyfox/dsh-desktop-linux/discussions) 展示。
 
 ## 本地怎么验证
 
@@ -57,9 +66,8 @@ pnpm install --frozen-lockfile       # 在 upstream/ 里跑
 - **改了上游源码行为，建议把对应的上游 spec 一起改掉，就改在同一个补丁里。** 补丁全部应用
   之后，上游自己的桌面单测应该是零失败；如果它红了，可以先看看是不是这次改行为时漏掉了
   对应的 spec。
-- **想跑这套单测**，在 `upstream/` 里执行
-  `/usr/bin/pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`。
-  两点提醒：这里用 `/usr/bin/pnpm`（本机 `~/.npm-global/bin/pnpm` 是 9.15.4，会把它遮住）；
+- **想跑这套单测**，在 `upstream/` 里用 **pnpm 11** 执行
+  `pnpm exec vitest run apps/desktop/tests apps/desktop-host/tests`（避免用旧版或系统里自带的 `@pnpm/exe` 遮住）。
   跑之前把代理环境变量摘掉，否则连 `127.0.0.1` 也会走代理、多出几个失败。更细的说明在
   [patches/README.md](patches/README.md) 的「注意」里。`scripts/` 与 CI 都不跑它，需要时
   手动跑一次即可。
