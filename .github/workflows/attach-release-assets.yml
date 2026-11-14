@@ -92,14 +92,21 @@ jobs:
             echo "没有下载到任何产物（run ${{ inputs.run_id }} 的 artifacts 为空？）" >&2
             exit 1
           fi
-          # 从 0.2.2rc1 起每个 Release 都要带两种架构的 Arch 包（issue #13）；缺哪个
-          # 就直接红，别静悄悄少传一个。
-          for want_arch in x86_64 aarch64; do
-            if ! compgen -G "assets/*-${want_arch}.pkg.tar.zst" >/dev/null; then
-              echo "缺少 $want_arch 的 Arch 包 —— artifact deepseek-harness-desktop-arch* 看看" >&2
+          # 8 件必须齐全（两架构的 AppImage/deb/rpm + Arch 包）；不再在本机全量下载后，
+          # 由这里兜底防止漏传某个架构的产物。
+          for pattern in \
+            '*-x86_64-unsigned.AppImage' '*-amd64-unsigned.deb' '*-x86_64-unsigned.rpm' \
+            '*-arm64-unsigned.AppImage' '*-arm64-unsigned.deb' '*-aarch64-unsigned.rpm' \
+            '*-x86_64.pkg.tar.zst' '*-aarch64.pkg.tar.zst'; do
+            if ! compgen -G "assets/${pattern}" >/dev/null; then
+              echo "缺少匹配 ${pattern} 的产物 —— 检查 run ${{ inputs.run_id }} 的 artifacts" >&2
               exit 1
             fi
           done
+          if (( ${#files[@]} != 8 )); then
+            echo "产物数量为 ${#files[@]}，期望 8 个" >&2
+            exit 1
+          fi
           printf '准备上传 %d 个文件\n' "${#files[@]}"
           gh release upload "$TAG" "${files[@]}" --clobber
 
