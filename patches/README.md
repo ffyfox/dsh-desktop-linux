@@ -1,6 +1,6 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `3f321d32`（tag `dsh-v0.2.2-rc.4`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `9c2670d3`（tag `dsh-v0.2.2-rc.5`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -27,23 +27,21 @@ hunk 一起带进来。
 `tests/welcome-window.spec.ts`，同样依赖于前序补丁落位；因此 `apply-patches.sh --check` 对干净树只会让
 `0001`–`0016` 逐个通过，全套验证需走顺序 `git apply` 与 `patch -Np1`。
 
-已验证（0.2.2-rc.4）：本版为轻量同步（相对 `rc.3` 仅 8 笔提交：DeepSeek 内容安全拒绝响应与
-`safetyCheck` 开关、LiveShare 测试时钟、LiveShare tunnel worker 传递 `ELECTRON_RUN_AS_NODE`——其中
-`workerNodeModeEnv()` 在 `0008` 独立 Node 模式下为空并保持兼容、以及版本号升至 `0.2.2-rc.4`）；
-16 个补丁与 `rc.3` 逐字节一致，仅 `0006` 因 `apps/desktop/package.json` 第 3 行版本号上下文刷新
-`index` 哈希。17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.2-rc.4`）上，`patch -Np1`
+已验证（0.2.2-rc.5）：本版为轻量同步（相对 `rc.4` 共 5 笔提交：DeepSeek 模型默认使用服务端搜索及搜索设置文档/测试更新、LiveShare `owner-credential-horizon` 测试改用真实时钟、以及版本号升至 `0.2.2-rc.5`）；
+16 个补丁与 `rc.4` 逐字节一致，仅 `0006` 因 `apps/desktop/package.json` 第 3 行版本号上下文刷新
+`index` 哈希。17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.2-rc.5`）上，`patch -Np1`
 （makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）均干净通过，89 个触及文件
 （含 `tray-linux.png`）两条路线逐字节一致；`makepkg --verifysource` 校验 19 项 source 全部通过。
-`build.sh --all` 一次出齐三格式：AppImage `372,130,142` B（sha256 `8bbe3086…`）、deb `293,719,796` B
-（`d92e7a44…`）、rpm `247,002,293` B（`064e66fc…`），`smoke:prepared-runtime` 与
+`build.sh --all` 一次出齐三格式：AppImage `372,138,560` B（sha256 `fec6d46a…`）、deb `293,716,212` B
+（`8d95885a…`）、rpm `246,988,049` B（`4c058215…`），`smoke:prepared-runtime` 与
 `smoke:packaged-runtime` 均通过。`verify.sh --runtime` **49 通过 / 0 失败 / 7 跳过**（6 个为旧版
-`rc.2`/`rc.3` 产物跳过、1 个为 `3080` 未监听）：Host 跑在 `primary-runtime` 独立 Node 上且收到
+`rc.3`/`rc.4` 产物跳过、1 个为 `3080` 未监听）：Host 跑在 `primary-runtime` 独立 Node 上且收到
 `DSH_DESKTOP_RESOURCES_PATH`（`0017`），`data-windows-titlebar` 与 `[data-windows-menu]` 在场
 （`0016`），2 个渲染进程均在独立 user namespace 且 seccomp 生效，StatusNotifierItem 托盘菜单可读，
 共享根隔离且真实 `~/.dsh` 未被触碰。产物内 `resources/runtime/cli` 不存在、`dsh/package.json` 版本
-`0.2.2-rc.4`、`resources/app/package.json` 的 `dshBuildCommit` 记 `3f321d32…`（`dshBuildDirty: true`）。
+`0.2.2-rc.5`、`resources/app/package.json` 的 `dshBuildCommit` 记 `9c2670d3…`（`dshBuildDirty: true`）。
 去代理下上游桌面单测（`apps/desktop/tests` + `apps/desktop-host/tests`）`194` 文件 `2348` 通过 / `65`
-跳过 / `0` 失败，补丁关联客户端包与 LiveShare 单测 `147` 文件 `1535` 用例全通过。
+跳过 / `0` 失败，补丁关联客户端包（`ui-layout`、`ui-sidebar`、`ui-brand-official`、`client-build-environment`）与本版变更测试（`ui-settings-web-search`、`owner-credential-horizon`）`25` 文件 `411` 用例全通过。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -300,7 +298,7 @@ GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩�
 ## 注意
 
 - **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
-  实测 2026-11-18（0.2.2-rc.4）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
+  实测 2026-11-19（0.2.2-rc.5）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
   apps/desktop/tests apps/desktop-host/tests`
   → 0 失败（194 个文件：189 通过 / 5 跳过；2413 个用例：2348 通过 / 65 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、
   `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI

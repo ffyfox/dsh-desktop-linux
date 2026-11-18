@@ -16,10 +16,10 @@
 # pnpm 9 会报 ERR_PNPM_LOCKFILE_CONFIG_MISMATCH。
 
 pkgname=dsh-desktop-linux
-pkgver=0.2.2rc4
+pkgver=0.2.2rc5
 pkgrel=1
-_tag='dsh-v0.2.2-rc.4'
-_commit='3f321d32bfe382212a8ed8785c1d47a5a300aa23'
+_tag='dsh-v0.2.2-rc.5'
+_commit='9c2670d3bce5275e0d1610272958121af87787bb'
 # GitHub 源码包的顶层目录名 = <repo>-<tag>，tag 自带的 "v" 不剥（实测 dsh-v0.2.1-alpha.2）
 _srcdirname="deepseek-harness-$_tag"
 
@@ -106,13 +106,13 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/deepseek-ai/deepseek-harnes
         # 补丁系列是文本 diff，装不下托盘 PNG —— GNU patch（makepkg 与 PKGBUILD 都用它）
         # 不支持 git 的二进制补丁。所以这张图作为普通本地 source 平铺过来，由 prepare() 放进源码树。
         'tray-linux.png')
-sha256sums=('4668e9b8a5f836693c731a808214445f5fce6cfa2956cf47f473e9b6e023f4b3'
+sha256sums=('4e24e132a9fc267d5cdc5724525873db2575680e073fd2db4519b92553614215'
             'c033622b52004495bb07612703fcd48613da91be47af8ef18cd27cf3f352b289'
             '7f3bc091d65f2dc404944cc9200e2108ddf73a57a3cb08fb45bac64eb5908eae'
             '98c923ed30f1ec038315abead7f38cbb105026f60c42c651c95f16bf5e363cf0'
             '86ce03a77b1d12570739328bed54a8575e301deed0f48d14c259a7b40c762ddc'
             '5d17926b28bb6d8cc16565197e9e1dc758a1e003303c52eeaaf8cc39c1f1fd1d'
-            '2163a39572003b4ce59da3ac89292fec86f678d40ad528849fc83c06f35659b7'
+            'e5f8d4eac1f3f67011d9213aa269fe458bc51d910c9bb56132eed1993eb6a5b5'
             '48b5902f9160f7138c2402da666fe1fa41302ebacf651611de29be229158ccd4'
             '2bae2bcd41cedbf55e782bf833121154f98e47edd72b25bbd83e634c0bbaf06f'
             '91f31d7726d3c6a4f7f0c91076d058a17f52f044b28db9f03f8c2cda8fafe17e'
