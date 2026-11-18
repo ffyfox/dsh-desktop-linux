@@ -11,17 +11,17 @@ AppImage / deb / rpm / Arch 包。
 
 <p align="center">
   <img src="docs/screenshot.png" alt="DeepSeek Harness 桌面端普通模式界面（KDE）"><br>
-  <sub>普通模式（KDE Plasma）</sub>
+  <small>普通模式（KDE Plasma）</small>
 </p>
 
 <p align="center">
   <img src="docs/screenshot-frameless.png" alt="DeepSeek Harness 桌面端无边框模式界面（KDE）"><br>
-  <sub>无边框模式（KDE Plasma，<code>DSH_DESKTOP_FRAMELESS=1</code>）</sub>
+  <small>无边框模式（KDE Plasma，<code>DSH_DESKTOP_FRAMELESS=1</code>）</small>
 </p>
 
 <p align="center">
   <img src="docs/screenshot-glass.png" alt="DeepSeek Harness 桌面端玻璃模式界面（Hyprland）"><br>
-  <sub>玻璃模式（Hyprland，<code>DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75</code>）</sub>
+  <small>玻璃模式（Hyprland，<code>DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75</code>）</small>
 </p>
 
 ## 项目产物
@@ -157,7 +157,7 @@ cd pkgbuild && makepkg -si
 | Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **已实测**，正常 |
 | Debian 13 · GNOME 48 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
 | Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **已实测**，正常（托盘要装扩展，见[已知限制](#已知限制)） |
-| 银河麒麟（飞腾 D2000 · aarch64 · deb） | **已实测**，正常（[#11](https://github.com/ffyfox/dsh-desktop-linux/issues/11)） |
+| 银河麒麟 · aarch64 | **已实测**，正常 |
 | aarch64（AppImage / rpm / Arch 包） | 已在 CI 通过构建与启动冒烟 |
 | 其他发行版（Linux Mint / CachyOS 等） | 未验证 |
 | 其他 DE/WM（Xfce / Sway 等） | 未验证 |

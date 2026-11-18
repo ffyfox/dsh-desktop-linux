@@ -13,17 +13,17 @@ installable artifacts.
 
 <p align="center">
   <img src="docs/screenshot.png" alt="The DeepSeek Harness desktop interface in normal mode (KDE)"><br>
-  <sub><em>Normal mode (KDE Plasma)</em></sub>
+  <small>Normal mode (KDE Plasma)</small>
 </p>
 
 <p align="center">
   <img src="docs/screenshot-frameless.png" alt="The DeepSeek Harness desktop interface in frameless mode (KDE)"><br>
-  <sub><em>Frameless mode (KDE Plasma, <code>DSH_DESKTOP_FRAMELESS=1</code>)</em></sub>
+  <small>Frameless mode (KDE Plasma, <code>DSH_DESKTOP_FRAMELESS=1</code>)</small>
 </p>
 
 <p align="center">
   <img src="docs/screenshot-glass.png" alt="The DeepSeek Harness desktop interface in glass mode (Hyprland)"><br>
-  <sub><em>Glass mode (Hyprland, <code>DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75</code>)</em></sub>
+  <small>Glass mode (Hyprland, <code>DSH_DESKTOP_GLASS=1 DSH_DESKTOP_GLASS_TINT=75</code>)</small>
 </p>
 
 ## What this project produces
@@ -161,7 +161,7 @@ problem, please open an [issue](https://github.com/ffyfox/dsh-desktop-linux/issu
 | Ubuntu 26.04 LTS · GNOME 50 · Wayland · x86_64 | **Tested**, works |
 | Debian 13 · GNOME 48 · Wayland · x86_64 | **Tested**, works (the tray needs an extension, see [Known limitations](#known-limitations)) |
 | Fedora 44 Workstation · GNOME 50 · Wayland · x86_64 | **Tested**, works (the tray needs an extension, see [Known limitations](#known-limitations)) |
-| Kylin (Phytium D2000 · aarch64 · deb) | **Tested**, works ([#11](https://github.com/ffyfox/dsh-desktop-linux/issues/11)) |
+| KylinOS · aarch64 | **Tested**, works |
 | aarch64 (AppImage / rpm / Arch package) | Built and launch smoke-tested in CI |
 | Other distributions (Linux Mint / CachyOS, …) | Not tested |
 | Other DEs / WMs (Xfce / Sway, …) | Not tested |
