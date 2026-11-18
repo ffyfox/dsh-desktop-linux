@@ -1,13 +1,13 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `f3803c96`（tag `dsh-v0.2.2-alpha.2`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `38a6a5c9`（tag `dsh-v0.2.2-rc.3`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
 多个补丁触及**，此时必须按「基线 + 只有这一个补丁」的隔离树取 diff，否则会把另一个补丁的
 hunk 一起带进来。
 
-**`0017` 与 `0018` 是这条约定的两个已知例外。**
+**`0017`、`0018` 与 `0019` 是这条约定的三个已知例外。**
 
 `0017` 的 5 个文件（`src/node-environment.ts`、`src/main.ts`、`tests/host-process.spec.ts`、
 `tests/node-environment.spec.ts`、`desktop-host/src/index.ts`）全部也属于 `0008`，而且它的 diff 上下文含
@@ -15,7 +15,7 @@ hunk 一起带进来。
 打在干净基线上会直接 reject，只有排在 `0008` 之后才成立 —— 现有系列靠「按文件名顺序」恰好满足。
 重生这类补丁要走两阶段：先在「新基线 + 前置补丁」上重算，再叠它自己的增量。
 
-`0018` 同理但更轻：18 个文件里 4 个（`src/main.ts`、`src/preload-windows.ts`、`tests/main-startup.spec.ts`、
+`0018` 同理：18 个文件里 4 个（`src/main.ts`、`src/preload-windows.ts`、`tests/main-startup.spec.ts`、
 `tests/preload-windows.client.spec.ts`）已属于 `0008` / `0016`，而 `preload-windows.ts` 的 hunk 正落在
 `0016` 放宽平台门的那几行上，所以它也只有排在 `0016` 之后才成立；另外 14 个是本系列第一次触及
 （`src/glass-mode.ts`、`src/glass-document.ts`、`src/web-document.ts`、`tests/glass-mode.spec.ts`、
@@ -23,36 +23,16 @@ hunk 一起带进来。
 `AppFrame.tsx` / `AppFrame.module.css` / `tests/app-frame.client.spec.tsx`、`packages/client/ui-sidebar`
 的 `SidebarRoot.tsx` / `SidebarRoot.module.css` / `tests/sidebar-root.client.spec.tsx`，以及 `ui-plugin-manager` / `ui-schedule` 的两个页面样式表
 `src/client/PluginManagerPage.module.css` / `src/client/TaskManagerPage.module.css`），
-其中 4 个是新增文件。
+其中 4 个是新增文件。`0019` 共用 `src/main.ts`、`src/welcome-window.ts`、`tests/main-startup.spec.ts`、
+`tests/welcome-window.spec.ts`，同样依赖于前序补丁落位；因此 `apply-patches.sh --check` 对干净树只会让
+`0001`–`0016` 逐个通过，全套验证需走顺序 `git apply` 与 `patch -Np1`。
 
-已验证（0.2.2-alpha.2）：这一轮是完整同步 —— 上游从 rc.4 到这个 tag 走了 2161 个提交、6944 个改动文件
-（剔除 `.agents/notes` 之后：3454 新增 / 3430 修改 / 60 删除）。14 个补丁触及的文件被改过而重生；
-`0010` / `0011` 逐字节未动；`0012` 只差 `index` 行的缩写宽度（新树 7 位够用、旧树要 8 位，内容一字不差，
-保留原样）；`0015` 整条作废（见下方编号说明）。16 个补丁按序打在完整的上游 release 源码包
-（tag `dsh-v0.2.2-alpha.2`）上，`patch -Np1`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` /
-CI）都干净通过，两条路打出来的树与「新基线 + 逐补丁累加」的隔离树 `diff -r` 零差异；18 条校验和由
-`makepkg --verifysource` 逐条验证通过（Arch 包仍由 CI 的 makepkg job 产出，本机不整包）。
-`pnpm-lock.yaml` 这一轮被上游改过（31551 → 34022 行），`apps/desktop/package.json` 新增
-`dsh-official-bundles`、`dsh-plugin-manager`、`dsh-util-file-drag`、`zod`、`tencentcloud-sdk-nodejs-teo`
-五个依赖；根 `engines` 从 `^22.19.0 || >=24.0.0` 抬到 `>=24.9.0`，README 的 Node 门槛跟着改。
-`pnpm run build:official` 的 9 道门随 `build.sh --all` 一起跑过；其中 host aggregate check 曾因 `0008`
-漏改两处 spec 调用点报 `TS2345`，补上后复跑全绿。
-上游桌面单测在补丁态下**零失败**（182 个文件：177 通过 / 5 跳过；2115 个用例：2052 通过 / 63 跳过）——
-**跑之前必须摘掉代理**，否则 `host-process.spec.ts` 里那条「Host 停掉后 fetch 该失败」会拿到代理的 502
-（见下「注意」）。`build.sh --all` 4 分 30 秒出齐三件套：AppImage 361 945 562 B（sha256 `0748201c…`）、
-deb 291 689 160 B（`d0f96ab4…`）、rpm 241 742 603 B（`e330e7c3…`），打包后的冒烟也过 —— CLI 离线装插件
-与卸载、`dsh web:` 起得来、Office 三种格式（DOCX / XLSX / PPTX）转 PDF 与技能 CLI 发现。
-`verify.sh` 静态 **21 通过 / 0 失败 / 11 跳过**，`verify.sh --runtime` **35 通过 / 0 失败 / 10 跳过**
-（9 个是 rc.2 / rc.3 / rc.4 的旧产物按当前基线跳过，1 个是 3080 没在监听），活体部分实测：与在跑的桌面端
-并存（隔离 userData），Host 在 127.0.0.1:46399 监听（`--port 0`，端口由系统分配）、`dsh-app://` 出 UI
-（1069 个 DOM 节点）、Linux 自绘标题栏与页内 caption 菜单宿主都在场（`0016`）、Host 跑在 primary-runtime
-的真 Node 上且收到了安装树的 resources 根（`0017`）、2 个渲染进程都在独立 user namespace 且 seccomp 生效、
-托盘注册且菜单读到 2 个带产品名的条目、`profiles/desktop` 已建立、共享根出现工作区存储与凭据、
-`profiles/web` 哨兵未被触碰、真实 `~/.dsh/profiles/desktop` 未被改动。
-产物里 `resources/runtime/cli` 不存在、`resources/app/dsh/desktop-runtime.json` 的 `release.version` 是
-`0.2.2-alpha.2`（`hostProtocolVersion` 仍是 4）、`resources/app/package.json` 的 `dshBuildCommit` 记的是
-上游 `f3803c96…`（`dshBuildDirty: true`，不是本仓库的提交），正是 0004 的 Linux 闸门、0008 的运行时选择与
-0012 的「环境变量优先」在起作用。
+已验证（0.2.2-rc.3）：17 个补丁在 `dsh-v0.2.2-rc.3` 树上按序 `patch -Np1`（makepkg 的
+`prepare()`）与 `git apply`（`apply-patches.sh` / CI）均干净通过；`makepkg --verifysource`
+校验 19 项 source 全部通过；`build.sh --all` 三格式一次出齐（AppImage `257dc787…` / deb
+`ebc02897…` / rpm `1de16212…`，payload 冒烟两轮全过）；`verify.sh --runtime` **49 通过 / 0 失败 / 4 跳过**；
+去代理下上游桌面单测（`apps/desktop/tests` + `apps/desktop-host/tests`）`2348` 通过 / `0` 失败 / `65`
+跳过，补丁涉及的客户端包测试（`ui-layout` / `ui-sidebar` / `ui-brand-official`）`19` 文件 `281` 用例全部通过。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -67,151 +47,26 @@ deb 291 689 160 B（`d0f96ab4…`）、rpm 241 742 603 B（`e330e7c3…`），�
 `contentView.addChildView`），既没有窗口也没有 `show()` / `ready-to-show`，补丁对新结构是零改动，
 所以整条移除。
 
-上游同步记录：rc.2 → 0.2.1-alpha.1 只有 3 个文件变过（`pnpm-lock.yaml`、
-`apps/desktop-host/src/index.ts`、`apps/desktop/package.json`），对应 0006 / 0008 / 0014 三个补丁重生，
-其余 12 个逐字节未动。0.2.1-alpha.1 → 0.2.1-alpha.2 上游动了 3226 个文件（+114987/−28177），
-11 个补丁触及的文件被改过而重生（0002 / 0003 / 0004 / 0005 / 0006 / 0007 / 0008 / 0009 / 0010 /
-0013 / 0016），0001 / 0011 / 0012 / 0015 四个逐字节未动。重生时上游的吸收与重构逐处裁定：
-`0002` / `0003` 里「放宽 `--unsigned` 的平台检查」被上游整条移除（unsigned 现在是通用的，macOS 也能出
-unsigned 构建），`0003` / `0005` 的 `policy` 条件要与上游新增的「本地 macOS unsigned 构建不嵌策略」
-合成一条，`0009` 的 `checkPnpm()` 被上游搬进新文件 `tests/fixtures/pnpm-smoke.mjs` 而跟着搬家，
-`0004` 的 `prepare-runtime.ts` 要落在上游拆分出的 `prepareElectron()` / `prepareCli()` 结构上
-（`runtime/bin/node` 的拷贝因此从 `prepareCli()` 里提出来，Linux 仍然要有这个启动器）。
-
-0.2.1-alpha.2 → 0.2.1-alpha.3 上游动了 852 个提交、2200 个改动文件，另加 584 个新增、19 个删除。
-主战场正是桌面端的打包/发布流水线：新增 `apps/desktop/{config,packaging,publishing}/`，新脚本
-`desktop-publish*.ts`、`desktop-release-store.ts`、`rollback-desktop-channel.ts`、`update-channel.ts`、
-`verify-retained-desktop.ts`、`desktop-ci-version.mjs` 等；`loadDesktopPackageEnvironment()` 多了第 4 个参数
-与 `DSH_PACKAGING_PRESET` / `DSH_PACKAGING_CONFIG_DIR` 预设机制，读文件的逻辑抽成
-`readSettings(path, accepts)`；产物目录改由新的 `desktopArtifactOutput()` 决定；更新通道从写死
-`nightly` 改成 `nightly` / `latest`；新增 `--skip-notarization`。补丁触及的 52 个文件里 19 个被改过，
-12 个补丁重生（0001 / 0002 / 0003 / 0004 / 0005 / 0006 / 0007 / 0008 / 0009 / 0013 / 0016 / 0017），
-0010 / 0011 / 0015 逐字节未动，0012 只差 `index` 行的缩写宽度（内容一字不差，保留原样）。
-**上游仍然没有 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由
-`0001` / `0002` 提供。四处要语义裁定：`0001` 的 `desktopTargetBuildPaths()` 多了 `unnotarizedArtifacts`
-（取上游新 `@returns`，只往 `@param` 加 `linux-x64`）；`0003` 的产物命名与输出目录改用 `output.suffix` /
-`output.directory`（我们的 `asar: resolvedPlatform !== 'linux'` 保留在原处）；`0005` 的
-`desktop-package-environment` 整个重构（Linux 分支落在上游新的 `readSettings(path, accepts)` 结构上）；
-`0009` 的 `smoke-packaged-runtime.ts` 改用上游新的 `resolveDesktopPackageTarget()` 判平台，
-产物目录跟着换 `desktopArtifactOutput()`。
-
-还有一处**不是靠读 diff 看出来的，是构建期抓出来的**：上游这次新增的 `desktop-release-store.ts` 把
-保留清单的 `target` 又写了一遍窄联合（`mac-arm64 | mac-x64 | win-x64`），而新的 `retain-desktop-ci.ts`
-把 `resolveDesktopBuildTarget()` 的结果直接交给它，于是 `tsc -p tsconfig.host.json` 这个 host 聚合门报
-`TS2322`。它的注释本来就写着「Storage accepts every Desktop target」，所以是放宽 schema、不是加类型断言；
-这一处并进了 `0001`（同一个「目标模型加 linux-x64」的职责）。**教训：光看补丁触及的 52 个文件不够，
-上游新写的文件也会引用我们放宽过的类型**，同步后必须实跑一遍构建门。
-
-0.2.1-alpha.3 → 0.2.1-alpha.4 上游动了 89 个提交、831 个改动文件（+22232/−2044），主战场是新的插件市场：
-新增 `apps/plugin-market-generator/` 整个应用与 `packages/boot/plugin-market` 包，插件兼容性改按
-`engines.dsh` 判断（`packages/boot/app-boot/src/plugin-compatibility.ts` 重写），并给可选 bundle 名单
-加了 `@deepseek-ai/dsh-experimental-plugin-market-bundle`。`pnpm-lock.yaml` 与根 `package.json` 都改了，
-所以同步后 `pnpm install --frozen-lockfile` 必须重跑。补丁触及的 58 个文件里只有 2 个被改过：
-`apps/desktop/package.json` 只换了版本号，`apps/desktop/scripts/desktop-release-store.ts` 把 `sourceRef`
-的正则放宽成 `.min(1)` 并补了一条 production 专用的 `.refine(...)` —— 与我们改的 `target` 联合不在同一段，
-hunk 的上下文根本没碰到它。这版还有一处**正好落在 Linux 上**的上游修复：启动命令前的重复检查被砍掉，
-降低启动开销、改善较旧 systemd 环境的兼容性。**上游仍然没有 Linux**：目标联合类型还是
-`mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
-
-0.2.1-alpha.4 → 0.2.1-alpha.5 上游动了 36 个提交、300 个改动文件（+2444/−597，22 个新增、0 个删除），
-`pnpm-lock.yaml` 没动 —— 依赖集合不变。大头是上游自己的 Windows/macOS 打包发布流水线：新增
-`desktop-publish-qualification.{mjs,d.mts}`、`preflight-desktop-publish.{mjs,d.mts}`、
-`windows-runner-task.ps1` / `run-windows-runner-task.ps1` 与一个新 spec
-（`desktop-publish-preflight.spec.ts`），并把「COS 桶必须未开版本化」
-写成发布前提。补丁触及的 58 个文件里只有 1 个被改过：`apps/desktop/package.json` 只换了版本号
-（第 4 行），而我们 `0006` 的 hunk 在第 35 行、上下文一行没碰 —— 所以这一轮只重生 `0006`，结果与
-原版**只差 `index` 那一行**、字节数相同（767 B），其余 15 份逐字节未动。这版还有一处**正好落在
-Linux 上**的上游修复：右侧栏收起时在输入框按 Page Up 会让整个界面向左偏移（Windows 和 Linux 都会）。
-**上游仍然没有 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由
-`0001` / `0002` 提供。
-
-0.2.1-alpha.5 → 0.2.1-rc.1 只有 4 个提交、355 个文件（+355/−355），而且**每一处都只是一行**：355 个
-`package.json` 的 `"version"` 从 `0.2.1-alpha.5` 改成 `0.2.1-rc.1`，另 9 个 vendor 包各自升一个小版本
-（cordis 4.0.5、cosmokit 1.8.6、group 1.0.5、hmr 1.0.20、include 1.0.10、loader 1.0.6、
-logger-console 1.0.5、schemastery 3.18.5、timer 1.1.7）。**没有任何源码、配置或 lockfile 改动**
-（`pnpm-lock.yaml` 没动，依赖集合与 alpha.5 完全一致）。补丁触及的 58 个文件里只有
-`apps/desktop/package.json` 变了（第 4 行版本号，`0006` 的 hunk 在第 35 行、上下文一行没碰），
-所以这一轮也只重生 `0006`，结果与原版**只差 `index` 那一行**、字节数相同（767 B），其余 15 份逐字节
-未动。这一版没有任何功能或修复改动，本质是上游把攒好的 0.2.1 内容收敛成候选版。**上游仍然没有
-Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
-
-0.2.1-rc.1 → 0.2.1-rc.2 有真实内容：9 个提交、300 个文件（+2569/−651，26 个新增、0 个删除）。
-两处功能：DeepSeek-V4.1-Flash-1017 适配（含给 Flash 模型名加临时「1017」徽章的客户端包
-`packages/client/ui-deepseek-model-label-1017`），以及 DeepSeek Search / Fetch API（走「网页搜索」设置里
-的开关，`packages/web/web-deepseek-api` 挂进 base bundle）。设置卡片 `ui-settings-web-search` 的
-controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了两个槽位，docs 与 apps/web 的 e2e
-同步跟上。`pnpm-lock.yaml` 没动 —— 外部依赖一个没变，只多了两条 workspace 依赖。补丁触及的 58 个文件
-里只有 `apps/desktop/package.json` 变了（第 4 行版本号，`0006` 的 hunk 在第 35 行、上下文一行没碰），
-所以这一轮也只重生 `0006`，结果与原版**只差 `index` 那一行**、字节数相同（767 B），其余 15 份逐字节
-未动。**上游仍然没有 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由
-`0001` / `0002` 提供。
-
-0.2.1-rc.2 → 0.2.1-rc.3 有 6 个提交、640 个文件（+5682/−1021，50 个新增、0 个删除、6 个重命名）。
-用户可见的三条：左侧栏 / 会话视图 / 右侧栏新增「更多」菜单（`ui-sidebar` 新增 `panel-pins.ts`，
-`ui-sidebar-right` 新增 `guide-pins.ts` 与 `GuideMoreIcon.tsx`，`ui-entry-customization` 的菜单内容与样式
-跟着改，并新增 `trackEntryClick` 埋点）、修「新会话」在切换会话后找不回未发送草稿、DeepSeek API Key
-的模型列表刷新方式与账号登录对齐。`pnpm-lock.yaml` 这次动了（+69/−12），外部依赖有变化。补丁触及的
-72 个文件里只有 4 个被改过：`apps/desktop/package.json`（第 4 行版本号）、`ui-sidebar` 的
-`SidebarRoot.tsx` 与 `SidebarRoot.module.css`（埋点与面板区的「更多」样式，都不在 `.topStrip` 那一段）、
-以及 `tests/sidebar-root.client.spec.tsx`。所以只重生 `0006`（与原版只差 `index` 那一行）与 `0018`：
-`0018` 的 18 个文件里 17 个原样落位，只有那个 spec 要重取 —— 上游在同一个 macOS 用例尾部插了
-`trackEntryClick` 断言，把玻璃用例那段 hunk 的上文顶掉了。**上游仍然没有 Linux**：目标联合类型还是
-`mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
-
-0.2.1-rc.3 → 0.2.1-rc.4 有 9 个提交、369 个文件（+596/−381，1 个新增、0 个删除、0 个重命名），其中 349 个
-是各个 `package.json` 的版本行。真正的内容只有两处：ACP 模式下 MCP 资源列表与 DeepSeek 账号目录的诊断
-输出不再混进 stdout（`packages/mcp/mcp-client/src/connection.ts`、`packages/llm/llm-deepseek-account/src/index.ts`，
-并新增 `apps/cli/tests/profiles/acp/tests/stdout.expected.e2e.ts` 159 行），以及会话视图的标签页 tooltip 只在
-标签被截断时出现（`packages/client/ui-conversation/src/client/skeleton/ConversationSession.tsx` +25/−2、
-`locales.ts` −2）。`pnpm-lock.yaml` 没动，外部依赖一个没变。补丁触及的 72 个文件里只有
-`apps/desktop/package.json`（第 4 行版本号）变了，`0006` 的 hunk 在第 35 行、上下文一行没碰，所以这一轮
-**一个补丁都没有重生**：17 份与 rc.3 逐字节相同。**上游仍然没有 Linux**：目标联合类型还是
-`mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
-
-0.2.1-rc.4 → 0.2.2-alpha.2 是本系列最大的一次跳跃：2161 个提交、6944 个改动文件（3454 新增 / 3430 修改 /
-60 删除，已剔除上游 `.agents/notes`）。主战场是 `packages/experimental`（1452 个文件，新增「开发者工具 -
-统计」「变更请求与工作树」等实验插件）、`packages/client`（1325）、`apps/web`（226）与 `apps/desktop`（218）。
-补丁触及的 72 个文件里 29 个被改过，14 个补丁重生（0001 / 0002 / 0003 / 0004 / 0005 / 0006 / 0007 / 0008 /
-0009 / 0013 / 0016 / 0017 / 0018），0010 / 0011 逐字节未动，0012 只差 `index` 缩写；0015 因上游换实现整条作废。
-六处要语义裁定：`0001` 把 `linux-x64` 补进 `desktopTargetPlatform()` 新写的映射表；`0004` 的
-`prepareElectron()` 已被上游改成「函数内自己算可执行文件路径」，我们的 `(resolved, electron)` 参数顺着新签名
-与新的 Windows 并行分支重落（分支里 `electron` 被解构遮蔽，改名 `electronResult`），`prepare-dsh.ts` 那处
-直接取上游的 `resolveDesktopBuildTarget()` + `desktopTargetPlatform(targetName)`；`0005` 的上游正则多了
-`COMPRESSION_LEVEL` / `ZIP_COMPRESSION_LEVEL` / `DOWNLOAD_PROD_EO_ZONE_ID`，`LINUX_SETTING` 与新
-`|LINUX_.*` 重新合进去；`0008` 的上游 `host-process.ts` 多了一条 `parsePluginOperationRecord` 的 import，
-类型导入与之并行（另外上游新加的 operation-history 用例里有 2 处 `new DesktopHostProcess(process.execPath, …)`
-要跟着换成 `HOST_RUNTIME`，否则 host aggregate check 报 `TS2345`）；`0018` 的插件管理页把
-`calc(28px + …)` 换成 `var(--plugin-page-top-inset)`，Linux 选择器跟着改用该变量。**上游仍然没有 Linux**：
-目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` 仍只由 `0001` / `0002` 提供。
-
-`0016` 启动实测（0.2.1-alpha.2 这份产物；用隔离 `DSH_HOME` + 独立 `--user-data-dir` 起，KWin 读
-`frameGeometry` / `clientGeometry`，CDP 读渲染视口）：主窗口 frame 1280x848、客户区 1280x820、
-视口 820；欢迎窗 frame 600x757、客户区 600x729、视口 729。两个窗口的「客户区 − 视口」都是 0，
-即都没有原生菜单栏（`frame − client` 的 28px 是 KWin 画的装饰），主窗口页面里能读到
-`data-windows-titlebar`，自绘 caption 生效。欢迎窗在加 `0016` 之前是「页面 600x700 + 29px 原生菜单栏」，
-现在 600x729 全给页面（`useContentSize` 在隐藏菜单栏后不重算外框尺寸）。
-**第一版 `0016` 没有那个守卫**，
-在 Linux 上主进程会抛 `Titlebar overlay is not enabled` 并弹异常框，表现为「窗口在、Host 不启动」，
-原因与排查见「注意」。
-
 ## 让 Linux 成为受支持的 target（0001–0007）
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`desktop-auto-update-environment.{mjs,d.mts}`、`desktop-release-store.ts` | target 白名单加 `linux-x64`；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()`；保留清单的 schema 也认出 `linux-x64`（上游 0.2.1-alpha.3 新增的 `retain-desktop-ci.ts` 把 `resolveDesktopBuildTarget()` 的结果直接交给它，窄联合会让 `tsc -p tsconfig.host.json` 报错） |
-| `0002-package-target-add-linux-x64.patch` | `package-target.ts`、`desktop-upload-plan.ts` | 打包目标表加 `linux-x64`；Linux 构建主机校验（当初还放宽了 `--unsigned` 的平台限制，0.2.1-alpha.2 起上游把那条限制整条删掉，这一半随之消失） |
+| `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`desktop-auto-update-environment.{mjs,d.mts}`、`desktop-release-store.ts`、`retain-desktop-ci.ts` | target 白名单加 `linux-x64` 与 `linux-arm64`（`arm64` 折入现有补丁，文件名保留 `-x64` 历史名）；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()`；保留清单的 schema 认出两个 Linux target，并放宽 `retain-desktop-ci.ts` 中 `route.target` 的包含判断，避免 `tsc -p tsconfig.host.json` 报错 |
+| `0002-package-target-add-linux-x64.patch` | `package-target.ts`、`desktop-upload-plan.ts` | 打包目标表加 `linux-x64` 与 `linux-arm64`；宿主守卫改为「宿主架构 == 目标架构」（交叉构建在 prepare 阶段即需执行目标平台的 Electron / Node / Python，必须原生构建） |
 | `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs`、`electron-builder.config.d.mts`、`tests/installer-packaging.spec.ts` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；显式列出 deb/rpm 运行依赖并去掉 Electron 既不链接也不加载的 `libxss1` / `libXScrnSaver`（指定 `depends` 会替换整个默认数组，其余默认项保留；单测改为对着 `FpmTarget.getDefaultDepends()` 核这份数组，上游新增默认项时测试会红）；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
-| `0004-prepare-target-electron-distribution.patch` | `prepare-dsh.ts`、`prepare-runtime.ts` | Electron 分发路径按 target 推导，不再假设「非 mac 即 win32」；打包期 `pnpm install` / 运行时冒烟改用 Host 运行时；`versions.json.node` 记为 payload 实际运行的 Node 版本；Linux 上整块跳过 rc.2 新增的 `prepare:cli`（见「注意」） |
-| `0005-desktop-linux-release-settings.patch` | `desktop-package-environment.{mjs,d.mts}`、`desktop-toolchain-preflight.ts`、`.gitignore`、`.env.linux.example`、`tests/desktop-package-environment.spec.ts` | 支持 `.env.linux`；Linux 不套用 Windows/macOS 专属设置；Linux 不要求策略 origin；修掉 `win32 ? … : macOS` 的隐含假设；Linux 文件白名单加 `MAINTAINER`/`HOMEPAGE`（并从环境里剥掉，保证发布设置只由文件拥有）；打了 rpm 才预检 `rpmbuild` |
-| `0006-desktop-package-linux-scripts.patch` | `apps/desktop/package.json`、`scripts/client-build-environment.ts` 与其单测、`packages/client/ui-brand-official/src/client/index.ts` 与其单测 | `package:linux:x64` / `package:linux:x64:dir`；Linux 未签名包的官方品牌（见 2026-11-03 一节） |
-| `0007-tests-linux-x64-supported.patch` | 3 个 `tests/*.spec.ts` | 把「断言 Linux 抛错」改成「断言 Linux 受支持」 |
+| `0004-prepare-target-electron-distribution.patch` | `prepare-dsh.ts`、`prepare-runtime.ts` | Electron 分发路径按 target 推导，不再假设「非 mac 即 win32」；打包期 `pnpm install` / 运行时冒烟改用 Host 运行时；`versions.json.node` 记为 payload 实际运行的 Node 版本；Linux 上整块跳过 `prepare:cli`（见「注意」） |
+| `0005-desktop-linux-release-settings.patch` | `desktop-package-environment.{mjs,d.mts}`、`desktop-toolchain-preflight.ts`、`.gitignore`、`.env.linux.example`、`tests/desktop-package-environment.spec.ts` | 支持 `.env.linux`（读取dotenv 逻辑随上游在 `desktop-file-settings.mjs`，Linux 白名单留在常量与平台分支）；Linux 不套用 Windows/macOS 专属设置；Linux 不要求策略 origin；修掉 `win32 ? … : macOS` 的隐含假设；Linux 文件白名单加 `MAINTAINER`/`HOMEPAGE`（并从环境里剥掉，保证发布设置只由文件拥有）；打了 rpm 才预检 `rpmbuild` |
+| `0006-desktop-package-linux-scripts.patch` | `apps/desktop/package.json`、`scripts/client-build-environment.ts` 与其单测、`packages/client/ui-brand-official/src/client/index.ts` 与其单测 | `package:linux:{x64,arm64}` 与 `package:linux:{x64,arm64}:dir`；未签名 Linux 包的官方品牌层适配（见下） |
+| `0007-tests-linux-x64-supported.patch` | 3 个 `tests/*.spec.ts` | 把「断言 Linux 抛错」改成「断言 `linux-x64` 与 `linux-arm64` 受支持」 |
+
+`0006` 同时负责未签名 Linux 包的品牌层：`package:linux:*` 脚本一律走 `--unsigned`，上游会让未签名包改用 `build --profile local`，若不调整会使侧栏与窗口标题呈现为「本地构建」。因此 `scripts/client-build-environment.ts` 在 `local` profile 补上 `DSH_CLIENT_TITLE`（复用 `OFFICIAL_CLIENT_BUILD_ENVIRONMENT` 常量），`ui-brand-official` 的守卫从「不是 `official` 就返回」改为「**没有**选 profile 才返回」（未选 profile 的纯 web 构建仍留空）；构建记录本身仍保持 `DSH_CLIENT_BUILD_PROFILE: local`，不冒充 `official`，不影响 `pack-local-packages` 与打包记录配对校验。
 
 ## 让 Host 跑在真 Node 上（0008–0010）
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0008-desktop-host-runtime-standalone-node.patch` | `src/node-environment.ts`、`src/host-process.ts`、`src/main.ts`、`desktop-host/src/{index,cli}.ts`、`scripts/node-bin/node`、5 个 spec | 引入 `DesktopNodeRuntime`；Linux 上 Host 走 primary-runtime 的真 Node；`ELECTRON_RUN_AS_NODE` 只在真 Electron 运行时下设置；node shim 缺 `DSH_DESKTOP_NODE_EXECUTABLE` 时报错退出 78（不再静默 `exec` 空路径，那会打成 `line 6: exec: : not found` 的 exit 127）；`dsh` CLI 在「真目录树」布局下按 `resources/runtime` 找 supportDir（关掉 asar 后原来那段推导会落到 `resources/app/runtime`，见「注意」）。`desktopNodeRuntime()` 的返回值从字符串变成对象，所以 `tests/main-startup.spec.ts` 里 Host 的 `node` 断言同步改成对象 |
-| `0009-desktop-packaging-host-runtime.patch` | `scripts/dev.ts`、`scripts/smoke-{runtime,prepared-runtime,packaged-runtime}.ts`、`scripts/sign-primary-runtime.ts`、`tests/fixtures/{runtime-payload-smoke,pnpm-smoke}.mjs`、`tests/prepared-runtime-smoke.spec.ts` | 把 Host 运行时贯穿 dev / 打包 / 冒烟；payload smoke 的 Electron 专属断言改为按平台判断 |
+| `0008-desktop-host-runtime-standalone-node.patch` | `src/node-environment.ts`、`src/host-process.ts`、`src/main.ts`、`desktop-host/src/{index,cli}.ts`、`scripts/node-bin/node`、6 个 spec/e2e | 引入 `DesktopNodeRuntime`；Linux 上 Host 走 primary-runtime 的真 Node（Host 入口把 `process.argv[4]` 记进 `DSH_PRIMARY_RUNTIME`，`runtimeArchivePath()` 位于 `cli.ts`）；`ELECTRON_RUN_AS_NODE` 只在真 Electron 运行时下设置；node shim 缺 `DSH_DESKTOP_NODE_EXECUTABLE` 时报错退出 78（不再静默 `exec` 空路径，那会打成 `line 6: exec: : not found` 的 exit 127）；`dsh` CLI 在「真目录树」布局下按 `resources/runtime` 找 supportDir（关掉 asar 后原来那段推导会落到 `resources/app/runtime`，见「注意」）。`desktopNodeRuntime()` 的返回值从字符串变成对象，6 个相关 spec/e2e 里 `DesktopHostProcess` 的 `node` 参数与断言同步改成 `DesktopNodeRuntime` 对象 |
+| `0009-desktop-packaging-host-runtime.patch` | `scripts/dev.ts`、`scripts/smoke-{runtime,prepared-runtime,packaged-runtime}.ts`、`scripts/sign-primary-runtime.ts`、`tests/fixtures/{runtime-payload-smoke,pnpm-smoke}.mjs`、`tests/prepared-runtime-smoke.spec.ts` | 把 Host 运行时贯穿 dev / 打包 / 冒烟；按目标架构计算未打包目录（electron-builder 以 x64 为默认架构，x64 为 `linux-unpacked`，arm64 为 `linux-arm64-unpacked`）；payload smoke 的 Electron 专属断言改为按平台判断 |
 | `0010-desktop-linux-policy-opt-out.patch` | `desktop-policy-environment.{mjs,d.mts}`、`tests/desktop-policy-environment.spec.ts` | 新增 `desktopPlatformEmbedsPolicy()`：策略服务只认 `desktop-win` / `desktop-mac`，Linux 不参与 |
 
 ## 产物与包元数据（0011–0012）
@@ -229,7 +84,7 @@ controller 重写（+206/−49），`cordis-client-runner` 的 slot 目录加了
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0013-desktop-linux-tray.patch` | `src/main.ts`、`src/tray.ts`、`src/background-notice.ts`、`scripts/electron-builder-config.mjs`、`scripts/render-tray-icon.ts`、`tests/main-startup.spec.ts`（只改一条断言，见 2026-11-03 一节） | 托盘的创建条件从只认 `win32` 放宽到 `win32 \|\| linux`；Linux 的托盘图是 `resources/tray-linux.png`（单张 PNG，托盘宿主自己缩放到面板；**用应用图标自身的留白，不做 Windows 那 20% 放大**，见「注意」）；首次关窗的一次性提示同样覆盖 Linux —— 它的文案本来就是「可在系统托盘中重新打开窗口」，在 Linux 上这句话只有有了托盘才成立；渲染器除 ICO 之外也输出那张 PNG；electron-builder 的 Linux `extraResources` 把它带进产物的 `resources/` |
+| `0013-desktop-linux-tray.patch` | `src/main.ts`、`src/tray.ts`、`src/background-notice.ts`、`scripts/electron-builder-config.mjs`、`scripts/render-tray-icon.ts`、`tests/main-startup.spec.ts`（应用菜单构建断言改取最后一个首项带 `submenu` 的调用：Linux 在 `refreshApplicationMenu()` 时顺带重建托盘菜单，`lastCall` 会落在托盘菜单上） | 托盘的创建条件从只认 `win32` 放宽到 `win32 \|\| linux`；Linux 的托盘图是 `resources/tray-linux.png`（单张 PNG，托盘宿主自己缩放到面板；**用应用图标自身的留白，不做 Windows 那 20% 放大**，见「注意」）；首次关窗的一次性提示同样覆盖 Linux —— 它的文案本来就是「可在系统托盘中重新打开窗口」，在 Linux 上这句话只有有了托盘才成立；渲染器除 ICO 之外也输出那张 PNG；electron-builder 的 Linux `extraResources` 把它带进产物的 `resources/` |
 托盘 PNG 是二进制，`patches/` 装不下：makepkg 用的是 GNU patch，它不支持 git 的二进制补丁。
 所以这张图作为普通本地 `source` 走，仓库里存在 `assets/tray-linux.png`，由两条路径各自放进
 `apps/desktop/resources/`：PKGBUILD 的 `prepare()`（`makepkg` 路线）和 `scripts/apply-patches.sh`
@@ -262,6 +117,15 @@ Chromium 的 undo 栈）。测试上 `main-startup.spec.ts` 的平台菜单用�
 和 Windows（「退出」），Linux 落进空对象，于是显示 Electron 内置的英文 `Quit` —— 与旁边由 DSH 字典
 提供的「关于 DeepSeek Harness」「检查更新…」「开发者工具」中英混排。非 darwin 分支统一取
 `messages.exitApplication`（中文「退出」），至此原生菜单每一项都走 DSH 字典。
+
+`0016` 启动实测（0.2.1-alpha.2 这份产物；用隔离 `DSH_HOME` + 独立 `--user-data-dir` 起，KWin 读
+`frameGeometry` / `clientGeometry`，CDP 读渲染视口）：主窗口 frame 1280x848、客户区 1280x820、
+视口 820；欢迎窗 frame 600x757、客户区 600x729、视口 729。两个窗口的「客户区 − 视口」都是 0，
+即都没有原生菜单栏（`frame − client` 的 28px 是 KWin 画的装饰），主窗口页面里能读到
+`data-windows-titlebar`，自绘 caption 生效。欢迎窗在加 `0016` 之前是「页面 600x700 + 29px 原生菜单栏」，
+现在 600x729 全给页面（`useContentSize` 在隐藏菜单栏后不重算外框尺寸）。
+第一版 `0016` 没有那个守卫，在 Linux 上主进程会抛 `Titlebar overlay is not enabled` 并弹异常框，
+表现为「窗口在、Host 不启动」，原因与排查见「注意」。
 
 ## 让插件市场认得宿主版本（0017）
 
@@ -298,7 +162,10 @@ Chromium 的 undo 栈）。测试上 `main-startup.spec.ts` 的平台菜单用�
 侧栏收起布局走的是另一条路：它属于**结构**而不是材质 —— 列宽写在 frame 的 `grid-template-columns` 上，
 座位由 React 条件挂载，注入 CSS 两头都够不着。所以在 `ui-layout` / `ui-sidebar` 里加
 `data-platform='linux'` 分支，条件是「linux 且没有 `data-windows-titlebar` 标记」，也就是玻璃模式
-（普通模式由 `0016` 打这个标记，因此完全不受影响）。
+（普通模式由 `0016` 打这个标记，因此完全不受影响）。与上游窄屏抽屉 `drawer` 的布局条件并存：
+`AppFrame.tsx` 中 `collapsedWidth` 为 `drawer || darwin || linuxGlass || windowsTitlebar ? 0 : SIDEBAR_COLLAPSED`，
+`leadingMounted` 为 `drawer || (darwin || linuxGlass) && sidebarCollapsed`；`SidebarRoot.tsx` 的
+`drawer` 判断与 `stripDesktop` 并存，玻璃模式仍然把开关放在侧栏顶部、收起后交给 frame 的 `shell.leading`。
 
 收起照官方 macOS 端：整列消失。条内锚点也照 macOS 窗口态：`.topStrip` 在 darwin
 下是 `justify-content: flex-end`（红绿灯占左端、切换钮在右端），玻璃模式不加覆盖、沿用同一锚点 —— Linux
@@ -340,7 +207,7 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0019-desktop-linux-frameless.patch` | `src/frameless-mode.ts`（新增）、`src/wayland-csd.ts`（新增）、`src/main.ts`、`src/preload-platform.ts`、`src/preload-menu.ts`、`src/welcome-window.ts`、`src/update-overlay.ts`、`tsconfig.client.json`、`tests/{frameless-mode,main-startup,welcome-window,preload-platform.client,wayland-csd,update-overlay}.spec.ts` | `DSH_DESKTOP_FRAMELESS=1` 时主窗口加 `titleBarStyle: 'hidden'` + `titleBarOverlay`（高度 40、初始色取 `chromeFallbackFill()`），原生按钮由 Electron 自绘（见下），标题区其余部分仍由 0016 的页内 caption 提供；`windowsAppearance` 里 `setTitleBarOverlay` 的门从「只 Windows」放宽到「Windows 或 Linux 无边框」，页面实测出来的侧栏色因此也能刷到原生条上。全屏事件与 preload 的 `data-fullscreen` 监听一并放行到 Linux 无边框（全屏时原生按钮隐藏，caption 要给内容让位）。欢迎窗走同一套覆盖层（高度 42）。`preload-menu.ts` 的菜单起点改成 `max(--dsh-windows-menu-start, env(titlebar-area-x))`，系统把按钮放左侧时菜单跟着安全区右移 |
+| `0019-desktop-linux-frameless.patch` | `src/frameless-mode.ts`（新增）、`src/wayland-csd.ts`（新增）、`src/main.ts`、`src/preload-platform.ts`、`src/preload-menu.ts`、`src/welcome-window.ts`、`src/update-overlay.ts`、`tsconfig.client.json`、`tests/{frameless-mode,main-startup,welcome-window,preload-platform.client,wayland-csd,update-overlay}.spec.ts` | `DSH_DESKTOP_FRAMELESS=1` 时主窗口加 `titleBarStyle: 'hidden'` + `titleBarOverlay`（高度 40、初始色取 `chromeFallbackFill()`），原生按钮由 Electron 自绘（见下），标题区其余部分仍由 0016 的页内 caption 提供；`windowsAppearance` 里 `setTitleBarOverlay` 的门从「只 Windows」放宽到「Windows 或 Linux 无边框」，页面实测出来的侧栏色因此也能刷到原生条上。全屏事件与 preload 的 `data-fullscreen` 监听一并放行到 Linux 无边框（全屏时原生按钮隐藏，caption 要给内容让位）。欢迎窗走同一套覆盖层（高度 42）。`preload-menu.ts` 的菜单起点改成 `max(--dsh-windows-menu-start, env(titlebar-area-x))`，系统把按钮放左侧时菜单跟着安全区右移。`wayland-csd.ts` 由 `DSH_DESKTOP_FRAMELESS` 与 Wayland 客户端状态推导并收敛帧状态变化：按 Chromium 顺序判定 Wayland 客户端、圆角判据加首次 `move` 门控（窗口 API 在第一次移动前报的是请求位置而非帧内缩），更新浮层在无边框窗口上从 caption 下方开始并按帧圆角裁切 |
 
 **为什么不是 `frame: false`**：Electron 的 `IsWindowControlsOverlayEnabled()` 要求
 `titleBarStyle === 'hidden'` **且** 创建时就带 `titleBarOverlay`。`frame: false` 单独用（不带
@@ -422,9 +289,9 @@ GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩�
 ## 注意
 
 - **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
-  实测 2026-10-29（0.2.2-alpha.2）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
+  实测 2026-11-13（0.2.2-rc.3）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
   apps/desktop/tests apps/desktop-host/tests`
-  → 0 失败（182 个文件：177 通过 / 5 跳过；2115 个用例：2052 通过 / 63 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、
+  → 0 失败（2348 通过 / 65 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、
   `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI
   都不跑上游单测。跑的时候注意三点：用隔离版 pnpm 11（`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm`，
   本机 11.7.0；本机 `/usr/bin/pnpm` 已是 12.14.0 的 ELF、`~/.npm-global/bin/pnpm` 是 9.15.4，
@@ -436,6 +303,9 @@ GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩�
   缺了它上游 `flock-entry.ts` 会走 `node $npm_execpath` 重建，碰上二进制入口的 pnpm 就报
   `SyntaxError: Invalid or unexpected token`（2026-10-17 在这台机器上撞到过：本机没有 musl 工具链，
   这次是把已打包产物里的同源二进制补进树里才跑通的，15 个用例全在 `macos-notarization-proxy.spec.ts`）。
+- **`PKGBUILD` 的 `aarch64` 支持只做原生构建。** `build()` 与 `package()` 按 makepkg 的 `$CARCH` 分支：
+  `x86_64` → `linux-x64` / `linux-unpacked`，`aarch64` → `linux-arm64` / `linux-arm64-unpacked`
+  （arm64 目录名由补丁 `0009` 决定，与 `scripts/verify.sh` 一致）。交叉构建在 prepare 阶段执行目标平台运行时就会失败，CI 的 `arch` job 由 `ubuntu-latest` 与 `ubuntu-24.04-arm` 各自原生出包。
 - **同步上游时若某个 spec 的 hunk 合不上，允许先把它摘掉，让核心改动先过去。** 上游重写 `tests/*.spec.ts`
   时，宁可回落到「单测红着、但行为改动完整」，也不要为了保住 hunk 而把行为改动丢掉或跳过。
 - **「构建用的 pnpm 入口必须是 JS」是上游遗留的写法，不是我们造成的，我们也没为它加补丁。**
@@ -527,90 +397,3 @@ GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩�
   连接不回数据。**别把它误判成死锁或产物问题**：主进程其实空闲在 `poll`（~0.6% CPU）。排查靠
   `xdotool search --pid <pid>` 找到那个名叫 `Error` 的窗口，再 `import -window <id>` 抓下来读原文；
   探 DevTools 之前记得先摘掉本机的 `NODE_USE_ENV_PROXY`/`http_proxy`，否则 `127.0.0.1` 也会被代理拦掉。
-
-## 2026-11-01：linux-arm64（issue #11）
-
-arm64 目标折进现有补丁，不新增编号；文件名保留 `-x64` 的历史名。
-
-- `0001` / `0002` / `0006` / `0007` 的目标联合、`SUPPORTED_TARGETS`、`TARGETS`、`package.json`
-  脚本与单测同时覆盖 `linux-x64` 与 `linux-arm64`。
-- `package-target` 的宿主守卫由「Linux 必须 x64」改为「宿主架构 == 目标架构」：交叉构建在 prepare
-  阶段就会失败（要执行目标 Electron/Node/Python），必须原生构建。
-- `0009` 把 `linux-unpacked` 改成按目标架构计算：electron-builder 以 x64 为默认架构，arm64 的
-  未打包目录是 `linux-arm64-unpacked`。
-- PKGBUILD 的 `arch` 加 `aarch64`（只支持 Arch Linux ARM 本机 makepkg；CI 的 Arch 容器仍是 x86_64）。
-- 验证（2026-11-01）：这五个补丁在干净 worktree 里按序 `git apply` 通过，与补丁态工作树逐文件
-  `cmp` 零差异；`desktop-build-paths` / `desktop-auto-update-environment` / `package-target`
-  三个 spec 共 48 个用例通过。
-
-## 2026-11-03：0.2.2-alpha.3
-
-基线 `dsh-v0.2.2-alpha.3`（`05b1cae8`）。上游这版跨 462 个提交、2315 个路径；17 个补丁里有 8 个的落点被上游动过（80 个被打补丁的文件里 14 个），12 个补丁因此重生、5 个（0003 / 0004 / 0010 / 0011 / 0012）逐字节没变。
-
-- **`0018` 在 `AppFrame.tsx` 有三处冲突**：上游给侧栏加了窄屏抽屉（`drawer` 与 `SIDEBAR_DRAWER_BREAKPOINT`），正好压在玻璃模式的布局判断上。裁定：
-
-  | 位置 | 裁定 |
-  |---|---|
-  | `collapsedWidth` | `drawer \|\| darwin \|\| linuxGlass \|\| windowsTitlebar ? 0 : SIDEBAR_COLLAPSED` |
-  | leading-seat 注释 | 保留 Linux 那段说明，接在上游新注释之后 |
-  | `leadingMounted` | `drawer \|\| (darwin \|\| linuxGlass) && sidebarCollapsed` |
-
-  `SidebarRoot.tsx` 的 `drawer` 判断与 `0018` 的 `stripDesktop` 并存：玻璃模式仍然把开关放在侧栏顶部、收起后交给 frame 的 `shell.leading`。其余九个客户端文件文本合并干净。
-
-- **`0006` 并入品牌层**（4 个文件；补丁名不变）。起因：`0006` 的 `package:linux:*` 脚本让 Linux 一律走 `--unsigned`，而上游 0.2.2-alpha.2 的 `091d6ed` 让未签名包改用 `build --profile local`，于是侧栏变成「DSH 本地构建 + 版本/提交徽标」、窗口标题也是本地构建字样。改法与边界：
-
-  - `scripts/client-build-environment.ts`：`local` profile 的公开环境补 `DSH_CLIENT_TITLE`（复用 `OFFICIAL_CLIENT_BUILD_ENVIRONMENT` 里的常量）。local 分支本来只给 commit / version / dirty，所以光在环境变量里传 title 进不去客户端。
-  - `packages/client/ui-brand-official/src/client/index.ts`：守卫从「不是 official 就返回」改成「**没有**选 profile 才返回」——未选 profile 的是纯 web 构建，仍留空。
-  - **构建记录仍是 `DSH_CLIENT_BUILD_PROFILE: local`**：只改显示层，不让记录冒充 official；`pack-local-packages` 与打包记录的配对校验因此一行未动。
-  - 上游两张单测同步改：`client-build-environment.client.spec.ts` 里 local 的期望加 title；`browser-plugin.client.spec.tsx` 把「profile 非 official 时槽位为空」拆成两条（local 时注册、未选 profile 时为空）。
-
-- **`0013` 附带一处测试改动**：上游 alpha.3 新增的 `groups localized DevTools before quit` 断言「最后一次 `Menu.buildFromTemplate` 是应用菜单」，而 Linux 的托盘会在 `refreshApplicationMenu()` 里顺带重建托盘菜单，`lastCall` 于是是托盘菜单。改成取「最后一个首项带 `submenu` 的构建」，并在原地注明原因。
-
-- **`apply-patches.sh --check` 对 `0017` 必然失败**，旧补丁同样：它逐补丁对空树试打，而 `0017` 的上下文含 `0008` 新增的行（见开头那条例外）。对应 CI 的是顺序 `git apply`，makepkg 那侧是 `patch -Np1`。
-
-- 验证（2026-11-03）：17 个补丁在真源码包上按序 `patch -Np1` 全过，84 个触及文件与三路合并树逐字节一致；`makepkg --verifysource` 19 项通过；`build.sh --all` 一次出三格式；`verify.sh --runtime` 46 通过 / 0 失败；上游桌面单测 2115 通过 / 0 失败 / 63 跳过。
-
-## 2026-11-04：0.2.2-rc.1（轻量同步）
-
-基线 `dsh-v0.2.2-rc.1`（`66491b05`）。上游这版相对 alpha.3 只有 4 个提交、387 个路径 / 387 行，**全是 `package.json` 的版本行**：378 个把 `0.2.2-alpha.3` 提到 `0.2.2-rc.1`，9 个 `vendor/*/package.json` 把预发版号转正式（cordis `4.0.6-alpha.2→4.1.0`、cosmokit `1.8.7-alpha.2→1.9.0`、schemastery `3.18.6-alpha.2→3.19.0`、timer `1.1.8-alpha.2→1.2.0`，hmr / include / loader / logger-console / group 同批）。零源码改动、零依赖范围改动、零 lockfile 改动，所以 17 个补丁**逐字节零重生**。
-
-- **唯一压在补丁落点上的变更是 `apps/desktop/package.json` 的版本行**，而它正是 `0006` 的目标文件。`0006` 的 hunk 在第 38 行、版本行在第 3 行，上下文不重叠，照旧能打。它的 `index 5d4f00e..72de86a` 仍写着 alpha.3 的 blob（新基线是 `00eee14`）——`patch` 与 `git apply` 都不读这一行，下次完整重生时会自动更新，这次刻意不动。
-
-- **`arch` 里的 `aarch64` 这回是真的了。** 2026-11-01 那条记录写着「PKGBUILD 的 `arch` 加 `aarch64`（只支持 Arch Linux ARM 本机 makepkg）」，但 `build()` 当时写死 `package:linux:x64:dir`、`package()` 读 `targets/linux-x64`，ALARM 上根本做不出来 —— 声明与实现不一致。这一版把两处都按 makepkg 的 `$CARCH` 分支：x86_64 → `linux-x64` / `linux-unpacked`，aarch64 → `linux-arm64` / `linux-arm64-unpacked`（后者是补丁 0009 定的目录名，映射与 `scripts/verify.sh` 一致）。CI 的 arch job 也从一个变成矩阵：x86_64 用官方 `archlinux` 镜像跑在 `ubuntu-latest`，aarch64 跑在 `ubuntu-24.04-arm` 上、用社区维护的 `menci/archlinuxarm`（官方镜像只有 amd64）。两种架构都必须原生构建，交叉构建在 prepare 阶段就会去执行目标平台的 Electron / Node / Python；aarch64 的包与 arm64 的 AppImage / deb / rpm 一样，尚未在实体设备实测。
-
-- 验证（2026-11-04）：17 个补丁在 rc.1 的 worktree 上按序 `patch -Np1` 全过（72 个文件改动 + 12 个新增）；`apply-patches.sh` 的 `git apply` 顺序应用通过（`--check` 对 `0017` 仍必然失败，原因见 11-03 那条）；`makepkg --verifysource` 19 项通过；`build.sh --all` 三格式一次出齐（`0.2.2-rc.1`）；`verify.sh --runtime` 46 通过 / 0 失败 / 4 跳过；上游桌面单测 2115 通过 / 0 失败 / 63 跳过。
-
-
-## 2026-11-11：0.2.2-rc.2（完整同步）
-
-基线 `dsh-v0.2.2-rc.2`（`ddac9676`）。相对 rc.1 是 **1568 个提交、4645 个文件、+160844 / −58399** —— 两周的上游主干，和上一版的「4 个提交全是版本号」正好是两个极端。13 个补丁的目标文件被改动，`0004` `0010` `0011` `0012` 一字未动。
-
-- **上游把 Host 的 office 那条线整个重写了。** `apps/desktop-host/src/office-engine.ts`（48 行）与 `office.ts`（38 行）删除：`installOfficeEngineResolution()` 没了，改成 Host 入口自己把 `process.argv[4]` 记进 `process.env.DSH_PRIMARY_RUNTIME`；`runtimeArchivePath()` 搬进 `src/cli.ts`。同期 `libreoffice-kit` 0.1.5 → 0.2.3。`0008` / `0009` / `0017` 因此**重新推导而不是三路合并**：三者的 `import` 行换成新家，0017 的 `index.ts` 只剩「把 `DSH_DESKTOP_RESOURCES_PATH` 回填成 `process.resourcesPath`」这一块，替上游补 office 引擎的那部分整段删掉。
-
-- **更新渠道改名。** `desktop-release-store.ts` 的 `channel` 从 `['nightly','latest']` 变 `['nightly','stable']`，`electron-builder-config.mjs` 与 `desktop-upload-plan.ts` 同时删掉「stable 渠道不许预发布版本」的两处守卫。`0001` / `0002` / `0003` 的 JSDoc 与上下文跟着改；Linux 不进这两条守卫，语义无变化。
-
-- **发布设置读取被抽走。** `desktop-package-environment.mjs` 的 dotenv 读取整段移进新的 `desktop-file-settings.mjs`（`readDesktopPackageSettings`）。`0005` 从未改过那个函数本体，Linux 白名单都在常量与平台选择处，所以只重排了常量块，不搬家。
-
-- **侧栏重构。** `SidebarRoot.tsx` +105/−70、`SidebarRoot.module.css` +168/−33、新增 `scroll-handoff.ts`（插件入口收进「更多」、插件导航与会话列表共用滚动区）；`AppFrame.module.css` +10/−26、`PluginManagerPage.module.css` +82/−14。`0018` 的玻璃模式靠类名后缀命中哈希类名，逐条复核后三个选择器仍然成立：`[class*="sidebarCol"]`（在 `AppFrame.module.css`）、`[class$="newSession"]`、`[class$="_fade"]`。
-
-- **两个补丁新增了「上游文件」**（不在原补丁的目标列表里）：
-  - `0001` 加 `apps/desktop/scripts/retain-desktop-ci.ts`：上游的发布路由（`desktop-publish-route.ts`）只认 mac/win，而我们的 target 联合多了 linux，`route.target.includes(target)` 过不了类型检查；改成 `(route.target as readonly string[]).includes(target)`，路由表本身不动。
-  - `0008` 加 `apps/desktop/tests/office-resources.e2e.ts`：rc.2 新增的 e2e，构造 `DesktopHostProcess` 用的是字符串可执行文件，要改成 `DesktopNodeRuntime` 对象。
-
-- **仓库脚本一处修正**：`scripts/verify.sh` 的客户端身份检查改从 `@deepseek-ai/dsh-deepseek-account/lib/types/client-metadata.js` 取 `platformClientHeaders` —— rc.2 起这个函数只从 `./client-metadata` 子路径导出（包根不再转出），而 tsdown 只把入口打成 `lib/index.js`，子路径落在 `lib/types/`。
-
-- 验证（2026-11-11）：17 个补丁在 rc.2 worktree 上按序 `git apply` 与 `patch -Np1` 都全过，两条路线打出来的树与三路合并树逐字节一致；`0004`/`0010`/`0011`/`0012` 重生后与仓库原文件 `cmp` 逐字节相同；`makepkg --verifysource` 19 项通过；`build.sh --all` 三格式一次出齐（`0.2.2-rc.2`）；`verify.sh --runtime` 49 通过 / 0 失败 / 1 跳过；上游桌面单测 2348 通过 / 0 失败 / 65 跳过。
-
-## 2026-11-13：0.2.2-rc.3（轻量同步）
-
-基线 `dsh-v0.2.2-rc.3`（`38a6a5c9`）。相对 rc.2 仅 6 个提交（#8383 CI bubblewrap 缓存、#8385 Windows `restart-status-cwd` 修复、#8342 新增实验插件 `deepseek-chat-import`、#8397 版本号升至 `0.2.2-rc.3`）。`pnpm-lock.yaml` 有更新（+133 行），同步后须重跑 `pnpm install --frozen-lockfile`。17 个补丁中 13 个与 rc.2 逐字节一致，4 个补丁重生：
-
-- **`0006`**：仅 `apps/desktop/package.json` 第 3 行版本号上下文偏移；`0019`：仅 `tsconfig.client.json` 索引 hash 随 #8342 新增项目引用而更新。
-- **`0008`**：补齐上游 `apps/desktop/scripts/node-bin/node` 本身的 `100755` 文件模式，消除反向 `git apply` 的模式警告。
-- **`0018`（含 PR #17 渐隐遮罩修复与单测补全）**：
-  - `SidebarRoot.tsx` / `SidebarRoot.module.css` 与 #8342 新增的 `sidebar.session.action` 插槽及 `.newSessionRow` 无冲突三路合并；
-  - 收下 PR #17 的侧栏白带修复（`Co-authored-by: stvsl`）：上游在 rc.2 侧栏重构时已将底部渐隐遮罩类名改为 `.scrollFade`，导致原 `[class$="_fade"]` 失效，现改用 `[class*="scrollFade"]`（`glass-document.ts` 与 `tests/glass-document.spec.ts`）；
-  - 补全 `packages/client/ui-layout/tests/app-frame.client.spec.tsx` 中 `0018` 玻璃折叠断言遗漏的上游 `drawer: false` 字段。
-- **上游仍然没有 Linux**：目标联合类型还是 `mac-arm64 | mac-x64 | win-x64`，`linux-x64` / `linux-arm64` 仍只由 `0001` / `0002` 提供。
-
-- 验证（2026-11-13）：17 个补丁在 rc.3 worktree 上按序 `git apply` 与 `patch -Np1` 全过，13 个未受影响补丁 `cmp` 逐字节一致；`makepkg --verifysource` 19 项通过；`build.sh --all` 三格式一次出齐（AppImage `257dc787…` / deb `ebc02897…` / rpm `1de16212…`，payload 冒烟两轮全过）；`verify.sh --runtime` 49 通过 / 0 失败 / 4 跳过；去代理下上游桌面单测（`apps/desktop/tests` + `apps/desktop-host/tests`）2348 通过 / 0 失败 / 65 跳过，补丁涉及的客户端包测试（`ui-layout` / `ui-sidebar` / `ui-brand-official`）19 文件 281 用例全部通过。
