@@ -10,7 +10,8 @@ name: attach-release-assets
 #   gh workflow run attach-release-assets.yml \
 #     -f run_id=<build-linux 的 run id> -f tag=<草稿 Release 的 tag>
 #
-# 校验：run 的 head_sha 必须等于 tag 指向的提交；Release 必须是 draft；上传后逐个核对
+# 校验：run 必须来自 .github/workflows/build.yml 且已完成并成功（completed / success）；
+# run 的 head_sha 必须等于 tag ref 指向的提交；Release 必须是 draft；上传后逐个核对
 # API 里的 sha256 digest 与本地文件，不一致就红。
 on:
   workflow_dispatch:
@@ -42,9 +43,51 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          run_sha="$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq .head_sha)"
-          # annotated tag 用 commits/<tag> 直接解析到提交，而不是 tag 对象。
-          tag_sha="$(gh api "repos/$REPO/commits/$TAG" --jq .sha)"
+          if [[ ! "$RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "非法的 run_id：'$RUN_ID'（必须为纯数字）" >&2
+            exit 1
+          fi
+          if [[ ! "$TAG" =~ ^v[A-Za-z0-9._+-]+$ || "$TAG" == *..* ]]; then
+            echo "非法的 tag：'$TAG'" >&2
+            exit 1
+          fi
+
+          run_json="$(gh api "repos/$REPO/actions/runs/$RUN_ID")"
+          run_path="$(jq -r '.path // ""' <<<"$run_json")"
+          run_status="$(jq -r '.status // ""' <<<"$run_json")"
+          run_conclusion="$(jq -r '.conclusion // ""' <<<"$run_json")"
+          run_sha="$(jq -r '.head_sha // ""' <<<"$run_json")"
+
+          if [[ "$run_path" != ".github/workflows/build.yml" ]]; then
+            echo "run $RUN_ID 来源不是 .github/workflows/build.yml（实际：$run_path）" >&2
+            exit 1
+          fi
+          if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
+            echo "run $RUN_ID 未成功完成（status=$run_status, conclusion=$run_conclusion）" >&2
+            exit 1
+          fi
+          if [[ ! "$run_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "run $RUN_ID 的 head_sha 非法：'$run_sha'" >&2
+            exit 1
+          fi
+
+          # 从 git/ref/tags/<tag> 解析，避免同名分支引起歧义；同时支持轻量 tag 与 annotated tag。
+          tag_ref_json="$(gh api "repos/$REPO/git/ref/tags/$TAG")"
+          obj_type="$(jq -r '.object.type // ""' <<<"$tag_ref_json")"
+          obj_sha="$(jq -r '.object.sha // ""' <<<"$tag_ref_json")"
+          hops=0
+          while [[ "$obj_type" == "tag" && $hops -lt 5 ]]; do
+            tag_obj_json="$(gh api "repos/$REPO/git/tags/$obj_sha")"
+            obj_type="$(jq -r '.object.type // ""' <<<"$tag_obj_json")"
+            obj_sha="$(jq -r '.object.sha // ""' <<<"$tag_obj_json")"
+            hops=$((hops + 1))
+          done
+          if [[ "$obj_type" != "commit" || ! "$obj_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "tag $TAG 未指向有效的 commit（type=$obj_type, sha=$obj_sha）" >&2
+            exit 1
+          fi
+          tag_sha="$obj_sha"
+
           if [[ "$run_sha" != "$tag_sha" ]]; then
             echo "run $RUN_ID 的 head_sha（$run_sha）与 tag $TAG 指向的提交（$tag_sha）不一致" >&2
             exit 1
@@ -56,7 +99,7 @@ jobs:
             echo "Release $TAG 不是草稿（draft=$draft）；只允许往草稿上传" >&2
             exit 1
           fi
-          echo "校验通过：run=$RUN_ID sha=$run_sha tag=$TAG"
+          echo "校验通过：run=$RUN_ID path=$run_path status=$run_status conclusion=$run_conclusion sha=$run_sha tag=$TAG"
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -117,7 +160,7 @@ jobs:
           upload_files=("${files[@]}" SHA256SUMS)
 
           printf '准备上传 %d 个文件（8 个安装包 + SHA256SUMS）\n' "${#upload_files[@]}"
-          gh release upload "$TAG" "${upload_files[@]}" --clobber
+          gh release upload --clobber -- "$TAG" "${upload_files[@]}"
 
           # 不下载 851MB 也能核对：Release asset 的 digest 字段就是 sha256。
           release_id="$(gh release view "$TAG" --json databaseId --jq .databaseId)"

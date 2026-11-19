@@ -106,7 +106,7 @@ if ! git clone --depth 1 --branch "$REF" -- "$REPO_URL" "$DEST" 2>/dev/null; the
   echo "==> 浅克隆 $REF 失败（可能是非分支 ref），回退全量克隆"
   rm -rf "$DEST"
   git clone -- "$REPO_URL" "$DEST"
-  git -C "$DEST" checkout "$REF"
+  git -C "$DEST" checkout --detach "$REF" 2>/dev/null || git -C "$DEST" checkout --detach "origin/$REF"
 fi
 
 verify_head_commit
