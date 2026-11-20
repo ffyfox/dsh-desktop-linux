@@ -1,0 +1,36 @@
+name: pr-check
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-check:
+    name: static-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: 本地静态检查（语法 / PKGBUILD / 补丁登记 / 文档 / Workflow / ShellCheck）
+        run: ./scripts/check-static.sh --require-shellcheck
+
+      - name: 拉上游并顺序打补丁
+        run: |
+          ./scripts/fetch-upstream.sh
+          ./scripts/apply-patches.sh
+
+      - name: 双路线补丁一致性与上游源码包校验
+        run: ./scripts/check-static.sh --upstream-only

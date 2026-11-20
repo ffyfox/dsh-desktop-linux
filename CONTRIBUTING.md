@@ -53,6 +53,7 @@
 ## 本地怎么验证
 
 ```sh
+./scripts/check-static.sh            # 轻量静态检查（不需构建；加 --with-upstream 同时校验上游补丁与源码包）
 ./scripts/fetch-upstream.sh          # 取上游（默认用 PKGBUILD 里的 _tag）
 ./scripts/apply-patches.sh           # 打补丁 + 把托盘 PNG 放进源码树
 pnpm install --frozen-lockfile       # 在 upstream/ 里跑
