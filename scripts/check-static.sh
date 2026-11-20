@@ -78,11 +78,12 @@ bad()  { echo "  [FAIL] $1"; fail=$((fail+1)); }
 skip() { echo "  [SKIP] $1"; skipped=$((skipped+1)); }
 info() { echo "  [INFO] $1"; }
 
-# 消费结构化输出（每行 `<PASS|FAIL|SKIP|INFO>\t<消息>`），保持计数器累加在当前 shell。
+# 消费结构化输出（每行 `<PASS|FAIL|SKIP|INFO|HEAD>\t<消息>`），保持计数器累加在当前 shell。
 consume_report() {
   local report_file="$1" tag msg
   while IFS=$'\t' read -r tag msg; do
     case "$tag" in
+      HEAD) echo "$msg" ;;
       PASS) ok "$msg" ;;
       FAIL) bad "$msg" ;;
       SKIP) skip "$msg" ;;
@@ -229,7 +230,7 @@ def parse_apply_patches_assets():
     return entries
 
 # == 2. PKGBUILD 元数据与校验和 ==
-print("INFO\t-- 2. PKGBUILD 元数据与 source/sha256sums --")
+print("HEAD\t== 2. PKGBUILD 元数据与 source/sha256sums ==")
 
 meta_errors = []
 pkgname = scalars.get("pkgname", "")
@@ -329,8 +330,8 @@ if src_errors:
 else:
     emit("PASS", f"PKGBUILD source 与 sha256sums 强一致（1 源码包 + {len(pkg_patches)} 补丁 + {len(pkg_assets)} 资产）")
 
-# == 4. 补丁系列规范与跨文件登记 ==
-print("INFO\t-- 4. 补丁系列、verify.sh 与 patches/README.md 一致性 --")
+# == 3. 补丁系列规范与跨文件登记 ==
+print("HEAD\t== 3. 补丁系列、verify.sh 与 patches/README.md 一致性 ==")
 
 patch_errors = []
 seen_ids = {}
@@ -400,8 +401,8 @@ if patch_errors:
 else:
     emit("PASS", f"补丁命名、文本 diff 约束、verify.sh PATCH_COVERAGE 与 patches/README.md 基线完全一致（{len(disk_patches)} 个补丁）")
 
-# == 5. 双语 README 标题结构与 Markdown 本地链接 ==
-print("INFO\t-- 5. 双语 README 标题与 Markdown 本地链接 --")
+# == 4. 双语 README 标题结构与 Markdown 本地链接 ==
+print("HEAD\t== 4. 双语 README 标题与 Markdown 本地链接 ==")
 
 def iter_non_code_lines(path):
     fence_char = None
@@ -476,8 +477,8 @@ if link_errors:
 else:
     emit("PASS", f"文档本地链接与图片目标检查通过（{len(md_files)} 份文档共 {link_count} 处相对链接）")
 
-# == 6. Workflow YAML 语法与 Action SHA 锁定 ==
-print("INFO\t-- 6. GitHub Workflow YAML 与 Action SHA 锁定 --")
+# == 5. GitHub Workflow YAML 与 Action SHA 锁定 ==
+print("HEAD\t== 5. GitHub Workflow YAML 与 Action SHA 锁定 ==")
 
 wf_files = sorted(
     glob.glob(os.path.join(root, ".github", "workflows", "*.yml"))
@@ -543,7 +544,7 @@ PY
 }
 
 check_pkgbuild_dir_dry_run() {
-  echo "== 3. pkgbuild-dir.sh 摊平演练 =="
+  echo "== 6. pkgbuild-dir.sh 摊平演练 =="
   local dry="$WORK_DIR/pkgbuild-dry"
   local pkg_out
   if ! pkg_out="$("$ROOT/scripts/pkgbuild-dir.sh" "$dry" 2>&1)"; then
