@@ -111,7 +111,7 @@ desktop_host_port() {
     is_app_descendant "$p" || continue
     while read -r addr; do
       port="${addr##*:}"
-      if [[ -n "${APP_PID:-}" ]] && ss -ltnpH 2>/dev/null | grep -qE "127\.0\.0\.1:$port[^0-9].*pid=$APP_PID,"; then
+      if [[ -n "${APP_PID:-}" ]] && ss -ltnpH 2>/dev/null | grep -qE "127\.0\.0\.1:${port}[^0-9].*pid=$APP_PID,"; then
         continue
       fi
       printf '%s' "$port"; return 0
