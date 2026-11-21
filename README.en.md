@@ -66,7 +66,6 @@ The window then resembles the official Windows desktop app:
 
 - The system title bar is removed, and the top in-page strip handles dragging and double-click maximize / restore; the style, count, and placement of the window control buttons follow the system GTK theme and decoration layout.
 - **Exclusive with glass mode**: when both variables are `1`, frameless wins and glass mode turns itself off.
-- **Left-side button limitation**: when the system places window buttons on the left, the in-page menus shift right to clear them, but the sidebar toggle at the top is not fully adapted yet.
 
 ### Glass mode
 

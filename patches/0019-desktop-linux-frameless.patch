@@ -122,18 +122,19 @@ index 43e48e3..dc29aa0 100644
    }
  
 diff --git a/apps/desktop/src/preload-menu.ts b/apps/desktop/src/preload-menu.ts
-index f7b8812..d8becd0 100644
+index f7b8812..4822da4 100644
 --- a/apps/desktop/src/preload-menu.ts
 +++ b/apps/desktop/src/preload-menu.ts
-@@ -12,8 +12,10 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
+@@ -12,8 +12,11 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
    host.dataset.windowsMenu = ''
    const shadow = host.attachShadow({ mode: 'open' })
    const style = document.createElement('style')
 +  // The controls overlay owns its edge of the strip: when the system puts the buttons on the
-+  // left, env(titlebar-area-x) moves the menus past them. It reads 0 on a decorated window.
++  // left, env(titlebar-area-x) shifts the sidebar controls and menus together past them.
++  // It reads 0 on a decorated window or when the buttons sit on the right.
    style.textContent = `
 -    :host { position: fixed; top: 0; left: var(--dsh-windows-menu-start, 48px); z-index: 1100;
-+    :host { position: fixed; top: 0; left: max(var(--dsh-windows-menu-start, 48px), env(titlebar-area-x, 0px)); z-index: 1100;
++    :host { position: fixed; top: 0; left: calc(env(titlebar-area-x, 0px) + var(--dsh-windows-menu-start, 48px)); z-index: 1100;
        height: var(--dsh-windows-titlebar-height); display: flex; align-items: center;
        font-family: var(--dsw-font-family); -webkit-app-region: no-drag; }
      [role=menubar] { display: flex; gap: 2px; }
@@ -170,6 +171,20 @@ index 1e197b0..ab1f1cf 100644
    ipcRenderer.on(DESKTOP_IPC.windowFullscreen, (_event, fullscreen: boolean) => {
      const root = document.documentElement as HTMLElement | null
      if (root === null) return
+diff --git a/apps/desktop/src/preload-windows.ts b/apps/desktop/src/preload-windows.ts
+index aa938fc..2618d1c 100644
+--- a/apps/desktop/src/preload-windows.ts
++++ b/apps/desktop/src/preload-windows.ts
+@@ -16,6 +16,9 @@ export function syncWindowsAppearance(): void {
+     const root = document.documentElement
+     root.dataset.windowsTitlebar = ''
+     root.style.setProperty('--dsh-windows-titlebar-height', `${WINDOWS_TITLEBAR_HEIGHT}px`)
++    // Bridge env(titlebar-area-x) through a custom property: LightningCSS CSS Modules hashes
++    // non-standard env() names inside .module.css bundles.
++    root.style.setProperty('--dsh-windows-titlebar-x', 'env(titlebar-area-x, 0px)')
+   }
+   // The root can be absent before the HTML parser creates it.
+   if ((document.documentElement as HTMLElement | null) !== null) mark()
 diff --git a/apps/desktop/src/update-overlay.ts b/apps/desktop/src/update-overlay.ts
 index 0de1246..caaaa83 100644
 --- a/apps/desktop/src/update-overlay.ts
@@ -557,6 +572,20 @@ index fa0e3f9..18b7ae2 100644
    it('serves packaged shell documents instead of rejecting the shell origin', async () => {
      const { serveWebDocument } = await import('../src/web-document.ts')
      vi.mocked(serveWebDocument).mockResolvedValue(new Response('shell document'))
+diff --git a/apps/desktop/tests/preload-menu.client.spec.ts b/apps/desktop/tests/preload-menu.client.spec.ts
+index 9454636..859fbbb 100644
+--- a/apps/desktop/tests/preload-menu.client.spec.ts
++++ b/apps/desktop/tests/preload-menu.client.spec.ts
+@@ -141,3 +141,9 @@ it('restores a contenteditable selection before opening Edit with the keyboard',
+   expect(document.getSelection()!.toString()).toBe('itable')
+   await vi.waitFor(() => { expect(buttons[1]!.getAttribute('aria-expanded')).toBe('false') })
+ })
++
++it('offsets the caption menubar by env(titlebar-area-x) for left-placed window controls', () => {
++  menu = installWindowsMenu()
++  const style = document.querySelector('[data-windows-menu]')!.shadowRoot!.querySelector('style')!
++  expect(style.textContent).toContain('left: calc(env(titlebar-area-x, 0px) + var(--dsh-windows-menu-start, 48px));')
++})
 diff --git a/apps/desktop/tests/preload-platform.client.spec.ts b/apps/desktop/tests/preload-platform.client.spec.ts
 index 5b876ab..13170e2 100644
 --- a/apps/desktop/tests/preload-platform.client.spec.ts
@@ -582,6 +611,42 @@ index 5b876ab..13170e2 100644
    syncWindowFullscreen()
    expect(on).toHaveBeenCalledExactlyOnceWith(DESKTOP_IPC.windowFullscreen, expect.any(Function))
    const handler = on.mock.calls[0]?.[1] as (event: unknown, fullscreen: boolean) => void
+diff --git a/apps/desktop/tests/preload-windows.client.spec.ts b/apps/desktop/tests/preload-windows.client.spec.ts
+index 3b5069e..d795c78 100644
+--- a/apps/desktop/tests/preload-windows.client.spec.ts
++++ b/apps/desktop/tests/preload-windows.client.spec.ts
+@@ -12,6 +12,7 @@ afterEach(() => {
+   window.dispatchEvent(new Event('pagehide'))
+   document.documentElement.removeAttribute('data-windows-titlebar')
+   document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')
++  document.documentElement.style.removeProperty('--dsh-windows-titlebar-x')
+   document.documentElement.lang = 'en'
+   document.body.removeAttribute('data-ds-dark-theme')
+   vi.restoreAllMocks()
+@@ -46,6 +47,7 @@ it('installs the caption menubar and reports its appearance on linux', () => {
+   syncWindowsAppearance()
+   expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(true)
+   expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-height')).toBe('40px')
++  expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-x')).toBe('env(titlebar-area-x, 0px)')
+   expect(send).toHaveBeenCalledWith(DESKTOP_IPC.windowsAppearance, 'en', 'rgba(255, 255, 255, 1)', 'rgba(0, 0, 0, 1)')
+ })
+ 
+@@ -58,6 +60,7 @@ it('leaves the Web layout untouched in linux glass mode', () => {
+     syncWindowsAppearance()
+     expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(false)
+     expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-height')).toBe('')
++    expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-x')).toBe('')
+     expect(send).not.toHaveBeenCalled()
+   } finally {
+     process.argv = argv
+@@ -74,6 +77,7 @@ it('synchronizes live language and palette changes and stops observing a closed
+   expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(true)
+   window.dispatchEvent(new Event('DOMContentLoaded'))
+   expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-height')).toBe('40px')
++  expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-x')).toBe('env(titlebar-area-x, 0px)')
+   expect(send).toHaveBeenLastCalledWith(DESKTOP_IPC.windowsAppearance, 'en', 'rgba(255, 255, 255, 1)', 'rgba(0, 0, 0, 1)')
+   document.documentElement.lang = 'zh-CN'
+   document.body.setAttribute('data-ds-dark-theme', '')
 diff --git a/apps/desktop/tests/update-overlay.spec.ts b/apps/desktop/tests/update-overlay.spec.ts
 index bd59d15..55c7cac 100644
 --- a/apps/desktop/tests/update-overlay.spec.ts
@@ -837,6 +902,46 @@ index 2100de7..724ab3f 100644
    it('waits for its local document and blocks renderer navigation', async () => {
      const window = createWindow()
      const loaded = Promise.withResolvers<undefined>()
+diff --git a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
+index bad92bc..4daf54a 100644
+--- a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
++++ b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
+@@ -52,7 +52,7 @@
+ :global([data-windows-titlebar]) .toggle {
+   position: fixed;
+   top: calc((var(--dsh-windows-titlebar-height) - 28px) / 2);
+-  left: 12px;
++  left: calc(var(--dsh-windows-titlebar-x, 0px) + 12px);
+   z-index: 30;
+   -webkit-app-region: no-drag;
+ }
+@@ -98,7 +98,7 @@
+ :global([data-windows-titlebar]) .collapsed .newSession {
+   position: fixed;
+   top: calc((var(--dsh-windows-titlebar-height) - 28px) / 2);
+-  left: 48px;
++  left: calc(var(--dsh-windows-titlebar-x, 0px) + 48px);
+   margin: 0;
+   padding: 0;
+   border: none;
+diff --git a/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts b/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts
+index 29d9f47..a547c9a 100644
+--- a/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts
++++ b/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts
+@@ -194,4 +194,13 @@ describe('SidebarRoot.module.css', () => {
+     expect(declarations('.fallbackBrandName')?.get('font-size')).toBe('17px')
+     expect(declarations('.fallbackBrandName')?.get('white-space')).toBe('nowrap')
+   })
++
++  it('offsets fixed caption controls past left-placed window buttons via titlebar-area-x', () => {
++    expect(declarations(':global([data-windows-titlebar]) .toggle')?.get('left')).toBe(
++      'calc(var(--dsh-windows-titlebar-x, 0px) + 12px)',
++    )
++    expect(declarations(':global([data-windows-titlebar]) .collapsed .newSession')?.get('left')).toBe(
++      'calc(var(--dsh-windows-titlebar-x, 0px) + 48px)',
++    )
++  })
+ })
 diff --git a/tsconfig.client.json b/tsconfig.client.json
 index f515961..c6bbf8d 100644
 --- a/tsconfig.client.json
