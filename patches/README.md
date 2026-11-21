@@ -23,8 +23,8 @@ hunk 一起带进来。
 `AppFrame.tsx` / `AppFrame.module.css` / `tests/app-frame.client.spec.tsx`、`packages/client/ui-sidebar`
 的 `SidebarRoot.tsx` / `SidebarRoot.module.css` / `tests/sidebar-root.client.spec.tsx`，以及 `ui-plugin-manager` / `ui-schedule` 的两个页面样式表
 `src/client/PluginManagerPage.module.css` / `src/client/TaskManagerPage.module.css`），
-其中 4 个是新增文件。`0019` 共用 `src/main.ts`、`src/welcome-window.ts`、`tests/main-startup.spec.ts`、
-`tests/welcome-window.spec.ts`，同样依赖于前序补丁落位；因此 `apply-patches.sh --check` 对干净树只会让
+其中 4 个是新增文件。`0019` 共用 `src/main.ts`、`src/preload-windows.ts`、`src/welcome-window.ts`、`tests/main-startup.spec.ts`、
+`tests/preload-windows.client.spec.ts`、`tests/welcome-window.spec.ts` 与 `packages/client/ui-sidebar/src/client/SidebarRoot.module.css`，同样依赖于前序补丁落位；因此 `apply-patches.sh --check` 对干净树只会让
 `0001`–`0016` 逐个通过，全套验证需走顺序 `git apply` 与 `patch -Np1`。
 
 已验证（0.2.2-rc.5）：本版为轻量同步（相对 `rc.4` 共 5 笔提交：DeepSeek 模型默认使用服务端搜索及搜索设置文档/测试更新、LiveShare `owner-credential-horizon` 测试改用真实时钟、以及版本号升至 `0.2.2-rc.5`）；
@@ -216,7 +216,7 @@ Wayland）读数：展开 grid `280px …`、条 52px、切换钮 `(240,11)`（�
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0019-desktop-linux-frameless.patch` | `src/frameless-mode.ts`（新增）、`src/wayland-csd.ts`（新增）、`src/main.ts`、`src/preload-platform.ts`、`src/preload-menu.ts`、`src/welcome-window.ts`、`src/update-overlay.ts`、`tsconfig.client.json`、`tests/{frameless-mode,main-startup,welcome-window,preload-platform.client,wayland-csd,update-overlay}.spec.ts` | `DSH_DESKTOP_FRAMELESS=1` 时主窗口加 `titleBarStyle: 'hidden'` + `titleBarOverlay`（高度 40、初始色取 `chromeFallbackFill()`），原生按钮由 Electron 自绘（见下），标题区其余部分仍由 0016 的页内 caption 提供；`windowsAppearance` 里 `setTitleBarOverlay` 的门从「只 Windows」放宽到「Windows 或 Linux 无边框」，页面实测出来的侧栏色因此也能刷到原生条上。全屏事件与 preload 的 `data-fullscreen` 监听一并放行到 Linux 无边框（全屏时原生按钮隐藏，caption 要给内容让位）。欢迎窗走同一套覆盖层（高度 42）。`preload-menu.ts` 的菜单起点改成 `max(--dsh-windows-menu-start, env(titlebar-area-x))`，系统把按钮放左侧时菜单跟着安全区右移。`wayland-csd.ts` 由 `DSH_DESKTOP_FRAMELESS` 与 Wayland 客户端状态推导并收敛帧状态变化：按 Chromium 顺序判定 Wayland 客户端、圆角判据加首次 `move` 门控（窗口 API 在第一次移动前报的是请求位置而非帧内缩），更新浮层在无边框窗口上从 caption 下方开始并按帧圆角裁切 |
+| `0019-desktop-linux-frameless.patch` | `src/frameless-mode.ts`（新增）、`src/wayland-csd.ts`（新增）、`src/main.ts`、`src/preload-platform.ts`、`src/preload-menu.ts`、`src/preload-windows.ts`、`src/welcome-window.ts`、`src/update-overlay.ts`、`tsconfig.client.json`、`tests/{frameless-mode,main-startup,welcome-window,preload-menu.client,preload-platform.client,preload-windows.client,wayland-csd,update-overlay}.spec.ts`、`packages/client/ui-sidebar/{src/client/SidebarRoot.module.css,tests/sidebar-styles.client.spec.ts}` | `DSH_DESKTOP_FRAMELESS=1` 时主窗口加 `titleBarStyle: 'hidden'` + `titleBarOverlay`（高度 40、初始色取 `chromeFallbackFill()`），原生按钮由 Electron 自绘（见下），标题区其余部分仍由 0016 的页内 caption 提供；`windowsAppearance` 里 `setTitleBarOverlay` 的门从「只 Windows」放宽到「Windows 或 Linux 无边框」，页面实测出来的侧栏色因此也能刷到原生条上。全屏事件与 preload 的 `data-fullscreen` 监听一并放行到 Linux 无边框（全屏时原生按钮隐藏，caption 要给内容让位）。欢迎窗走同一套覆盖层（高度 42）。`preload-windows.ts` 通过自定义属性 `--dsh-windows-titlebar-x` 桥接 `env(titlebar-area-x, 0px)`，`SidebarRoot.module.css` 的 `.toggle` / `.collapsed .newSession` 叠加该变量、`preload-menu.ts` 叠加 `env(titlebar-area-x, 0px)` 整体右移，系统把按钮放左侧时侧栏控件与菜单同步避让。`wayland-csd.ts` 由 `DSH_DESKTOP_FRAMELESS` 与 Wayland 客户端状态推导并收敛帧状态变化：按 Chromium 顺序判定 Wayland 客户端、圆角判据加首次 `move` 门控（窗口 API 在第一次移动前报的是请求位置而非帧内缩），更新浮层在无边框窗口上从 caption 下方开始并按帧圆角裁切 |
 
 **为什么不是 `frame: false`**：Electron 的 `IsWindowControlsOverlayEnabled()` 要求
 `titleBarStyle === 'hidden'` **且** 创建时就带 `titleBarOverlay`。`frame: false` 单独用（不带
@@ -245,8 +245,7 @@ Adwaita，按钮从「无底 ✕」变成「24px 圆盘」。2026-10-30 用同�
 `XDG_CONFIG_HOME` 下是 Breeze 风格无底 ✕，空目录下是 Adwaita 圆盘；所以验按钮样式时不要隔离
 `XDG_CONFIG_HOME`（只隔离 userData 可以用 `--user-data-dir`）。
 
-**已知限制**：按钮位置跟 GTK 布局走，但只有页面内菜单会避让 `env(titlebar-area-x)`；
-左侧布局（用户自定义）下，侧栏顶部的切换钮仍会落在按钮下面。
+**左置按钮适配**：LightningCSS 的 CSS Modules 默认只豁免内置白名单 `env()` 名称（如 `safe-area-inset-*`），在 `.module.css` 中直写 `env(titlebar-area-x, 0px)` 会被当作局部标识符混淆成 `<hash>_titlebar-area-x` 从而回落 `0px`；因此由 `preload-windows.ts` 在根元素设置自定义属性 `--dsh-windows-titlebar-x: env(titlebar-area-x, 0px)` 桥接，`SidebarRoot.module.css` 的 `.toggle`（`12px`）与 `.collapsed .newSession`（`48px`）叠加 `var(--dsh-windows-titlebar-x, 0px)`，`preload-menu.ts` 的菜单宿主（不走 CSS Modules）叠加 `env(titlebar-area-x, 0px)` 随 `var(--dsh-windows-menu-start, 48px)` 一并右移，避免左侧窗口按钮遮挡侧栏控件及菜单。在右置按钮、普通模式与全屏下 `env(titlebar-area-x, 0px)` 回落为 `0px`，原有落位保持不变。
 
 本机实测（Hyprland 0.56.2 / Wayland，DPR 2，显示器 3072×1920；1280×820 的主窗被平铺成 757×903）：
 
@@ -268,7 +267,8 @@ KDE Plasma 6（kwin_wayland / Wayland，DPR 2，1536×960）上复核了同一�
 | 欢迎窗 | 恰好 600×700（与 `useContentSize` 的请求一致），右上角有原生关闭钮，`env(titlebar-area-width)` = 561 / 600 |
 
 Hyprland 那张表里欢迎窗是 620×720、KDE 是 600×700 —— 同一个 `useContentSize`，两边的边框计算不同，都不影响布局。
-GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩阵）；左置按钮布局仍未验证。
+GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩阵）。
+左置按钮复验（0.2.2-rc.5 `--dir` 构建，1280×820，隔离 keyfile）：Hyprland 0.57.2 / Wayland（`adw-gtk3`）下 `close,minimize,maximize:` 测得 `env(titlebar-area-x)` = 113（覆盖层宽 1167 / 1280），展开态切换钮 x=125..153、菜单 x=161 起，收起态切换钮 x=125..153、New Session x=161..189、菜单 x=197 起；对照 `:close` 下 `env(titlebar-area-x)` = 0（覆盖层宽 1241 / 1280），展开态切换钮 x=12..40、菜单 x=48 起，收起态切换钮 x=12..40、New Session x=48..76、菜单 x=84 起。KDE Plasma 6 / Wayland（`Breeze`）下 `close,minimize,maximize:` 测得 `env(titlebar-area-x)` = 72（覆盖层宽 1208 / 1280），展开态切换钮 x=84..112、菜单 x=120 起，收起态切换钮 x=84..112、New Session x=120..148、菜单 x=156 起，双态均无重叠。
 
 ## Arch 包与 deb/rpm 构建树的差异（无害）
 
