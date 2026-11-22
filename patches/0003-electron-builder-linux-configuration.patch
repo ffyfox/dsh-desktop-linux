@@ -23,11 +23,11 @@ index 2973a6e..55411cb 100644
      readonly uninstallDisplayName: '${productName}'
      readonly include: string
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index d5522e3..bb2973e 100644
+index a777a05..be5f5b0 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -23,7 +23,8 @@ import {
- import { resolveDesktopAutoUpdateConfig } from './desktop-auto-update-environment.mjs'
+ import { resolveDesktopAutoUpdateConfig } from '@deepseek-ai/dsh-desktop-publisher/desktop-auto-update-environment.mjs'
  import { resolveDesktopBuildCommit } from './desktop-build-commit.mjs'
  import { resolveDesktopBuildVersion } from './desktop-build-version.mjs'
 -import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'

@@ -1,6 +1,6 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `9c2670d3`（tag `dsh-v0.2.2-rc.5`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `d98f5d68`（tag `dsh-v0.2.3-alpha.1`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -27,21 +27,23 @@ hunk 一起带进来。
 `tests/preload-windows.client.spec.ts`、`tests/welcome-window.spec.ts` 与 `packages/client/ui-sidebar/src/client/SidebarRoot.module.css`，同样依赖于前序补丁落位；因此 `apply-patches.sh --check` 对干净树只会让
 `0001`–`0016` 逐个通过，全套验证需走顺序 `git apply` 与 `patch -Np1`。
 
-已验证（0.2.2-rc.5）：本版为轻量同步（相对 `rc.4` 共 5 笔提交：DeepSeek 模型默认使用服务端搜索及搜索设置文档/测试更新、LiveShare `owner-credential-horizon` 测试改用真实时钟、以及版本号升至 `0.2.2-rc.5`）；
-16 个补丁与 `rc.4` 逐字节一致，仅 `0006` 因 `apps/desktop/package.json` 第 3 行版本号上下文刷新
-`index` 哈希。17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.2-rc.5`）上，`patch -Np1`
-（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）均干净通过，89 个触及文件
-（含 `tray-linux.png`）两条路线逐字节一致；`makepkg --verifysource` 校验 19 项 source 全部通过。
-`build.sh --all` 一次出齐三格式：AppImage `372,138,560` B（sha256 `fec6d46a…`）、deb `293,716,212` B
-（`8d95885a…`）、rpm `246,988,049` B（`4c058215…`），`smoke:prepared-runtime` 与
-`smoke:packaged-runtime` 均通过。`verify.sh --runtime` **49 通过 / 0 失败 / 7 跳过**（6 个为旧版
-`rc.3`/`rc.4` 产物跳过、1 个为 `3080` 未监听）：Host 跑在 `primary-runtime` 独立 Node 上且收到
-`DSH_DESKTOP_RESOURCES_PATH`（`0017`），`data-windows-titlebar` 与 `[data-windows-menu]` 在场
-（`0016`），2 个渲染进程均在独立 user namespace 且 seccomp 生效，StatusNotifierItem 托盘菜单可读，
-共享根隔离且真实 `~/.dsh` 未被触碰。产物内 `resources/runtime/cli` 不存在、`dsh/package.json` 版本
-`0.2.2-rc.5`、`resources/app/package.json` 的 `dshBuildCommit` 记 `9c2670d3…`（`dshBuildDirty: true`）。
-去代理下上游桌面单测（`apps/desktop/tests` + `apps/desktop-host/tests`）`194` 文件 `2348` 通过 / `65`
-跳过 / `0` 失败，补丁关联客户端包（`ui-layout`、`ui-sidebar`、`ui-brand-official`、`client-build-environment`）与本版变更测试（`ui-settings-web-search`、`owner-credential-horizon`）`25` 文件 `411` 用例全通过。
+已验证（0.2.3-alpha.1）：本版为跨 minor 完整同步（相对 `0.2.2-rc.5` 共 2,343 笔提交、7,496 文件变更，含上游将桌面发布脚本与测试拆至 `apps/desktop-publisher/`、Host 认证链路重构、应用菜单新增「设置」及客户端样式改为框架挂载安装）；
+17 个补丁中 `0004`、`0011` 与 `rc.5` 逐字节一致，11 个三路自动合并零冲突（`0001` 的 3 个文件与 `0007` 的 1 个单测顺应迁至 `apps/desktop-publisher/`），仅 4 个测试文件冲突定点裁决（`0008` `desktop-host.e2e.ts`、`0017` `host-process.spec.ts`、`0018` `web-document.spec.ts`、`0019` `sidebar-styles.client.spec.ts`），另 `0009` 新增适配上游重写的 `tests/smoke-runtime.spec.ts`。
+`0001`–`0016` 在干净树独立 `git apply --check` 全过；17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.3-alpha.1`）与 `git archive` 上，`patch -Np1 --fuzz=0`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）均干净通过且 91 项变更文件（含 `tray-linux.png`）两条路线逐字节一致；`makepkg --verifysource` 校验 19 项 source 全部通过。
+`build.sh --all` 一次出齐三格式：AppImage `375,053,220` B（sha256 `132ff3a1…`）、deb `296,333,264` B
+（`0dc9cd33…`）、rpm `247,717,640` B（`8a27e00f…`），`runtime:primary-smoke`、`runtime:smoke` 与
+`smoke-packaged-runtime` 均通过。`verify.sh --runtime` **49 通过 / 0 失败 / 7 跳过**（6 个为旧版
+`rc.4`/`rc.5` 产物跳过、1 个为 `3080` 未监听）：核心二进制最高 GLIBC `2.28`（≤ 2.31）、可选语音 `2.32`
+（≤ 2.32），Host 跑在 `primary-runtime` 独立 Node 上且收到 `DSH_DESKTOP_RESOURCES_PATH`（`0017`），
+`data-windows-titlebar` 与 `[data-windows-menu]` 在场（`0016`），2 个渲染进程均在独立 user namespace
+且 seccomp 生效，StatusNotifierItem 托盘菜单可读，共享根隔离且真实 `~/.dsh` 未被触碰。产物内
+`resources/runtime/cli` 不存在、`dsh/package.json` 版本 `0.2.3-alpha.1`、`resources/app/package.json` 的
+`dshBuildCommit` 记 `d98f5d68…`（`dshBuildDirty: true`）。去代理下上游桌面与发布器单测
+（`apps/desktop/tests` + `apps/desktop-host/tests` + `apps/desktop-publisher/tests` + `apps/cli/tests/desktop-host.e2e.ts`）
+`198` 文件 `2418` 通过 / `70` 跳过 / `0` 失败，补丁关联客户端包（`ui-layout`、`ui-sidebar`、
+`ui-brand-official`、`ui-plugin-manager`、`ui-schedule`、`client-build-environment`）`54` 文件 `1465`
+用例全通过。`0018` 玻璃模式隔离 CDP 探针复核确认新版延迟样式挂载下侧栏半透明（`color(srgb … / 0.4)`）、
+内容区实色、`scrollFade` 隐藏与 `newSession` 底色均无回退。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -60,13 +62,13 @@ hunk 一起带进来。
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`desktop-auto-update-environment.{mjs,d.mts}`、`desktop-release-store.ts`、`retain-desktop-ci.ts` | target 白名单加 `linux-x64` 与 `linux-arm64`（`arm64` 折入现有补丁，文件名保留 `-x64` 历史名）；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()`；保留清单的 schema 认出两个 Linux target，并放宽 `retain-desktop-ci.ts` 中 `route.target` 的包含判断，避免 `tsc -p tsconfig.host.json` 报错 |
+| `0001-desktop-target-model-add-linux-x64.patch` | `desktop-build-paths.{mjs,d.mts}`、`apps/desktop-publisher/src/desktop-auto-update-environment.{mjs,d.mts}`、`apps/desktop-publisher/src/desktop-release-store.ts`、`retain-desktop-ci.ts` | target 白名单加 `linux-x64` 与 `linux-arm64`（`arm64` 折入现有补丁，文件名保留 `-x64` 历史名）；`desktopTargetPlatform` 返回 `'linux'`；新增 `desktopElectronExecutablePath()`；保留清单的 schema 认出两个 Linux target，并放宽 `retain-desktop-ci.ts` 中 `route.target` 的包含判断，避免 `tsc -p tsconfig.host.json` 报错 |
 | `0002-package-target-add-linux-x64.patch` | `package-target.ts`、`desktop-upload-plan.ts` | 打包目标表加 `linux-x64` 与 `linux-arm64`；宿主守卫改为「宿主架构 == 目标架构」（交叉构建在 prepare 阶段即需执行目标平台的 Electron / Node / Python，必须原生构建） |
 | `0003-electron-builder-linux-configuration.patch` | `electron-builder-config.mjs`、`electron-builder.config.d.mts`、`tests/installer-packaging.spec.ts` | Linux 关闭 asar；显式 `executableName`；Linux 不嵌入强制更新策略；Linux 的打包格式与包元数据来自发布设置（见 `0011`）；显式钉住 deb/rpm 的 `packageName` / `packageCategory` 与 `linux.synopsis`；显式列出 deb/rpm 运行依赖并去掉 Electron 既不链接也不加载的 `libxss1` / `libXScrnSaver`（指定 `depends` 会替换整个默认数组，其余默认项保留；单测改为对着 `FpmTarget.getDefaultDepends()` 核这份数组，上游新增默认项时测试会红）；用 `appImage.executableArgs: []` 去掉 legacy 工具集写死的 `--no-sandbox`；Linux 图标显式指定为 SVG —— 单个 PNG 文件会被 electron-builder **原样按自身像素尺寸**装进 `hicolor/1024x1024/apps`，而多个发行版的 `hicolor/index.theme` 并不声明该目录（Arch 就没有），图标会解析不到；SVG 落到 `hicolor/scalable/apps`，所有发行版都声明 |
 | `0004-prepare-target-electron-distribution.patch` | `prepare-dsh.ts`、`prepare-runtime.ts` | Electron 分发路径按 target 推导，不再假设「非 mac 即 win32」；打包期 `pnpm install` / 运行时冒烟改用 Host 运行时；`versions.json.node` 记为 payload 实际运行的 Node 版本；Linux 上整块跳过 `prepare:cli`（见「注意」） |
 | `0005-desktop-linux-release-settings.patch` | `desktop-package-environment.{mjs,d.mts}`、`desktop-toolchain-preflight.ts`、`.gitignore`、`.env.linux.example`、`tests/desktop-package-environment.spec.ts` | 支持 `.env.linux`（读取dotenv 逻辑随上游在 `desktop-file-settings.mjs`，Linux 白名单留在常量与平台分支）；Linux 不套用 Windows/macOS 专属设置；Linux 不要求策略 origin；修掉 `win32 ? … : macOS` 的隐含假设；Linux 文件白名单加 `MAINTAINER`/`HOMEPAGE`（并从环境里剥掉，保证发布设置只由文件拥有）；打了 rpm 才预检 `rpmbuild` |
 | `0006-desktop-package-linux-scripts.patch` | `apps/desktop/package.json`、`scripts/client-build-environment.ts` 与其单测、`packages/client/ui-brand-official/src/client/index.ts` 与其单测 | `package:linux:{x64,arm64}` 与 `package:linux:{x64,arm64}:dir`；未签名 Linux 包的官方品牌层适配（见下） |
-| `0007-tests-linux-x64-supported.patch` | 3 个 `tests/*.spec.ts` | 把「断言 Linux 抛错」改成「断言 `linux-x64` 与 `linux-arm64` 受支持」 |
+| `0007-tests-linux-x64-supported.patch` | `apps/desktop/tests/{desktop-build-paths,package-target}.spec.ts`、`apps/desktop-publisher/tests/desktop-auto-update-environment.spec.ts` | 把「断言 Linux 抛错」改成「断言 `linux-x64` 与 `linux-arm64` 受支持」 |
 
 `0006` 同时负责未签名 Linux 包的品牌层：`package:linux:*` 脚本一律走 `--unsigned`，上游会让未签名包改用 `build --profile local`，若不调整会使侧栏与窗口标题呈现为「本地构建」。因此 `scripts/client-build-environment.ts` 在 `local` profile 补上 `DSH_CLIENT_TITLE`（复用 `OFFICIAL_CLIENT_BUILD_ENVIRONMENT` 常量），`ui-brand-official` 的守卫从「不是 `official` 就返回」改为「**没有**选 profile 才返回」（未选 profile 的纯 web 构建仍留空）；构建记录本身仍保持 `DSH_CLIENT_BUILD_PROFILE: local`，不冒充 `official`，不影响 `pack-local-packages` 与打包记录配对校验。
 
@@ -75,7 +77,7 @@ hunk 一起带进来。
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
 | `0008-desktop-host-runtime-standalone-node.patch` | `src/node-environment.ts`、`src/host-process.ts`、`src/main.ts`、`desktop-host/src/{index,cli}.ts`、`scripts/node-bin/node`、6 个 spec/e2e | 引入 `DesktopNodeRuntime`；Linux 上 Host 走 primary-runtime 的真 Node（Host 入口把 `process.argv[4]` 记进 `DSH_PRIMARY_RUNTIME`，`runtimeArchivePath()` 位于 `cli.ts`）；`ELECTRON_RUN_AS_NODE` 只在真 Electron 运行时下设置；node shim 缺 `DSH_DESKTOP_NODE_EXECUTABLE` 时报错退出 78（不再静默 `exec` 空路径，那会打成 `line 6: exec: : not found` 的 exit 127）；`dsh` CLI 在「真目录树」布局下按 `resources/runtime` 找 supportDir（关掉 asar 后原来那段推导会落到 `resources/app/runtime`，见「注意」）。`desktopNodeRuntime()` 的返回值从字符串变成对象，6 个相关 spec/e2e 里 `DesktopHostProcess` 的 `node` 参数与断言同步改成 `DesktopNodeRuntime` 对象 |
-| `0009-desktop-packaging-host-runtime.patch` | `scripts/dev.ts`、`scripts/smoke-{runtime,prepared-runtime,packaged-runtime}.ts`、`scripts/sign-primary-runtime.ts`、`tests/fixtures/{runtime-payload-smoke,pnpm-smoke}.mjs`、`tests/prepared-runtime-smoke.spec.ts` | 把 Host 运行时贯穿 dev / 打包 / 冒烟；按目标架构计算未打包目录（electron-builder 以 x64 为默认架构，x64 为 `linux-unpacked`，arm64 为 `linux-arm64-unpacked`）；payload smoke 的 Electron 专属断言改为按平台判断 |
+| `0009-desktop-packaging-host-runtime.patch` | `scripts/dev.ts`、`scripts/smoke-{runtime,prepared-runtime,packaged-runtime}.ts`、`scripts/sign-primary-runtime.ts`、`tests/fixtures/{runtime-payload-smoke,pnpm-smoke}.mjs`、`tests/{prepared-runtime-smoke,smoke-runtime}.spec.ts` | 把 Host 运行时贯穿 dev / 打包 / 冒烟；按目标架构计算未打包目录（electron-builder 以 x64 为默认架构，x64 为 `linux-unpacked`，arm64 为 `linux-arm64-unpacked`）；payload smoke 的 Electron 专属断言改为按平台判断 |
 | `0010-desktop-linux-policy-opt-out.patch` | `desktop-policy-environment.{mjs,d.mts}`、`tests/desktop-policy-environment.spec.ts` | 新增 `desktopPlatformEmbedsPolicy()`：策略服务只认 `desktop-win` / `desktop-mac`，Linux 不参与 |
 
 ## 产物与包元数据（0011–0012）
@@ -298,9 +300,9 @@ GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩�
 ## 注意
 
 - **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
-  实测 2026-11-19（0.2.2-rc.5）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
-  apps/desktop/tests apps/desktop-host/tests`
-  → 0 失败（194 个文件：189 通过 / 5 跳过；2413 个用例：2348 通过 / 65 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、
+  实测 2026-11-22（0.2.3-alpha.1）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
+  apps/desktop/tests apps/desktop-host/tests apps/desktop-publisher/tests apps/cli/tests/desktop-host.e2e.ts`
+  → 0 失败（198 个文件：193 通过 / 5 跳过；2488 个用例：2418 通过 / 70 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、
   `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI
   都不跑上游单测。跑的时候注意三点：用隔离版 pnpm 11（`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm`，
   本机 11.7.0；本机 `/usr/bin/pnpm` 已是 12.14.0 的 ELF、`~/.npm-global/bin/pnpm` 是 9.15.4，

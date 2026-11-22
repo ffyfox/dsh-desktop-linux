@@ -1,7 +1,7 @@
-diff --git a/apps/desktop/scripts/desktop-auto-update-environment.d.mts b/apps/desktop/scripts/desktop-auto-update-environment.d.mts
+diff --git a/apps/desktop-publisher/src/desktop-auto-update-environment.d.mts b/apps/desktop-publisher/src/desktop-auto-update-environment.d.mts
 index c58df5a..4a726eb 100644
---- a/apps/desktop/scripts/desktop-auto-update-environment.d.mts
-+++ b/apps/desktop/scripts/desktop-auto-update-environment.d.mts
+--- a/apps/desktop-publisher/src/desktop-auto-update-environment.d.mts
++++ b/apps/desktop-publisher/src/desktop-auto-update-environment.d.mts
 @@ -5,7 +5,7 @@ export const DESKTOP_AUTO_UPDATE_ENV: 'DSH_DESKTOP_AUTO_UPDATE_ENV'
  export type DesktopAutoUpdateEnvironment = 'test' | 'production'
  
@@ -11,10 +11,10 @@ index c58df5a..4a726eb 100644
  
  /**
   * Name the fixed installer object shared by uploading and cache refresh.
-diff --git a/apps/desktop/scripts/desktop-auto-update-environment.mjs b/apps/desktop/scripts/desktop-auto-update-environment.mjs
+diff --git a/apps/desktop-publisher/src/desktop-auto-update-environment.mjs b/apps/desktop-publisher/src/desktop-auto-update-environment.mjs
 index 24aaa0e..981d182 100644
---- a/apps/desktop/scripts/desktop-auto-update-environment.mjs
-+++ b/apps/desktop/scripts/desktop-auto-update-environment.mjs
+--- a/apps/desktop-publisher/src/desktop-auto-update-environment.mjs
++++ b/apps/desktop-publisher/src/desktop-auto-update-environment.mjs
 @@ -33,7 +33,7 @@ const UPDATE_ENVIRONMENTS = {
    },
  }
@@ -60,8 +60,21 @@ index 24aaa0e..981d182 100644
   * @throws {Error} When the selected deployment lacks a bucket or valid updater configuration.
   */
  export function resolveDesktopUploadConfig(env, platform, arch) {
+diff --git a/apps/desktop-publisher/src/desktop-release-store.ts b/apps/desktop-publisher/src/desktop-release-store.ts
+index ae79154..32198bb 100644
+--- a/apps/desktop-publisher/src/desktop-release-store.ts
++++ b/apps/desktop-publisher/src/desktop-release-store.ts
+@@ -17,7 +17,7 @@ const sourceSchema = z.strictObject({
+   channel: z.enum(['nightly', 'stable']),
+   runnerName: z.string().min(1),
+   // Storage accepts every Desktop target; CI routing separately limits currently provisioned platforms.
+-  target: z.enum(['mac-arm64', 'mac-x64', 'win-x64']),
++  target: z.enum(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64', 'linux-arm64']),
+   preset: z.enum(['test', 'production']),
+   productVersion: z.string().min(1),
+   version: z.string().min(1),
 diff --git a/apps/desktop/scripts/desktop-build-paths.d.mts b/apps/desktop/scripts/desktop-build-paths.d.mts
-index 910f303..da063eb 100644
+index aaf7159..cf3147c 100644
 --- a/apps/desktop/scripts/desktop-build-paths.d.mts
 +++ b/apps/desktop/scripts/desktop-build-paths.d.mts
 @@ -46,10 +46,17 @@ export function desktopTargetBuildPaths(target: DesktopAutoUpdateTarget, environ
@@ -159,24 +172,11 @@ index edfd9cd..66067e6 100644
  /**
   * Resolve the paths owned by the target selected in a packaging environment.
   * @param {NodeJS.ProcessEnv} env - Packaging environment.
-diff --git a/apps/desktop/scripts/desktop-release-store.ts b/apps/desktop/scripts/desktop-release-store.ts
-index eb9d545..d43eb1b 100644
---- a/apps/desktop/scripts/desktop-release-store.ts
-+++ b/apps/desktop/scripts/desktop-release-store.ts
-@@ -17,7 +17,7 @@ const sourceSchema = z.strictObject({
-   channel: z.enum(['nightly', 'stable']),
-   runnerName: z.string().min(1),
-   // Storage accepts every Desktop target; CI routing separately limits currently provisioned platforms.
--  target: z.enum(['mac-arm64', 'mac-x64', 'win-x64']),
-+  target: z.enum(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64', 'linux-arm64']),
-   preset: z.enum(['test', 'production']),
-   productVersion: z.string().min(1),
-   version: z.string().min(1),
 diff --git a/apps/desktop/scripts/retain-desktop-ci.ts b/apps/desktop/scripts/retain-desktop-ci.ts
-index e672274..2a2f35f 100644
+index d26e6a0..942dfb6 100644
 --- a/apps/desktop/scripts/retain-desktop-ci.ts
 +++ b/apps/desktop/scripts/retain-desktop-ci.ts
-@@ -36,7 +36,9 @@ export function resolveDesktopRetentionRunner(env: NodeJS.ProcessEnv): string {
+@@ -27,7 +27,9 @@ export function resolveDesktopRetentionRunner(env: NodeJS.ProcessEnv): string {
    const target = resolveDesktopBuildTarget(env)
    const routes = desktopPublishRunnersSchema.parse(JSON.parse(required(env, 'DESKTOP_PUBLISH_RUNNERS')))
    const route = routes[required(env, 'RUNNER_NAME')]
