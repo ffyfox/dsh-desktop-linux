@@ -86,7 +86,7 @@ The window then resembles the official macOS desktop app:
 
 ## Building from source
 
-Requirements: Node 24.9+ (**not your distro's own Node** — see below), **pnpm 11**, and git.
+Requirements: Node 24.22.3+ / 26.13.1+ (**not your distro's own Node** — see below), **pnpm 11**, and git.
 Building the rpm additionally needs `rpmbuild` on the system.
 
 ```bash
@@ -108,7 +108,7 @@ The deb / rpm `Maintainer` and `Homepage` come from `upstream/apps/desktop/.env.
 
 ### Hard requirements
 
-- **Node 24.9+ (with TypeScript type stripping enabled)**: some distro Node packages strip this feature and fail on the very first build step; use an official build from nodejs.org.
+- **Node 24.22.3+ or 26.13.1+ (with TypeScript type stripping enabled)**: some distro Node packages strip this feature and fail on the very first build step; use an official build from nodejs.org.
 - **pnpm 11 (installed via npm or corepack)**: upstream declares `packageManager: pnpm@11.28.5`, and build scripts invoke the `pnpm` entry directly under `node`. The official standalone installer, Homebrew, and some rolling-release system packages (such as Arch Linux's pnpm 12 after self-management switches to `@pnpm/exe`) provide a native binary entry and fail with `SyntaxError`; `build.sh` and `PKGBUILD` automatically fall back to an isolated copy at `~/.local/share/dsh-pnpm-11` when the system `pnpm` is unusable, which you can prepare in advance:
 
   ```bash
