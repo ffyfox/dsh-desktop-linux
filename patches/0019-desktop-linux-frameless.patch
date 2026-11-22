@@ -15,7 +15,7 @@ index 0000000..cb18b79
 +  return process.platform === 'linux' && process.env.DSH_DESKTOP_FRAMELESS === '1'
 +}
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 43e48e3..dc29aa0 100644
+index 83a0efb..f937b1b 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
 @@ -37,7 +37,9 @@ import { DesktopBackendController } from './backend-controller.ts'
@@ -99,7 +99,7 @@ index 43e48e3..dc29aa0 100644
    const desktopSettings = await readDesktopSettings(app.getPath('userData'))
    void pruneCrashReports(app.getPath('logs'))
    const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
-@@ -833,7 +864,7 @@ async function main(): Promise<void> {
+@@ -839,7 +870,7 @@ async function main(): Promise<void> {
        if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname.startsWith('/assets/')
          || ['/favicon.svg', '/manifest.webmanifest'].includes(url.pathname)) {
          const root = join(resources.dsh, 'node_modules', '@deepseek-ai', 'dsh-web-frontend', 'dist')
@@ -108,7 +108,7 @@ index 43e48e3..dc29aa0 100644
            ? serveWebDocument(request, root, glassDocument(glassTint()))
            : serveWebDocument(request, root)
        }
-@@ -1355,8 +1386,10 @@ async function main(): Promise<void> {
+@@ -1364,8 +1395,10 @@ async function main(): Promise<void> {
        // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
        const validColor = (value: unknown): value is string => typeof value === 'string'
          && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
@@ -440,7 +440,7 @@ index 0000000..033f02d
 +  })
 +})
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index fa0e3f9..18b7ae2 100644
+index 0e602d8..facf079 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
 @@ -3,6 +3,7 @@ import type { DesktopHostProcess } from '../src/host-process.ts'
@@ -451,7 +451,7 @@ index fa0e3f9..18b7ae2 100644
  import { glassDocument } from '../src/glass-document.ts'
  import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
  import type { IpcMainInvokeEvent } from 'electron'
-@@ -1314,6 +1315,120 @@ describe('desktop main startup', () => {
+@@ -1320,6 +1321,120 @@ describe('desktop main startup', () => {
      expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
    })
  
@@ -903,7 +903,7 @@ index 2100de7..724ab3f 100644
      const window = createWindow()
      const loaded = Promise.withResolvers<undefined>()
 diff --git a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
-index bad92bc..4daf54a 100644
+index 016b596..a9ca7b4 100644
 --- a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
 +++ b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
 @@ -52,7 +52,7 @@
@@ -925,12 +925,12 @@ index bad92bc..4daf54a 100644
    padding: 0;
    border: none;
 diff --git a/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts b/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts
-index 29d9f47..a547c9a 100644
+index 51cc466..b9c6d4b 100644
 --- a/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts
 +++ b/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts
-@@ -194,4 +194,13 @@ describe('SidebarRoot.module.css', () => {
-     expect(declarations('.fallbackBrandName')?.get('font-size')).toBe('17px')
-     expect(declarations('.fallbackBrandName')?.get('white-space')).toBe('nowrap')
+@@ -227,4 +227,13 @@ describe('SidebarRoot.module.css', () => {
+     expect(collapsed?.get('right')).toBe('5px')
+     expect(collapsed?.get('top')).toBe('5px')
    })
 +
 +  it('offsets fixed caption controls past left-placed window buttons via titlebar-area-x', () => {
@@ -943,7 +943,7 @@ index 29d9f47..a547c9a 100644
 +  })
  })
 diff --git a/tsconfig.client.json b/tsconfig.client.json
-index f515961..c6bbf8d 100644
+index d6a347c..605d27d 100644
 --- a/tsconfig.client.json
 +++ b/tsconfig.client.json
 @@ -21,6 +21,7 @@

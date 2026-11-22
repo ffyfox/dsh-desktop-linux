@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index bb2973e..87b03f2 100644
+index be5f5b0..b363df7 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -174,8 +174,10 @@ export function createElectronBuilderConfig(
@@ -112,10 +112,10 @@ index c2a0007..64053e4 100644
  import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
  import { dirname } from 'node:path'
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 5c2a2a3..3d2a0ec 100644
+index 1b5869f..976721e 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -1243,15 +1243,22 @@ async function main(): Promise<void> {
+@@ -1252,15 +1252,22 @@ async function main(): Promise<void> {
      tray?.relabel()
    }
    refreshApplicationMenu()
@@ -161,10 +161,10 @@ index b2ce416..1764a25 100644
    readonly locale: () => DesktopLocale
    /** Show and focus the primary window. */
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index 0f661c7..8d49aba 100644
+index ef65b37..866267f 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -850,8 +850,10 @@ describe('desktop main startup', () => {
+@@ -856,8 +856,10 @@ describe('desktop main startup', () => {
      harness.ipcOn.mock.calls.find(([channel]) => channel === DESKTOP_IPC.localeChanged)![1](
        { sender, senderFrame: sender.mainFrame }, nextLocale,
      )

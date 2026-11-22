@@ -1,7 +1,7 @@
-diff --git a/apps/desktop/tests/desktop-auto-update-environment.spec.ts b/apps/desktop/tests/desktop-auto-update-environment.spec.ts
-index 74fabee..4bcd410 100644
---- a/apps/desktop/tests/desktop-auto-update-environment.spec.ts
-+++ b/apps/desktop/tests/desktop-auto-update-environment.spec.ts
+diff --git a/apps/desktop-publisher/tests/desktop-auto-update-environment.spec.ts b/apps/desktop-publisher/tests/desktop-auto-update-environment.spec.ts
+index 8b49573..33be323 100644
+--- a/apps/desktop-publisher/tests/desktop-auto-update-environment.spec.ts
++++ b/apps/desktop-publisher/tests/desktop-auto-update-environment.spec.ts
 @@ -108,8 +108,11 @@ describe('desktop auto-update environment', () => {
      expect(() => resolveDesktopAutoUpdateEnvironment({
        DSH_DESKTOP_AUTO_UPDATE_ENV: 'staging',

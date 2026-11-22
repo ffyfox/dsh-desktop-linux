@@ -1,19 +1,19 @@
 diff --git a/apps/cli/tests/desktop-host.e2e.ts b/apps/cli/tests/desktop-host.e2e.ts
-index a0e0ab9..2bf59a8 100644
+index 7ea30e1..57f8a38 100644
 --- a/apps/cli/tests/desktop-host.e2e.ts
 +++ b/apps/cli/tests/desktop-host.e2e.ts
-@@ -69,7 +69,10 @@ it.each([false, true])('settles startup after parent IPC disconnect (boot failur
-     })
-     expect(boot.packageManager.command).toBe(process.execPath)
-     expect(boot.packageManager.args).toEqual(['--expose-internals', pnpm])
--    expect(boot.packageManager.env.ELECTRON_RUN_AS_NODE).toBe('1')
-+    // This fixture forks the Host under a standalone Node, the runtime the Linux shell selects, so the
-+    // package manager must not be told to re-enter Electron's Node mode.
-+    expect(boot.packageManager.env.ELECTRON_RUN_AS_NODE).toBeUndefined()
-+    expect(boot.packageManager.env.DSH_DESKTOP_NODE_ELECTRON).toBe('0')
-     expect(boot.packageManager.env.PATH).toBe(`${nodeBin}${delimiter}${process.env.PATH ?? ''}`)
-     child.disconnect()
-     const exitCode = await exited
+@@ -98,7 +98,10 @@ it.each([
+     if (phase === 'startup') {
+       expect(boot?.packageManager.command).toBe(process.execPath)
+       expect(boot?.packageManager.args).toEqual(['--expose-internals', pnpm])
+-      expect(boot?.packageManager.env.ELECTRON_RUN_AS_NODE).toBe('1')
++      // This fixture forks the Host under a standalone Node, the runtime the Linux shell selects, so the
++      // package manager must not be told to re-enter Electron's Node mode.
++      expect(boot?.packageManager.env.ELECTRON_RUN_AS_NODE).toBeUndefined()
++      expect(boot?.packageManager.env.DSH_DESKTOP_NODE_ELECTRON).toBe('0')
+       expect(boot?.packageManager.env.PATH).toBe(`${nodeBin}${delimiter}${process.env.PATH ?? ''}`)
+     }
+     if (event === 'disconnect') child.disconnect()
 diff --git a/apps/desktop-host/src/cli.ts b/apps/desktop-host/src/cli.ts
 index 10757b7..a5be600 100644
 --- a/apps/desktop-host/src/cli.ts
@@ -56,10 +56,10 @@ index 10757b7..a5be600 100644
 +  await runDesktopCli(supportDir)
  }
 diff --git a/apps/desktop-host/src/index.ts b/apps/desktop-host/src/index.ts
-index 966e51a..0c53fd5 100644
+index 7664fb1..e9f9d24 100644
 --- a/apps/desktop-host/src/index.ts
 +++ b/apps/desktop-host/src/index.ts
-@@ -37,7 +37,12 @@ async function main(): Promise<void> {
+@@ -56,7 +56,12 @@ async function main(): Promise<void> {
          command: process.execPath,
          args: ['--expose-internals', process.argv[5]],
          env: {
@@ -94,14 +94,15 @@ index ad24172..f0b8d89 100755
 +fi
  exec "$DSH_DESKTOP_NODE_EXECUTABLE" --expose-internals "$@"
 diff --git a/apps/desktop/src/host-process.ts b/apps/desktop/src/host-process.ts
-index 8e26fb8..1bd5b65 100644
+index b571b0d..1747e9c 100644
 --- a/apps/desktop/src/host-process.ts
 +++ b/apps/desktop/src/host-process.ts
-@@ -1,10 +1,10 @@
+@@ -1,11 +1,11 @@
 -/** Electron Node-mode child lifecycle for the shared Web application. */
 +/** Node child lifecycle for the shared Web application. */
  
  import { spawn, type ChildProcess } from 'node:child_process'
+ import { DesktopParentAuthentication } from './parent-authentication.ts'
  import { join } from 'node:path'
  import { z } from 'zod'
  import type { PlatformSession } from '@deepseek-ai/dsh-deepseek-account'
@@ -110,7 +111,7 @@ index 8e26fb8..1bd5b65 100644
  import { parsePluginOperationRecord, type PluginOperationRecord, type PluginOperationRunId } from '@deepseek-ai/dsh-plugin-manager/diagnostic'
  
  interface ReadyEvent {
-@@ -176,7 +176,7 @@ export class DesktopHostProcess {
+@@ -192,7 +192,7 @@ export class DesktopHostProcess {
    }>()
  
    /**
@@ -119,7 +120,7 @@ index 8e26fb8..1bd5b65 100644
     * @param runtimeDir - Immutable packages carried by the current application.
     * @param projectDir - Desktop plugin profile and child working directory.
     * @param inspectPort - Optional loopback inspector port for workspace development.
-@@ -188,7 +188,7 @@ export class DesktopHostProcess {
+@@ -204,7 +204,7 @@ export class DesktopHostProcess {
     * @param onPluginOperation - Optional diagnostic sink; malformed records are ignored without failing the Host.
     */
    constructor(
@@ -128,7 +129,7 @@ index 8e26fb8..1bd5b65 100644
      private readonly runtimeDir: string,
      private readonly projectDir: string,
      private readonly inspectPort?: number,
-@@ -208,7 +208,7 @@ export class DesktopHostProcess {
+@@ -224,7 +224,7 @@ export class DesktopHostProcess {
    async start(): Promise<DesktopHostReady> {
      if (this.child !== undefined) return this.readyPromise
      const entry = join(this.runtimeDir, 'node_modules', '@deepseek-ai', 'dsh-desktop-host', 'lib', 'index.js')
@@ -137,7 +138,7 @@ index 8e26fb8..1bd5b65 100644
        '--expose-internals',
        ...(this.inspectPort === undefined ? [] : [`--inspect=127.0.0.1:${String(this.inspectPort)}`]),
        entry,
-@@ -219,7 +219,7 @@ export class DesktopHostProcess {
+@@ -235,7 +235,7 @@ export class DesktopHostProcess {
        ...this.packageManager === undefined ? [] : [this.packageManager.pnpm, this.packageManager.nodeBin],
      ], {
        cwd: this.projectDir,
@@ -147,7 +148,7 @@ index 8e26fb8..1bd5b65 100644
      })
      this.child = child
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 8f9cd82..5c2a2a3 100644
+index 291ed08..1b5869f 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
 @@ -65,6 +65,7 @@ import { readDesktopSettings } from './settings.ts'
@@ -265,10 +266,10 @@ index 680b439..63144b4 100644
    }
  }
 diff --git a/apps/desktop/tests/host-process.spec.ts b/apps/desktop/tests/host-process.spec.ts
-index 9a72fd2..4be008c 100644
+index 943c48f..9774e75 100644
 --- a/apps/desktop/tests/host-process.spec.ts
 +++ b/apps/desktop/tests/host-process.spec.ts
-@@ -10,6 +10,10 @@ import { renderCrashReport } from '../src/crash-report.ts'
+@@ -16,6 +16,10 @@ vi.mock('node:child_process', async (importOriginal) => {
  const roots: string[] = []
  const hosts: DesktopHostProcess[] = []
  
@@ -279,7 +280,7 @@ index 9a72fd2..4be008c 100644
  const HTTP_HOST = `
  import { createServer } from 'node:http'
  import { writeFileSync } from 'node:fs'
-@@ -80,7 +84,7 @@ function projectWithHost(source = HTTP_HOST): string {
+@@ -101,7 +105,7 @@ function projectWithHost(source = HTTP_HOST): string {
  function hostProcess(
    runtime: string, profile = runtime, onFailure?: (error: Error) => void, environment = process.env,
  ): DesktopHostProcess {
@@ -288,7 +289,7 @@ index 9a72fd2..4be008c 100644
    hosts.push(host)
    return host
  }
-@@ -146,7 +150,7 @@ ${HTTP_HOST}`)
+@@ -173,7 +177,7 @@ ${HTTP_HOST}`)
      const journal = new OperationJournal(directory, { recordBytes: 4096, segmentBytes: 8192, queuedBytes: 8192 })
      onTestFinished(async () => { await journal.close() })
      const sink = vi.fn(value => journal.enqueue(JSON.stringify(value)))
@@ -297,7 +298,7 @@ index 9a72fd2..4be008c 100644
        undefined, undefined, undefined, undefined, sink)
      hosts.push(first)
      await first.start()
-@@ -159,7 +163,7 @@ ${HTTP_HOST}`)
+@@ -186,7 +190,7 @@ ${HTTP_HOST}`)
      const warning = vi.spyOn(console, 'error').mockImplementation(() => {})
      try {
        const failure = vi.fn()
@@ -306,7 +307,7 @@ index 9a72fd2..4be008c 100644
          failure, undefined, undefined, undefined, () => { throw new Error('sink unavailable') })
        hosts.push(second)
        await second.start()
-@@ -256,7 +260,7 @@ ${HTTP_HOST}`)
+@@ -362,7 +366,7 @@ process.send({ type: 'starting', runId: randomUUID() })
      const runtime = projectWithHost(HTTP_HOST.replace('runtime: process.argv[2]',
        'pnpm: process.argv[5], nodeBin: process.argv[6], primaryRuntime: process.argv[4], runtime: process.argv[2]'))
      const primaryRuntime = join(runtime, 'external-primary-runtime')
@@ -315,7 +316,7 @@ index 9a72fd2..4be008c 100644
        undefined, primaryRuntime, { pnpm: join(runtime, 'pnpm.mjs'), nodeBin: join(runtime, 'bin') })
      hosts.push(host)
      const { url } = await host.start()
-@@ -297,7 +301,7 @@ ${HTTP_HOST}`)
+@@ -403,7 +407,7 @@ process.send({ type: 'starting', runId: randomUUID() })
  
    it('settles teardown when the executable cannot be spawned', async () => {
      const runtime = projectWithHost()
@@ -324,7 +325,7 @@ index 9a72fd2..4be008c 100644
      hosts.push(host)
      await expect(host.start()).rejects.toThrow()
      await host.stop()
-@@ -342,7 +346,7 @@ ${HTTP_HOST}`)
+@@ -448,7 +452,7 @@ process.send({ type: 'starting', runId: randomUUID() })
  it.each([null, 'stable-account'])('carries Platform identity %s over private IPC and clears credentials on shutdown', async (userId) => {
    const runtime = projectWithHost(HTTP_HOST.replace("process.send({ type: 'ready'", "process.send({ type: 'platform-session', session: { origin: 'https://platform.deepseek.com', userId: " + JSON.stringify(userId) + ", token: 'fixture-secret', embeddedPageDist: 'feat/test' } }); process.send({ type: 'ready'"))
    const changed = vi.fn()
@@ -333,7 +334,7 @@ index 9a72fd2..4be008c 100644
    hosts.push(host)
    await host.start()
    expect(changed).toHaveBeenCalledWith({ origin: 'https://platform.deepseek.com', userId, token: 'fixture-secret', embeddedPageDist: 'feat/test' })
-@@ -355,7 +359,7 @@ it.each([undefined, '', 7])('rejects malformed Platform account identity %s on p
+@@ -461,7 +465,7 @@ it.each([undefined, '', 7])('rejects malformed Platform account identity %s on p
    const runtime = projectWithHost(HTTP_HOST.replace("process.send({ type: 'ready'",
      `process.send({ type: 'platform-session', session: ${JSON.stringify(session)} }); process.send({ type: 'ready'`))
    const changed = vi.fn()
@@ -343,10 +344,10 @@ index 9a72fd2..4be008c 100644
    await expect(host.start()).rejects.toThrow('invalid IPC event')
    expect(changed.mock.calls).toEqual([[null]])
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index 17e16ce..0f661c7 100644
+index e689f3e..ef65b37 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -507,7 +507,10 @@ describe('desktop main startup', () => {
+@@ -513,7 +513,10 @@ describe('desktop main startup', () => {
      harness.app.isPackaged = packaged
      await readyForUpdate()
      const host = harness.hosts[0]!
@@ -358,7 +359,7 @@ index 17e16ce..0f661c7 100644
      expect(host.primaryRuntime).toBe(packaged
        ? join('desktop-test-resources', 'runtime', 'primary-runtime') : 'test-primary-runtime')
      expect(host.packageManager).toMatchObject({
-@@ -2997,7 +3000,7 @@ describe('desktop main startup', () => {
+@@ -3070,7 +3073,7 @@ describe('desktop main startup', () => {
      await Promise.all([retry, secondRetry, harness.navigated.promise])
      expect(harness.applyRelease).toHaveBeenCalledTimes(1)
      expect(harness.hosts[0]).toMatchObject({
@@ -367,7 +368,7 @@ index 17e16ce..0f661c7 100644
        runtime: join(harness.app.getAppPath(), 'dsh'),
        primaryRuntime: join('desktop-test-resources', 'runtime', 'primary-runtime'),
        profile: 'desktop-test-profile',
-@@ -3020,7 +3023,7 @@ describe('desktop main startup', () => {
+@@ -3093,7 +3096,7 @@ describe('desktop main startup', () => {
      harness.prepared.resolve()
      await harness.hostStarted.promise
      const project = join(harness.app.getAppPath(), '.desktop-build', 'development', 'project')
@@ -429,28 +430,28 @@ index 5050e4f..282ca17 100644
    })
  })
 diff --git a/apps/desktop/tests/office-resources.e2e.ts b/apps/desktop/tests/office-resources.e2e.ts
-index ae62655..a0b3104 100644
+index acc45fb..7baa158 100644
 --- a/apps/desktop/tests/office-resources.e2e.ts
 +++ b/apps/desktop/tests/office-resources.e2e.ts
-@@ -65,7 +65,7 @@ describe.skipIf(!existsSync(builtHost))('built Desktop Host Office resources', (
+@@ -68,7 +68,7 @@ describe.skipIf(!existsSync(builtHost))('built Desktop Host Office resources', (
        writeFileSync(join(paths.profile, 'cordis.patch.yml'), '- id: webserver\n  config:\n    host: 127.0.0.1\n    port: 0\n')
        installSkillProbe(paths.profile)
        const primaryRuntime = mode === 'relative-source' ? 'runtime/primary-runtime' : join(runtime, 'primary-runtime')
 -      host = new DesktopHostProcess(process.execPath, project, paths.profile, undefined,
 +      host = new DesktopHostProcess({ executable: process.execPath, electron: true }, project, paths.profile, undefined,
          process.env, (error) => { failures.push(error) }, primaryRuntime)
-       const { url } = await host.start()
-       // The authenticated URL exchanges its token for a session cookie by redirecting.
+       const { url, authenticationCookie: cookie } = await host.start()
+       const response = await fetch(url, { headers: { cookie }, redirect: 'manual' })
 diff --git a/apps/desktop/tests/welcome-flow.e2e.ts b/apps/desktop/tests/welcome-flow.e2e.ts
-index f298fd1..1885359 100644
+index ff0e21f..3183549 100644
 --- a/apps/desktop/tests/welcome-flow.e2e.ts
 +++ b/apps/desktop/tests/welcome-flow.e2e.ts
-@@ -88,7 +88,7 @@ describe.skipIf(!existsSync(builtHost))('built Desktop welcome flow', () => {
+@@ -87,7 +87,7 @@ describe.skipIf(!existsSync(builtHost))('built Desktop welcome flow', () => {
        let hostOrigin = ''
        const restart = async (): Promise<void> => {
          await host?.stop()
 -        host = new DesktopHostProcess(process.execPath, project, paths.profile, undefined,
 +        host = new DesktopHostProcess({ executable: process.execPath, electron: true }, project, paths.profile, undefined,
            process.env, undefined, join(root, 'runtime', 'primary-runtime'))
-         const { url } = await host.start()
+         const { url, authenticationCookie } = await host.start()
          hostOrigin = new URL(url).origin

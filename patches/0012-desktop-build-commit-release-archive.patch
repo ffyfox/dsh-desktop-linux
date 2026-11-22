@@ -56,7 +56,7 @@ index 28d7cda..3cb1964 100644
    return {
      commit: git(['rev-parse', 'HEAD']),
 diff --git a/apps/desktop/tests/desktop-build-commit.spec.ts b/apps/desktop/tests/desktop-build-commit.spec.ts
-index 57016a5..2c7dd46 100644
+index ab3c252..2df4dae 100644
 --- a/apps/desktop/tests/desktop-build-commit.spec.ts
 +++ b/apps/desktop/tests/desktop-build-commit.spec.ts
 @@ -1,7 +1,7 @@

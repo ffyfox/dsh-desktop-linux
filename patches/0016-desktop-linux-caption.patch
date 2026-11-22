@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 3d2a0ec..b67e46c 100644
+index 976721e..db8d9b7 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
 @@ -297,6 +297,9 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
@@ -22,7 +22,7 @@ index 3d2a0ec..b67e46c 100644
            ? { label: messages[item.role as keyof typeof messages] } : {}),
          accelerator: '',
        }))).popup({ window })
-@@ -1195,9 +1199,32 @@ async function main(): Promise<void> {
+@@ -1201,9 +1205,32 @@ async function main(): Promise<void> {
      ] },
      { label: messages.speechMenu, submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] },
    ] })
@@ -56,7 +56,7 @@ index 3d2a0ec..b67e46c 100644
    const hideCommands: MenuItemConstructorOptions[] = darwin
      ? [{ role: 'hide', label: currentDesktopLocale().messages.hideApplication },
        { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
-@@ -1226,8 +1253,9 @@ async function main(): Promise<void> {
+@@ -1235,8 +1262,9 @@ async function main(): Promise<void> {
      { role: 'toggleDevTools', label: currentDesktopLocale().messages.toggleDevToolsMenu },
      { type: 'separator' },
      ...hideCommands,
@@ -67,7 +67,7 @@ index 3d2a0ec..b67e46c 100644
    ]
    const devToolsF12Shortcut: MenuItemConstructorOptions = { role: 'toggleDevTools', visible: false, accelerator: 'F12' }
    const windowsDevToolsShortcuts: MenuItemConstructorOptions[] = [
-@@ -1275,7 +1303,8 @@ async function main(): Promise<void> {
+@@ -1284,7 +1312,8 @@ async function main(): Promise<void> {
      ...(process.platform === 'win32' ? { icon: nativeImage.createFromPath(trayIconPath) } : {}),
    })
  
@@ -77,7 +77,7 @@ index 3d2a0ec..b67e46c 100644
      ipcMain.handle(DESKTOP_IPC.windowsMenu, (event, name: unknown, x: unknown, y: unknown) => {
        assertDesktopSender(event, ['app'])
        if (mainWindow === undefined || event.sender !== mainWindow.webContents
-@@ -1284,25 +1313,9 @@ async function main(): Promise<void> {
+@@ -1293,25 +1322,9 @@ async function main(): Promise<void> {
          || typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)
          || x < 0 || y < 0 || x > 100_000 || y > 100_000) throw new Error('desktop menu: invalid popup request')
        const window = mainWindow
@@ -106,7 +106,7 @@ index 3d2a0ec..b67e46c 100644
        const zoom = mainWindow.webContents.getZoomFactor()
        return new Promise<void>((resolve) => {
          Menu.buildFromTemplate(items).popup({ window, x: Math.round(x * zoom), y: Math.round(y * zoom), callback: resolve })
-@@ -1316,7 +1329,8 @@ async function main(): Promise<void> {
+@@ -1325,7 +1338,8 @@ async function main(): Promise<void> {
        // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
        const validColor = (value: unknown): value is string => typeof value === 'string'
          && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
@@ -148,10 +148,10 @@ index 61fda9e..364f580 100644
    let active = true
    const disposeHandlers = (): void => {
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index 8d49aba..ef9cd5d 100644
+index 866267f..7f0bbb5 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -130,6 +130,7 @@ const harness = await vi.hoisted(async () => {
+@@ -135,6 +135,7 @@ const harness = await vi.hoisted(async () => {
      }
      static getAllWindows() { return windows.filter(window => !window.destroyed) }
      setMenu() {}
@@ -159,7 +159,7 @@ index 8d49aba..ef9cd5d 100644
      getContentBounds() { return { x: 0, y: 0, width: 900, height: 650 } }
      setBounds() {}
      setTitle = vi.fn()
-@@ -1426,22 +1427,25 @@ describe('desktop main startup', () => {
+@@ -1432,22 +1433,25 @@ describe('desktop main startup', () => {
        item.role ?? (item.type === 'separator' ? 'separator' : item.label)
      const template = harness.menu.buildFromTemplate.mock.calls
        .map(call => call[0])
@@ -188,7 +188,7 @@ index 8d49aba..ef9cd5d 100644
 +        [en.paste, 'Ctrl+V'], [en.delete], ['separator'], [en.selectAll, 'Ctrl+A']])
      const application = template[0]!.submenu as MenuItemConstructorOptions[]
      expect(application.filter(item => item.visible !== false).map(describeItem)).toEqual(platform === 'darwin'
-       ? ['about', 'separator', en.checkUpdatesMenu, en.cliCommandMenu, 'separator', 'toggleDevTools', 'separator', 'hide', 'hideOthers', 'unhide', 'separator', 'quit']
+       ? ['about', 'separator', en.settingsMenu, 'separator', en.checkUpdatesMenu, en.cliCommandMenu, 'separator', 'toggleDevTools', 'separator', 'hide', 'hideOthers', 'unhide', 'separator', 'quit']
 diff --git a/apps/desktop/tests/preload-windows.client.spec.ts b/apps/desktop/tests/preload-windows.client.spec.ts
 index e59b7eb..735b77f 100644
 --- a/apps/desktop/tests/preload-windows.client.spec.ts
@@ -243,7 +243,7 @@ index e59b7eb..735b77f 100644
    syncWindowsAppearance()
    expect(send).not.toHaveBeenCalled()
 diff --git a/apps/desktop/tests/welcome-startup.spec.ts b/apps/desktop/tests/welcome-startup.spec.ts
-index 1f9bc8a..2c226ec 100644
+index 9e365f9..e7a5e0a 100644
 --- a/apps/desktop/tests/welcome-startup.spec.ts
 +++ b/apps/desktop/tests/welcome-startup.spec.ts
 @@ -77,6 +77,7 @@ vi.mock('electron', () => ({

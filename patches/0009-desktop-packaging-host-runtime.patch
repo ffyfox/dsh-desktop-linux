@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/dev.ts b/apps/desktop/scripts/dev.ts
-index 37515c2..bf23b40 100644
+index 0753678..047e7dc 100644
 --- a/apps/desktop/scripts/dev.ts
 +++ b/apps/desktop/scripts/dev.ts
 @@ -8,6 +8,7 @@ import { parseArgs } from 'node:util'
@@ -9,7 +9,7 @@ index 37515c2..bf23b40 100644
 +import { desktopNodeRuntime } from '../src/node-environment.ts'
  import { prepareDevelopmentProject } from './development-project.ts'
  import { prepareDevelopmentApp } from './development-app.ts'
- import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
+ import { prepareDevelopmentState } from './development-state.ts'
 @@ -104,12 +105,17 @@ async function main(): Promise<void> {
    }
    const version = packageVersion(join(APP_ROOT, 'package.json'), 'desktop package')
@@ -148,7 +148,7 @@ index a67bc28..0fbc810 100644
      await rm(cache, { recursive: true, force: true })
    }
 diff --git a/apps/desktop/scripts/smoke-runtime.ts b/apps/desktop/scripts/smoke-runtime.ts
-index fa2b2f5..bc303ef 100644
+index e06f95c..9e202ed 100644
 --- a/apps/desktop/scripts/smoke-runtime.ts
 +++ b/apps/desktop/scripts/smoke-runtime.ts
 @@ -9,6 +9,7 @@ import { promisify } from 'node:util'
@@ -278,3 +278,16 @@ index c4c840c..0b21dc3 100644
    expect(payload.mock.calls[0]![1]).toEqual(expect.arrayContaining([root, resources]))
    expect(smokeDesktopRuntime).toHaveBeenCalledWith(root, electron, descriptor, expect.any(Object), resources)
    const environment = vi.mocked(smokeDesktopRuntime).mock.calls[0]![3]
+diff --git a/apps/desktop/tests/smoke-runtime.spec.ts b/apps/desktop/tests/smoke-runtime.spec.ts
+index dc318c4..61bdb9b 100644
+--- a/apps/desktop/tests/smoke-runtime.spec.ts
++++ b/apps/desktop/tests/smoke-runtime.spec.ts
+@@ -104,7 +104,7 @@ it('uses the private readiness Cookie for every packaged runtime HTTP probe', as
+     return { stdout: '', stderr: '' }
+   })
+   vi.spyOn(console, 'log').mockImplementation(() => {})
+-  await smokeDesktopRuntime(join(root, 'payload'), process.execPath, runtime, {}, resources)
++  await smokeDesktopRuntime(join(root, 'payload'), { executable: process.execPath, electron: true }, runtime, {}, resources)
+   expect(requests.map(request => request.path)).toEqual([
+     '/', '/desktop-smoke', '/desktop-smoke-install', '/desktop-smoke-installed', '/desktop-smoke-skills',
+     '/desktop-smoke-office/docx', '/desktop-smoke-office/xlsx', '/desktop-smoke-office/pptx',

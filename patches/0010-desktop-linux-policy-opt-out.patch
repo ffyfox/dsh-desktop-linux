@@ -17,7 +17,7 @@ index 7b2230a..18878cd 100644
   * Resolve policy settings before artifact preparation or signing.
   * @param environment File-owned release settings; only the selected origin is required.
 diff --git a/apps/desktop/scripts/desktop-policy-environment.mjs b/apps/desktop/scripts/desktop-policy-environment.mjs
-index 5911475..5df4e46 100644
+index dafaa41..e9a5d58 100644
 --- a/apps/desktop/scripts/desktop-policy-environment.mjs
 +++ b/apps/desktop/scripts/desktop-policy-environment.mjs
 @@ -10,6 +10,17 @@ function origin(value, name) {

@@ -1,5 +1,5 @@
 diff --git a/.gitignore b/.gitignore
-index 6255c70..664daad 100644
+index 7024b06..a208663 100644
 --- a/.gitignore
 +++ b/.gitignore
 @@ -2,6 +2,7 @@ CLAUDE.local.md
@@ -71,12 +71,12 @@ index ec9da72..76c07e5 100644
    options?: { unsigned?: boolean, prepareOnly?: boolean, skipNotarization?: boolean },
  ): void
 diff --git a/apps/desktop/scripts/desktop-package-environment.mjs b/apps/desktop/scripts/desktop-package-environment.mjs
-index 83e9dbb..79627c3 100644
+index d301ac4..d17c68b 100644
 --- a/apps/desktop/scripts/desktop-package-environment.mjs
 +++ b/apps/desktop/scripts/desktop-package-environment.mjs
 @@ -7,7 +7,8 @@ import { readDesktopPackageSettings as readSettings } from './desktop-file-setti
  import { resolveDesktopAppId, resolveMacOSNotarizationEnvironment, resolveMacOSSigningEnvironment, resolveNpmRegistry } from './desktop-release-environment.mjs'
- import { resolveDesktopAutoUpdateConfig } from './desktop-auto-update-environment.mjs'
+ import { resolveDesktopAutoUpdateConfig } from '@deepseek-ai/dsh-desktop-publisher/desktop-auto-update-environment.mjs'
  import { createWindowsTokenSigner } from './windows-sign.mjs'
 -import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
 +import { desktopPlatformEmbedsPolicy, resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
@@ -168,7 +168,7 @@ index 83e9dbb..79627c3 100644
      resolveMacOSSigningEnvironment(environment)
      if (!options.skipNotarization) {
 diff --git a/apps/desktop/scripts/desktop-toolchain-preflight.ts b/apps/desktop/scripts/desktop-toolchain-preflight.ts
-index ff855cf..a568c80 100644
+index da0f06a..38ad7f3 100644
 --- a/apps/desktop/scripts/desktop-toolchain-preflight.ts
 +++ b/apps/desktop/scripts/desktop-toolchain-preflight.ts
 @@ -13,6 +13,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -177,9 +177,9 @@ index ff855cf..a568c80 100644
  import { promisify } from 'node:util'
 +import { resolveDesktopLinuxFormats } from './desktop-linux-packages.mjs'
  
- const run = promisify(execFile)
+ import { scrubWindowsSigningEnvironment } from './windows-sign.mjs'
  
-@@ -43,6 +44,16 @@ async function probeTar(): Promise<string | undefined> {
+@@ -45,6 +46,16 @@ async function probeTar(): Promise<string | undefined> {
    }
  }
  
@@ -195,8 +195,8 @@ index ff855cf..a568c80 100644
 +
  async function probeWindowsInstallerToolchain(environment: NodeJS.ProcessEnv): Promise<DesktopToolchainProbeFailure[]> {
    const failures: DesktopToolchainProbeFailure[] = []
-   const programFiles = environment['ProgramFiles(x86)']
-@@ -71,17 +82,23 @@ async function probeWindowsInstallerToolchain(environment: NodeJS.ProcessEnv): P
+   try {
+@@ -81,17 +92,23 @@ async function probeWindowsInstallerToolchain(environment: NodeJS.ProcessEnv): P
  /**
   * Probe every external tool one packaging run needs.
   * @param platform - Target platform; a Windows target already requires a Windows build host.
@@ -222,7 +222,7 @@ index ff855cf..a568c80 100644
    return failures
  }
  
-@@ -92,7 +109,7 @@ export async function probeDesktopToolchain(
+@@ -102,7 +119,7 @@ export async function probeDesktopToolchain(
   * @returns Resolves when every probe passes.
   */
  export async function requireDesktopToolchain(

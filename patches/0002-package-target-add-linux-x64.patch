@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/scripts/desktop-upload-plan.ts b/apps/desktop/scripts/desktop-upload-plan.ts
-index 39ff954..c33f0e1 100644
+index 2e57bdb..12608a7 100644
 --- a/apps/desktop/scripts/desktop-upload-plan.ts
 +++ b/apps/desktop/scripts/desktop-upload-plan.ts
-@@ -21,6 +21,8 @@ const TARGETS = {
+@@ -24,6 +24,8 @@ const TARGETS = {
    'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
    'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
    'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
@@ -12,7 +12,7 @@ index 39ff954..c33f0e1 100644
    readonly platform: NodeJS.Platform
    readonly arch: string
 diff --git a/apps/desktop/scripts/package-target.ts b/apps/desktop/scripts/package-target.ts
-index b6bc6ef..3bf51db 100644
+index ea24452..00b8c86 100644
 --- a/apps/desktop/scripts/package-target.ts
 +++ b/apps/desktop/scripts/package-target.ts
 @@ -48,14 +48,14 @@ const DESKTOP_UPLOAD_CREDENTIAL_ENV_NAMES = new Set([

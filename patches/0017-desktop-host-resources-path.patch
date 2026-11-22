@@ -1,10 +1,10 @@
 diff --git a/apps/desktop-host/src/index.ts b/apps/desktop-host/src/index.ts
-index 0c53fd5..c972b35 100644
+index e9f9d24..c7271d5 100644
 --- a/apps/desktop-host/src/index.ts
 +++ b/apps/desktop-host/src/index.ts
-@@ -16,6 +16,18 @@ import { installDesktopQuitInspection } from './quit-inspection.ts'
- import { installPlatformSessionPublisher } from './platform-session.ts'
- import { installOperationDiagnostics } from './operation-diagnostics.ts'
+@@ -18,6 +18,18 @@ import { installOperationDiagnostics } from './operation-diagnostics.ts'
+ import { DesktopAuthenticationEnd, receiveDesktopSecret } from './authentication.ts'
+ import * as DesktopAuthentication from '@deepseek-ai/dsh-host-authentication-desktop'
  
 +// An Electron process exposes its resources directory as `process.resourcesPath`; a standalone Node
 +// (the Linux Host runtime) has no such concept. The shell passes the packaged installation's
@@ -20,9 +20,9 @@ index 0c53fd5..c972b35 100644
 +
  async function main(): Promise<void> {
    const runId = randomUUID() as PluginOperationRunId
-   if (process.connected) process.send?.({ type: 'starting', runId }, (error) => { if (error !== null) console.error(error) })
+   const authentication = receiveDesktopSecret(process)
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index b67e46c..d98b494 100644
+index db8d9b7..5f2cf0d 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
 @@ -203,6 +203,8 @@ interface RuntimeResources {
@@ -89,10 +89,10 @@ index 63144b4..2b08e88 100644
        DSH_DESKTOP_NODE_EXECUTABLE: runtime.executable,
        PATH: `${bin}${delimiter}${environment.PATH ?? ''}`,
 diff --git a/apps/desktop/tests/host-process.spec.ts b/apps/desktop/tests/host-process.spec.ts
-index 4be008c..21cbde6 100644
+index 9774e75..32cc90f 100644
 --- a/apps/desktop/tests/host-process.spec.ts
 +++ b/apps/desktop/tests/host-process.spec.ts
-@@ -15,6 +15,7 @@ const hosts: DesktopHostProcess[] = []
+@@ -21,6 +21,7 @@ const hosts: DesktopHostProcess[] = []
  const HOST_RUNTIME = { executable: process.execPath, electron: true }
  
  const HTTP_HOST = `
@@ -100,21 +100,21 @@ index 4be008c..21cbde6 100644
  import { createServer } from 'node:http'
  import { writeFileSync } from 'node:fs'
  import { join } from 'node:path'
-@@ -31,7 +32,7 @@ const server = createServer((request, response) => {
+@@ -46,7 +47,7 @@ const server = createServer((request, response) => {
      return
    }
    response.setHeader('content-type', 'application/json')
--  response.end(JSON.stringify({runtime: process.argv[2], profile: process.argv[3], cwd: process.cwd(), nodePath: process.env.NODE_PATH, registry: process.env.NPM_CONFIG_REGISTRY, nodeOptions: process.env.NODE_OPTIONS, runAsNode: process.env.ELECTRON_RUN_AS_NODE, internals: process.execArgv.includes('--expose-internals')}))
-+  response.end(JSON.stringify({runtime: process.argv[2], profile: process.argv[3], cwd: process.cwd(), nodePath: process.env.NODE_PATH, registry: process.env.NPM_CONFIG_REGISTRY, nodeOptions: process.env.NODE_OPTIONS, runAsNode: process.env.ELECTRON_RUN_AS_NODE, resourcesPath: process.resourcesPath, internals: process.execArgv.includes('--expose-internals')}))
+-  response.end(JSON.stringify({runtime: process.argv[2], profile: process.argv[3], cwd: process.cwd(), nodePath: process.env.NODE_PATH, registry: process.env.NPM_CONFIG_REGISTRY, nodeOptions: process.env.NODE_OPTIONS, runAsNode: process.env.ELECTRON_RUN_AS_NODE, internals: process.execArgv.includes('--expose-internals'), privateAuth: authenticationReceived && /^[A-Za-z0-9_-]{43}$/.test(receivedSecret) && !JSON.stringify(process.argv).includes(receivedSecret) && !JSON.stringify(process.env).includes(receivedSecret)}))
++  response.end(JSON.stringify({runtime: process.argv[2], profile: process.argv[3], cwd: process.cwd(), nodePath: process.env.NODE_PATH, registry: process.env.NPM_CONFIG_REGISTRY, nodeOptions: process.env.NODE_OPTIONS, runAsNode: process.env.ELECTRON_RUN_AS_NODE, resourcesPath: process.resourcesPath, internals: process.execArgv.includes('--expose-internals'), privateAuth: authenticationReceived && /^[A-Za-z0-9_-]{43}$/.test(receivedSecret) && !JSON.stringify(process.argv).includes(receivedSecret) && !JSON.stringify(process.env).includes(receivedSecret)}))
  })
- server.listen(0, '127.0.0.1', () => {
-   process.send({ type: 'ready', url: 'http://127.0.0.1:' + server.address().port + '/?token=fixture' })
-@@ -316,7 +317,26 @@ ${HTTP_HOST}`)
+ server.listen(0, '127.0.0.1', () => { listening = true; publishReady() })
+ process.on('message', message => {
+@@ -422,7 +423,26 @@ process.send({ type: 'starting', runId: randomUUID() })
      })
      const { url } = await host.start()
      const response = await fetch(url)
--    expect(await response.json()).toEqual({ runtime, profile, cwd: realpathSync(profile), nodePath: '/custom', registry: 'https://registry.example.test/', nodeOptions: '--no-warnings', runAsNode: '1', internals: true })
-+    expect(await response.json()).toEqual({ runtime, profile, cwd: realpathSync(profile), nodePath: '/custom', registry: 'https://registry.example.test/', nodeOptions: '--no-warnings', runAsNode: '1', resourcesPath: process.resourcesPath, internals: true })
+-    expect(await response.json()).toEqual({ runtime, profile, cwd: realpathSync(profile), nodePath: '/custom', registry: 'https://registry.example.test/', nodeOptions: '--no-warnings', runAsNode: '1', internals: true, privateAuth: true })
++    expect(await response.json()).toEqual({ runtime, profile, cwd: realpathSync(profile), nodePath: '/custom', registry: 'https://registry.example.test/', nodeOptions: '--no-warnings', runAsNode: '1', resourcesPath: process.resourcesPath, internals: true, privateAuth: true })
 +  })
 +
 +  it('publishes the packaged resources root to a standalone Host without touching an Electron one', async () => {
