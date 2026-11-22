@@ -84,7 +84,7 @@ DSH_DESKTOP_GLASS=1 deepseek-harness
 
 ## 从源码构建
 
-依赖：Node 24.9+（**别用发行版自己打的 Node**，见下）、**pnpm 11**、git。
+依赖：Node 24.22.3+ / 26.13.1+（**别用发行版自己打的 Node**，见下）、**pnpm 11**、git。
 打 rpm 还需要系统有 `rpmbuild`。
 
 ```bash
@@ -106,7 +106,7 @@ deb / rpm 的 `Maintainer` 与 `Homepage` 取自 `upstream/apps/desktop/.env.lin
 
 ### 硬性前提
 
-- **Node 24.9+（需支持 TypeScript 类型剥离）**：部分发行版自己打的 Node 裁掉了该特性，会在构建第一步报错；请使用 nodejs.org 官方包。
+- **Node 24.22.3+ 或 26.13.1+（需支持 TypeScript 类型剥离）**：部分发行版自己打的 Node 裁掉了该特性，会在构建第一步报错；请使用 nodejs.org 官方包。
 - **pnpm 11（需通过 npm 或 corepack 安装）**：上游声明 `packageManager: pnpm@11.28.5`，且构建脚本会直接用 `node` 执行 `pnpm` 入口。官方 standalone 安装器、Homebrew，以及部分滚动发行版的系统包（如 Arch Linux 的 pnpm 12 自管理切换后）给的是二进制入口（`@pnpm/exe`），会报 `SyntaxError`；`build.sh` 与 `PKGBUILD` 检测到系统 `pnpm` 不合用时会自动回退到隔离版 `~/.local/share/dsh-pnpm-11`，可提前装好：
 
   ```bash

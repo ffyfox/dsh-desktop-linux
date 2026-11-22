@@ -1,6 +1,6 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `d98f5d68`（tag `dsh-v0.2.3-alpha.1`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `4b399c39`（tag `dsh-v0.2.3-alpha.2`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -27,23 +27,11 @@ hunk 一起带进来。
 `tests/preload-windows.client.spec.ts`、`tests/welcome-window.spec.ts` 与 `packages/client/ui-sidebar/src/client/SidebarRoot.module.css`，同样依赖于前序补丁落位；因此 `apply-patches.sh --check` 对干净树只会让
 `0001`–`0016` 逐个通过，全套验证需走顺序 `git apply` 与 `patch -Np1`。
 
-已验证（0.2.3-alpha.1）：本版为跨 minor 完整同步（相对 `0.2.2-rc.5` 共 2,343 笔提交、7,496 文件变更，含上游将桌面发布脚本与测试拆至 `apps/desktop-publisher/`、Host 认证链路重构、应用菜单新增「设置」及客户端样式改为框架挂载安装）；
-17 个补丁中 `0004`、`0011` 与 `rc.5` 逐字节一致，11 个三路自动合并零冲突（`0001` 的 3 个文件与 `0007` 的 1 个单测顺应迁至 `apps/desktop-publisher/`），仅 4 个测试文件冲突定点裁决（`0008` `desktop-host.e2e.ts`、`0017` `host-process.spec.ts`、`0018` `web-document.spec.ts`、`0019` `sidebar-styles.client.spec.ts`），另 `0009` 新增适配上游重写的 `tests/smoke-runtime.spec.ts`。
-`0001`–`0016` 在干净树独立 `git apply --check` 全过；17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.3-alpha.1`）与 `git archive` 上，`patch -Np1 --fuzz=0`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）均干净通过且 91 项变更文件（含 `tray-linux.png`）两条路线逐字节一致；`makepkg --verifysource` 校验 19 项 source 全部通过。
-`build.sh --all` 一次出齐三格式：AppImage `375,053,220` B（sha256 `132ff3a1…`）、deb `296,333,264` B
-（`0dc9cd33…`）、rpm `247,717,640` B（`8a27e00f…`），`runtime:primary-smoke`、`runtime:smoke` 与
-`smoke-packaged-runtime` 均通过。`verify.sh --runtime` **49 通过 / 0 失败 / 7 跳过**（6 个为旧版
-`rc.4`/`rc.5` 产物跳过、1 个为 `3080` 未监听）：核心二进制最高 GLIBC `2.28`（≤ 2.31）、可选语音 `2.32`
-（≤ 2.32），Host 跑在 `primary-runtime` 独立 Node 上且收到 `DSH_DESKTOP_RESOURCES_PATH`（`0017`），
-`data-windows-titlebar` 与 `[data-windows-menu]` 在场（`0016`），2 个渲染进程均在独立 user namespace
-且 seccomp 生效，StatusNotifierItem 托盘菜单可读，共享根隔离且真实 `~/.dsh` 未被触碰。产物内
-`resources/runtime/cli` 不存在、`dsh/package.json` 版本 `0.2.3-alpha.1`、`resources/app/package.json` 的
-`dshBuildCommit` 记 `d98f5d68…`（`dshBuildDirty: true`）。去代理下上游桌面与发布器单测
-（`apps/desktop/tests` + `apps/desktop-host/tests` + `apps/desktop-publisher/tests` + `apps/cli/tests/desktop-host.e2e.ts`）
-`198` 文件 `2418` 通过 / `70` 跳过 / `0` 失败，补丁关联客户端包（`ui-layout`、`ui-sidebar`、
-`ui-brand-official`、`ui-plugin-manager`、`ui-schedule`、`client-build-environment`）`54` 文件 `1465`
-用例全通过。`0018` 玻璃模式隔离 CDP 探针复核确认新版延迟样式挂载下侧栏半透明（`color(srgb … / 0.4)`）、
-内容区实色、`scrollFade` 隐藏与 `newSession` 底色均无回退。
+已验证（0.2.3-alpha.2）：相对 `0.2.3-alpha.1` 共 5 笔提交（核心为 Node 门槛升至 `^24.22.3 || >=26.13.1`、Electron `44.7.0` → `44.11.5`、`primary-runtime` Node `24.21.0` → `24.22.3`、`node-addon-require-builtin` `0.1.9` → `0.1.10` 与 `undici` 安全覆写，加 vendor 与工作区版本号更新）；17 个补丁零重生、与 `0.2.3-alpha.1` 逐字节一致（仅 `0006` 触及 `apps/desktop/package.json`，零冲突零偏移）。
+`0001`–`0016` 在干净树独立 `git apply --check` 全过；17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.3-alpha.2`）与 `git archive` 上，`patch -Np1 --fuzz=0`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）均干净通过且两条路线逐字节一致；`makepkg --verifysource` 校验 19 项 source 全部通过。
+`build.sh --all` 一次出齐三格式：AppImage `375,610,759` B（sha256 `d20fd632…`）、deb `296,977,756` B（`01509fce…`）、rpm `248,039,820` B（`3f236be1…`），`runtime:primary-smoke`、`runtime:smoke` 与 `smoke-packaged-runtime` 均通过。
+`verify.sh --runtime` **49 通过 / 0 失败 / 7 跳过**（6 个为旧版 `0.2.2-rc.5`/`0.2.3-alpha.1` 产物跳过、1 个为 `3080` 未监听）：核心二进制最高 GLIBC `2.28`（≤ 2.31）、可选语音 `2.32`（≤ 2.32），Host 跑在 `primary-runtime` Node `24.22.3` 上且收到 `DSH_DESKTOP_RESOURCES_PATH`（`0017`），`data-windows-titlebar` 与 `[data-windows-menu]` 在场（`0016`），2 个渲染进程均在独立 user namespace 且 seccomp 生效，StatusNotifierItem 托盘菜单可读，共享根隔离且真实 `~/.dsh` 未被触碰。产物内 `resources/runtime/cli` 不存在、`dsh/package.json` 版本 `0.2.3-alpha.2`、Electron `44.11.5`、`resources/app/package.json` 的 `dshBuildCommit` 记 `4b399c39…`（`dshBuildDirty: true`）。
+去代理下上游桌面与发布器单测（`apps/desktop/tests` + `apps/desktop-host/tests` + `apps/desktop-publisher/tests` + `apps/cli/tests/desktop-host.e2e.ts`）`198` 文件 `2418` 通过 / `70` 跳过 / `0` 失败，补丁关联客户端包及构建环境单测（`ui-layout`、`ui-sidebar*`、`ui-brand-official`、`ui-plugin-manager`、`ui-schedule`、`client-build-environment`）`171` 文件 `2895` 用例全通过。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -300,7 +288,7 @@ GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩�
 ## 注意
 
 - **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
-  实测 2026-11-22（0.2.3-alpha.1）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
+  实测 2026-11-22（0.2.3-alpha.2）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
   apps/desktop/tests apps/desktop-host/tests apps/desktop-publisher/tests apps/cli/tests/desktop-host.e2e.ts`
   → 0 失败（198 个文件：193 通过 / 5 跳过；2488 个用例：2418 通过 / 70 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、
   `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI
