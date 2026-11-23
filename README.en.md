@@ -172,7 +172,7 @@ problem, please open an [issue](https://github.com/ffyfox/dsh-desktop-linux/issu
 - **The AppImage needs FUSE 2 (`libfuse.so.2`) on the system.** Mainstream distributions now install only FUSE 3 by default, so running the AppImage directly fails with `dlopen(): error loading libfuse.so.2`. Install the matching package — Fedora `sudo dnf install fuse-libs`, Debian 13 and Ubuntu 24.04+ `sudo apt install libfuse2t64` (`libfuse2` on Ubuntu 22.04) — or bypass it with `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage`.
 - **No auto-update.** Upstream's update channels only target Windows and macOS; the Linux build embeds no update policy and does not auto-update.
 - **No "install the command line tool" entry.** Upstream only implements the menu action that adds `dsh` to PATH on macOS and Windows; to use `dsh` in a terminal, install it yourself or invoke the bundled `resources/app/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js` (with the node under `resources/runtime/primary-runtime`).
-- **Unsigned.** Artifacts are unsigned builds (no code signing), but each release includes `SHA256SUMS` and GitHub build provenance attestations that can be verified with `sha256sum -c SHA256SUMS` or `gh attestation verify <file> --repo ffyfox/dsh-desktop-linux --signer-workflow ffyfox/dsh-desktop-linux/.github/workflows/build.yml`.
+- **Unsigned.** Artifacts are unsigned builds; releases include `SHA256SUMS` and GitHub build provenance.
 - **Platform sees a Linux client as macOS.** Upstream maps client identity with `platform === 'win32' ? 'desktop-win' : 'desktop-mac'`, so Linux lands on `desktop-mac` (`device_model` in the same request is still `linux-x64` or `linux-arm64`).
 
 ## License
