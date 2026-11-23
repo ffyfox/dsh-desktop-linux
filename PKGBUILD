@@ -26,7 +26,7 @@ _srcdirname="deepseek-harness-$_tag"
 pkgdesc='Official DeepSeek Harness desktop application (Electron shell around a bundled dsh runtime)'
 # 两个架构都出，但都必须在各自的机器上原生打：package-target 的宿主守卫要求宿主架构 == 目标
 # 架构（交叉构建在 prepare 阶段就会去执行目标平台的 Electron/Node/Python）。所以 CI 是两个
-# arch job：x86_64 跑在 ubuntu-latest + archlinux 镜像，aarch64 跑在 ubuntu-24.04-arm +
+# arch job：x86_64 跑在 ubuntu-26.04 + archlinux 镜像，aarch64 跑在 ubuntu-26.04-arm +
 # Arch Linux ARM 镜像。makepkg 侧按 $CARCH 选目标，见 build() 与 package()。
 arch=('x86_64' 'aarch64')
 url='https://github.com/ffyfox/dsh-desktop-linux'

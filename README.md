@@ -168,7 +168,7 @@ cd pkgbuild && makepkg -si
 - **AppImage 要系统提供 FUSE 2（`libfuse.so.2`）。** 主流发行版现在默认只装 FUSE 3，直接运行会报 `dlopen(): error loading libfuse.so.2`。装对应包即可：Fedora `sudo dnf install fuse-libs`、Debian 13 与 Ubuntu 24.04+ `sudo apt install libfuse2t64`（Ubuntu 22.04 为 `libfuse2`）；或用 `APPIMAGE_EXTRACT_AND_RUN=1 ./deepseek-harness-*.AppImage` 绕过。
 - **没有自动更新。** 上游更新通道仅面向 Windows 与 macOS，Linux 版不嵌入更新策略、不会自动更新。
 - **没有「安装命令行工具」入口。** 上游仅在 macOS / Windows 实现了从菜单把 `dsh` CLI 装进 PATH 的分支；在终端使用 `dsh` 需自行安装，或直接调用应用自带的 `resources/app/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js`（配 `resources/runtime/primary-runtime` 里的 node）。
-- **不签名。** 产物是 unsigned 构建。
+- **不签名。** 产物是 unsigned 构建（无代码签名），但每次 Release 附带 `SHA256SUMS` 与 GitHub 构建溯源证明，可通过 `sha256sum -c SHA256SUMS` 或 `gh attestation verify <文件> --repo ffyfox/dsh-desktop-linux --signer-workflow ffyfox/dsh-desktop-linux/.github/workflows/build.yml` 校验产物完整性与构建来源。
 - **Platform 侧会把 Linux 客户端认成 macOS。** 上游客户端身份映射为 `platform === 'win32' ? 'desktop-win' : 'desktop-mac'`，Linux 落到 `desktop-mac`（同一请求里的 `device_model` 仍为 `linux-x64` 或 `linux-arm64`）。
 
 ## 许可
