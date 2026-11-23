@@ -10,14 +10,15 @@ name: attach-release-assets
 #   gh workflow run attach-release-assets.yml \
 #     -f run_id=<build-linux 的 run id> -f tag=<草稿 Release 的 tag>
 #
-# 校验：run 必须来自 .github/workflows/build.yml 且已完成并成功（completed / success）；
-# run 的 head_sha 必须等于 tag ref 指向的提交；Release 必须是 draft；上传后逐个核对
+# 校验：run 必须来自 .github/workflows/build.yml（tag push）且已完成并成功（completed / success）；
+# run 的 head_sha 与 head_branch 必须等于 tag ref 指向的提交与 tag 名；Release 必须是 draft；
+# 上传前校验 8 件产物与 SHA256SUMS 的版本一致性及 GitHub 构建溯源证明；上传后逐个核对
 # API 里的 sha256 digest 与本地文件，不一致就红。
 on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: 'build-linux 的 run id（tag 或空跑那次，产物在它的 artifacts 里）'
+        description: 'build-linux 的 tag 构建 run id（产物在它的 artifacts 里）'
         required: true
       tag:
         description: '已存在的草稿 Release 的 tag'
@@ -26,16 +27,18 @@ on:
 permissions:
   contents: write
   actions: read
+  attestations: read
 
 jobs:
   attach:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     # 本 job 不 checkout 仓库，gh 找不到仓库上下文；上传/查看 Release 都靠它。
     env:
       GH_REPO: ${{ github.repository }}
     steps:
       - name: 校验 run、tag 与草稿 Release
+        id: check
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -47,15 +50,20 @@ jobs:
             echo "非法的 run_id：'$RUN_ID'（必须为纯数字）" >&2
             exit 1
           fi
-          if [[ ! "$TAG" =~ ^v[A-Za-z0-9._+-]+$ || "$TAG" == *..* ]]; then
+          re_tag='^v([0-9]+\.[0-9]+\.[0-9]+((alpha|beta|rc)[0-9]+)?)(-([1-9][0-9]*))?$'
+          if [[ ! "$TAG" =~ $re_tag ]]; then
             echo "非法的 tag：'$TAG'" >&2
             exit 1
           fi
+          tag_pkgver="${BASH_REMATCH[1]}"
+          tag_pkgrel="${BASH_REMATCH[5]:-}"
 
           run_json="$(gh api "repos/$REPO/actions/runs/$RUN_ID")"
           run_path="$(jq -r '.path // ""' <<<"$run_json")"
           run_status="$(jq -r '.status // ""' <<<"$run_json")"
           run_conclusion="$(jq -r '.conclusion // ""' <<<"$run_json")"
+          run_event="$(jq -r '.event // ""' <<<"$run_json")"
+          run_branch="$(jq -r '.head_branch // ""' <<<"$run_json")"
           run_sha="$(jq -r '.head_sha // ""' <<<"$run_json")"
 
           if [[ "$run_path" != ".github/workflows/build.yml" ]]; then
@@ -64,6 +72,10 @@ jobs:
           fi
           if [[ "$run_status" != "completed" || "$run_conclusion" != "success" ]]; then
             echo "run $RUN_ID 未成功完成（status=$run_status, conclusion=$run_conclusion）" >&2
+            exit 1
+          fi
+          if [[ "$run_event" != "push" || "$run_branch" != "$TAG" ]]; then
+            echo "run $RUN_ID 不是针对 tag $TAG 的 push 构建（event=$run_event, head_branch=$run_branch）" >&2
             exit 1
           fi
           if [[ ! "$run_sha" =~ ^[0-9a-f]{40}$ ]]; then
@@ -99,9 +111,14 @@ jobs:
             echo "Release $TAG 不是草稿（draft=$draft）；只允许往草稿上传" >&2
             exit 1
           fi
+          {
+            printf 'tag_sha=%s\n' "$tag_sha"
+            printf 'tag_pkgver=%s\n' "$tag_pkgver"
+            printf 'tag_pkgrel=%s\n' "$tag_pkgrel"
+          } >> "$GITHUB_OUTPUT"
           echo "校验通过：run=$RUN_ID path=$run_path status=$run_status conclusion=$run_conclusion sha=$run_sha tag=$TAG"
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: deepseek-harness-desktop-linux-*
           merge-multiple: true
@@ -113,7 +130,7 @@ jobs:
       # Arch 包是独立的 job、独立的 artifact 名（deepseek-harness-desktop-arch 与
       # -arch-aarch64），不在上面那个 pattern 里；arm64-deb-only 同理，它故意不带前缀。
       # 两个架构都解包到同一个 assets/，下面的上传循环就自动带上它们。
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: deepseek-harness-desktop-arch*
           merge-multiple: true
@@ -122,12 +139,15 @@ jobs:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
 
-      - name: 生成 SHA256SUMS、上传并核对 digest
+      - name: 校验版本、生成 SHA256SUMS、验签溯源、上传并核对 digest
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           RUN_ID: ${{ inputs.run_id }}
           TAG: ${{ inputs.tag }}
+          TAG_SHA: ${{ steps.check.outputs.tag_sha }}
+          TAG_PKGVER: ${{ steps.check.outputs.tag_pkgver }}
+          TAG_PKGREL: ${{ steps.check.outputs.tag_pkgrel }}
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -136,28 +156,71 @@ jobs:
             echo "没有下载到任何产物（run $RUN_ID 的 artifacts 为空？）" >&2
             exit 1
           fi
-          # 8 件必须齐全（两架构的 AppImage/deb/rpm + Arch 包）；不再在本机全量下载后，
-          # 由这里兜底防止漏传某个架构的产物。
-          for pattern in \
-            '*-x86_64-unsigned.AppImage' '*-amd64-unsigned.deb' '*-x86_64-unsigned.rpm' \
-            '*-arm64-unsigned.AppImage' '*-arm64-unsigned.deb' '*-aarch64-unsigned.rpm' \
-            '*-x86_64.pkg.tar.zst' '*-aarch64.pkg.tar.zst'; do
-            if ! compgen -G "assets/${pattern}" >/dev/null; then
-              echo "缺少匹配 ${pattern} 的产物 —— 检查 run $RUN_ID 的 artifacts" >&2
-              exit 1
-            fi
-          done
           if (( ${#files[@]} != 8 )); then
-            echo "产物数量为 ${#files[@]}，期望 8 个" >&2
+            echo "产物数量为 ${#files[@]}，期望 8 个（run $RUN_ID）" >&2
+            ls -la assets >&2 || true
             exit 1
           fi
 
-          # 写到 assets/ 外再汇总上传，避免 * 把正在重定向创建的 SHA256SUMS 自己也算进去。
+          # 8 件必须齐全且版本号与 tag 一致（两架构的 AppImage/deb/rpm + Arch 包）。
+          upstream_ver="$TAG_PKGVER"
+          if [[ "$TAG_PKGVER" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(alpha|beta|rc)([0-9]+)$ ]]; then
+            upstream_ver="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+          fi
+
+          expected_pkgrel="$TAG_PKGREL"
+          if [[ -z "$expected_pkgrel" ]]; then
+            arch_x64=(assets/"dsh-desktop-linux-${TAG_PKGVER}-"*"-x86_64.pkg.tar.zst")
+            if (( ${#arch_x64[@]} != 1 )); then
+              echo "期望恰好 1 个匹配 dsh-desktop-linux-${TAG_PKGVER}-*-x86_64.pkg.tar.zst 的产物，实际 ${#arch_x64[@]} 个" >&2
+              ls -la assets >&2 || true
+              exit 1
+            fi
+            arch_x64_name="$(basename "${arch_x64[0]}")"
+            pkgrel_prefix="dsh-desktop-linux-${TAG_PKGVER}-"
+            pkgrel_suffix="-x86_64.pkg.tar.zst"
+            expected_pkgrel="${arch_x64_name#"$pkgrel_prefix"}"
+            expected_pkgrel="${expected_pkgrel%"$pkgrel_suffix"}"
+            if [[ ! "$expected_pkgrel" =~ ^[1-9][0-9]*$ ]]; then
+              echo "从 $arch_x64_name 提取的 pkgrel 非法：'$expected_pkgrel'" >&2
+              exit 1
+            fi
+          fi
+
+          expected_files=(
+            "deepseek-harness-${upstream_ver}-linux-x86_64-unsigned.AppImage"
+            "deepseek-harness-${upstream_ver}-linux-amd64-unsigned.deb"
+            "deepseek-harness-${upstream_ver}-linux-x86_64-unsigned.rpm"
+            "deepseek-harness-${upstream_ver}-linux-arm64-unsigned.AppImage"
+            "deepseek-harness-${upstream_ver}-linux-arm64-unsigned.deb"
+            "deepseek-harness-${upstream_ver}-linux-aarch64-unsigned.rpm"
+            "dsh-desktop-linux-${TAG_PKGVER}-${expected_pkgrel}-x86_64.pkg.tar.zst"
+            "dsh-desktop-linux-${TAG_PKGVER}-${expected_pkgrel}-aarch64.pkg.tar.zst"
+          )
+          for ef in "${expected_files[@]}"; do
+            if [[ ! -f "assets/$ef" ]]; then
+              echo "缺少期望的产物文件：$ef（run $RUN_ID）" >&2
+              ls -la assets >&2 || true
+              exit 1
+            fi
+          done
+
+          # 写到 assets/ 外再汇总上传，排序与 build.yml attest job 完全一致，确保 SHA256SUMS 逐字节相同。
           (
             cd assets
-            LC_ALL=C sha256sum -- * | sort -k2
+            LC_ALL=C sha256sum -- * | LC_ALL=C sort -k2
           ) > SHA256SUMS
           upload_files=("${files[@]}" SHA256SUMS)
+
+          for f in "${upload_files[@]}"; do
+            echo "==> 校验构建溯源证明：$(basename "$f")"
+            gh attestation verify "$f" \
+              --repo "$REPO" \
+              --signer-workflow "$REPO/.github/workflows/build.yml" \
+              --source-ref "refs/tags/$TAG" \
+              --source-digest "$TAG_SHA" \
+              --deny-self-hosted-runners
+          done
 
           printf '准备上传 %d 个文件（8 个安装包 + SHA256SUMS）\n' "${#upload_files[@]}"
           gh release upload --clobber -- "$TAG" "${upload_files[@]}"

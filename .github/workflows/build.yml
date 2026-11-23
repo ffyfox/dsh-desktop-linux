@@ -14,6 +14,10 @@ permissions:
   contents: read
   # 构建与冒烟 job 均只持只读权限；id-token: write 与 attestations: write 仅授予最后的独立 attest job。
 
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   # 与上游自己的 CI 对齐（upstream/.github/workflows/ci.yml 的 PRIMARY_NODE_VERSION: '^24.22.3'）。
   # 仓库 engines 是 "^24.22.3 || >=26.13.1"，
@@ -34,15 +38,15 @@ jobs:
       matrix:
         include:
           - arch: x64
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-26.04
           - arch: arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
     # 整条流水线（build:official / release:pack / prepare:*）才是耗时大头，多打一种格式只多
     # 一次 fpm/AppImage 打包。所以这里一次跑完三种格式，而不是按格式拆成多个 job 各跑一遍
     # 全流水线（那是 3 倍时间）。
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -55,9 +59,35 @@ jobs:
           INPUT_REF: ${{ github.event.inputs.ref }}
         run: |
           set -euo pipefail
-          mapfile -t pkg_vals < <(bash -c 'source ./PKGBUILD; printf "%s\n%s\n" "${_tag:-}" "${_commit:-}"' 2>/dev/null || true)
-          pkg_tag="${pkg_vals[0]:-}"
-          pkg_commit="${pkg_vals[1]:-}"
+          mapfile -t pkg_vals < <(bash -c 'source ./PKGBUILD; printf "%s\n%s\n%s\n%s\n" "${pkgver:-}" "${pkgrel:-}" "${_tag:-}" "${_commit:-}"' 2>/dev/null || true)
+          pkg_ver="${pkg_vals[0]:-}"
+          pkg_rel="${pkg_vals[1]:-}"
+          pkg_tag="${pkg_vals[2]:-}"
+          pkg_commit="${pkg_vals[3]:-}"
+
+          if [[ ! "$pkg_tag" =~ ^dsh-v([0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?)$ ]]; then
+            echo "PKGBUILD 里的 _tag 非法或缺失：'$pkg_tag'" >&2
+            exit 1
+          fi
+          upstream_ver="${BASH_REMATCH[1]}"
+          expected_pkgver="$upstream_ver"
+          expected_pkgver="${expected_pkgver/-alpha./alpha}"
+          expected_pkgver="${expected_pkgver/-beta./beta}"
+          expected_pkgver="${expected_pkgver/-rc./rc}"
+          if [[ "$pkg_ver" != "$expected_pkgver" ]]; then
+            echo "PKGBUILD pkgver='$pkg_ver' 与 _tag='$pkg_tag' 推导值 '$expected_pkgver' 不一致" >&2
+            exit 1
+          fi
+          if [[ ! "$pkg_rel" =~ ^[1-9][0-9]*$ ]]; then
+            echo "PKGBUILD 里的 pkgrel 非法或缺失：'$pkg_rel'" >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if [[ "$GITHUB_REF_NAME" != "v${pkg_ver}" && "$GITHUB_REF_NAME" != "v${pkg_ver}-${pkg_rel}" ]]; then
+              echo "触发构建的 tag '$GITHUB_REF_NAME' 与 PKGBUILD pkgver='$pkg_ver' pkgrel='$pkg_rel' 不一致" >&2
+              exit 1
+            fi
+          fi
 
           ref="$INPUT_REF"
           is_default_ref=false
@@ -94,6 +124,7 @@ jobs:
             printf 'expected_commit=%s\n' "$expected_commit"
             printf 'is_default_ref=%s\n' "$is_default_ref"
             printf 'artifact_prefix=%s\n' "$artifact_prefix"
+            printf 'upstream_ver=%s\n' "$upstream_ver"
           } >> "$GITHUB_OUTPUT"
           echo "==> 上游 ref：$ref (default=$is_default_ref${expected_commit:+, commit=$expected_commit})"
 
@@ -127,11 +158,11 @@ jobs:
           printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
           echo "==> pnpm $version（来自 upstream/package.json 的 packageManager）"
 
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           version: ${{ steps.pnpm.outputs.version }}
 
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -166,10 +197,13 @@ jobs:
       - name: 验证
         run: ./scripts/verify.sh
 
+      # 仅作本 job 冒烟前后的卫生检查；正式构建溯源摘要由独立的 attest job 下载产物后重新计算。
       - name: 校验产物数量并记录校验和（冒烟前）
         env:
           TARGET_ARCH: ${{ matrix.arch }}
-          OUT_FILE: ${{ runner.temp }}/attest-checksums-linux-${{ matrix.arch }}.txt
+          IS_DEFAULT_REF: ${{ steps.upstream.outputs.is_default_ref }}
+          UPSTREAM_VER: ${{ steps.upstream.outputs.upstream_ver }}
+          OUT_FILE: ${{ runner.temp }}/smoke-checksums-linux-${{ matrix.arch }}.txt
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -181,6 +215,34 @@ jobs:
             echo "期望 .AppImage / .deb / .rpm 各恰好 1 个，实际：AppImage=${#appimages[@]} deb=${#debs[@]} rpm=${#rpms[@]}" >&2
             ls -la "$dir" >&2 || true
             exit 1
+          fi
+          if [[ "$IS_DEFAULT_REF" == "true" ]]; then
+            case "$TARGET_ARCH" in
+              x64)
+                expected_files=(
+                  "deepseek-harness-${UPSTREAM_VER}-linux-x86_64-unsigned.AppImage"
+                  "deepseek-harness-${UPSTREAM_VER}-linux-amd64-unsigned.deb"
+                  "deepseek-harness-${UPSTREAM_VER}-linux-x86_64-unsigned.rpm"
+                )
+                ;;
+              arm64)
+                expected_files=(
+                  "deepseek-harness-${UPSTREAM_VER}-linux-arm64-unsigned.AppImage"
+                  "deepseek-harness-${UPSTREAM_VER}-linux-arm64-unsigned.deb"
+                  "deepseek-harness-${UPSTREAM_VER}-linux-aarch64-unsigned.rpm"
+                )
+                ;;
+              *)
+                echo "未知 TARGET_ARCH：$TARGET_ARCH" >&2
+                exit 1
+                ;;
+            esac
+            for ef in "${expected_files[@]}"; do
+              if [[ ! -f "$dir/$ef" ]]; then
+                echo "缺少期望的产物文件：$ef（实际：$(ls -1 "$dir" | tr '\n' ' ')）" >&2
+                exit 1
+              fi
+            done
           fi
           (
             cd "$dir"
@@ -217,7 +279,7 @@ jobs:
 
       - name: 保留冒烟截图
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: linux-appimage-smoke-${{ matrix.arch }}
           path: ${{ runner.temp }}/dsh-smoke/*.png
@@ -227,7 +289,7 @@ jobs:
       - name: 复核产物未被冒烟改写
         env:
           TARGET_ARCH: ${{ matrix.arch }}
-          OUT_FILE: ${{ runner.temp }}/attest-checksums-linux-${{ matrix.arch }}.txt
+          OUT_FILE: ${{ runner.temp }}/smoke-checksums-linux-${{ matrix.arch }}.txt
         run: |
           set -euo pipefail
           (
@@ -235,18 +297,9 @@ jobs:
             sha256sum -c "$OUT_FILE"
           )
 
-      - name: 上传溯源校验清单（linux-${{ matrix.arch }}）
-        if: steps.upstream.outputs.is_default_ref == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: attest-checksums-linux-${{ matrix.arch }}
-          path: ${{ runner.temp }}/attest-checksums-linux-${{ matrix.arch }}.txt
-          if-no-files-found: error
-          retention-days: 14
-
       # 产物在 .desktop-build/ 下——这是个隐藏目录，而 upload-artifact 默认跳过隐藏文件，
       # 路径写对了也传不上去，必须显式打开 include-hidden-files。
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.upstream.outputs.artifact_prefix }}deepseek-harness-desktop-linux-${{ matrix.arch }}
           path: |
@@ -262,7 +315,7 @@ jobs:
       # 13 站的 attach-release-assets.yml 按该前缀下载产物，撞上会把同一个 deb 重复上传。
       - name: 只上传 arm64 deb（给 arm64 测试者）
         if: matrix.arch == 'arm64'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.upstream.outputs.artifact_prefix }}arm64-deb-only
           path: upstream/apps/desktop/.desktop-build/targets/linux-${{ matrix.arch }}/unsigned-artifacts/*.deb
@@ -287,11 +340,11 @@ jobs:
       matrix:
         include:
           - arch: x86_64
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-26.04
             image: archlinux:latest
             artifact: deepseek-harness-desktop-arch
           - arch: aarch64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-26.04-arm
             image: menci/archlinuxarm:base-devel
             artifact: deepseek-harness-desktop-arch-aarch64
     runs-on: ${{ matrix.runs-on }}
@@ -330,7 +383,7 @@ jobs:
       - name: 装工具链
         run: pacman -Syu --noconfirm --needed base-devel git nodejs npm pnpm python namcap
 
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -362,7 +415,7 @@ jobs:
       # 装完 depends 后 --nodeps 也不再需要，依赖检查恢复成真检查：包名写错会被 pacman 拒掉。
       - name: 装 depends（构建期要真的跑 Electron）
         run: |
-          mapfile -t deps < <(bash -c 'source ./PKGBUILD; printf "%s\n" "${depends[@]}"')
+          mapfile -t deps < <(runuser -u builder -- bash -c 'source ./PKGBUILD; printf "%s\n" "${depends[@]}"')
           printf 'depends: %s\n' "${deps[*]}"
           pacman -S --noconfirm --needed "${deps[@]}"
 
@@ -387,10 +440,10 @@ jobs:
 
       # 对外发 Arch 包，就得有人看一眼它长什么样（issue #13）：包名与 PKGBUILD 一致、
       # metadata 的 Packager 不是 "Unknown Packager"、装进 /opt 的关键路径都在。
-      # 不做真安装：pacman -U 装进临时 root 要连带解析 gtk3 那套 depends，为一条断言不值当。
+      # 冒烟前校验和仅作本 job 卫生检查，正式构建溯源摘要由独立 attest job 重新计算。
       - name: 校验包（元数据 + 关键路径）
         env:
-          OUT_FILE: ${{ runner.temp }}/attest-checksums-arch-${{ matrix.arch }}.txt
+          OUT_FILE: ${{ runner.temp }}/smoke-checksums-arch-${{ matrix.arch }}.txt
         run: |
           set -euo pipefail
           # 只认 pkgbuild/ 下恰好 1 个包文件本身（makepkg 还会生成 <pkgname>-<pkgver>.tar.gz
@@ -404,7 +457,34 @@ jobs:
           pkg="${found[0]}"
           # 包名 = <pkgname>-<pkgver>-<pkgrel>-<arch>.pkg.tar.zst；pacman 的架构名与
           # uname -m 在两种目标上同名（x86_64 / aarch64）。
-          want="$(bash -c 'source ./PKGBUILD; printf "%s-%s-%s" "$pkgname" "$pkgver" "$pkgrel"')-$(uname -m)"
+          mapfile -t pkg_meta < <(runuser -u builder -- bash -c 'source ./PKGBUILD; printf "%s\n%s\n%s\n%s\n" "${pkgname:-}" "${pkgver:-}" "${pkgrel:-}" "${_tag:-}"')
+          pkg_name="${pkg_meta[0]:-}"
+          pkg_ver="${pkg_meta[1]:-}"
+          pkg_rel="${pkg_meta[2]:-}"
+          pkg_tag="${pkg_meta[3]:-}"
+          if [[ ! "$pkg_tag" =~ ^dsh-v([0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?)$ ]]; then
+            echo "PKGBUILD 里的 _tag 非法或缺失：'$pkg_tag'" >&2
+            exit 1
+          fi
+          expected_pkgver="${BASH_REMATCH[1]}"
+          expected_pkgver="${expected_pkgver/-alpha./alpha}"
+          expected_pkgver="${expected_pkgver/-beta./beta}"
+          expected_pkgver="${expected_pkgver/-rc./rc}"
+          if [[ "$pkg_ver" != "$expected_pkgver" ]]; then
+            echo "PKGBUILD pkgver='$pkg_ver' 与 _tag='$pkg_tag' 推导值 '$expected_pkgver' 不一致" >&2
+            exit 1
+          fi
+          if [[ ! "$pkg_rel" =~ ^[1-9][0-9]*$ ]]; then
+            echo "PKGBUILD 里的 pkgrel 非法或缺失：'$pkg_rel'" >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if [[ "$GITHUB_REF_NAME" != "v${pkg_ver}" && "$GITHUB_REF_NAME" != "v${pkg_ver}-${pkg_rel}" ]]; then
+              echo "触发构建的 tag '$GITHUB_REF_NAME' 与 PKGBUILD pkgver='$pkg_ver' pkgrel='$pkg_rel' 不一致" >&2
+              exit 1
+            fi
+          fi
+          want="${pkg_name}-${pkg_ver}-${pkg_rel}-$(uname -m)"
           if [[ "$(basename "$pkg")" != "$want.pkg.tar.zst" ]]; then
             echo "包名 $(basename "$pkg") 与 PKGBUILD 的 $want 不一致" >&2
             exit 1
@@ -464,7 +544,7 @@ jobs:
 
       - name: 保留冒烟截图
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: arch-smoke-${{ matrix.arch }}
           path: ${{ runner.temp }}/dsh-smoke-arch/*.png
@@ -492,7 +572,7 @@ jobs:
 
       - name: 复核包未被冒烟改写
         env:
-          OUT_FILE: ${{ runner.temp }}/attest-checksums-arch-${{ matrix.arch }}.txt
+          OUT_FILE: ${{ runner.temp }}/smoke-checksums-arch-${{ matrix.arch }}.txt
         run: |
           set -euo pipefail
           (
@@ -500,15 +580,7 @@ jobs:
             sha256sum -c "$OUT_FILE"
           )
 
-      - name: 上传溯源校验清单（arch-${{ matrix.arch }}）
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: attest-checksums-arch-${{ matrix.arch }}
-          path: ${{ runner.temp }}/attest-checksums-arch-${{ matrix.arch }}.txt
-          if-no-files-found: error
-          retention-days: 14
-
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.artifact }}
           path: |
@@ -518,46 +590,97 @@ jobs:
           retention-days: 14
 
   # 仅在默认/tag 正式构建且 4 个构建 job 全部成功后，由只持 OIDC/attestation 权限的独立轻量 job
-  # 统一为 8 件产物签发构建溯源证明（构建与冒烟 job 全程不持有 id-token / attestations 写权限）。
+  # 独立下载 4 份构建产物计算 sha256 与 SHA256SUMS，并统一为 8 件产物 + SHA256SUMS 签发构建溯源证明
+  # （构建与冒烟 job 全程不持有 id-token / attestations 写权限）。
   attest:
     name: attest-provenance
     needs: [package, arch]
     if: success() && (github.event_name != 'workflow_dispatch' || inputs.ref == '')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: attest-checksums-*
+          pattern: deepseek-harness-desktop-linux-*
           merge-multiple: true
-          path: checksums
+          path: assets
 
-      - name: 汇总并核验 8 件产物校验清单
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: deepseek-harness-desktop-arch*
+          merge-multiple: true
+          path: assets
+
+      - name: 独立计算 8 件产物摘要并生成 SHA256SUMS
         env:
           OUT_FILE: ${{ runner.temp }}/attest-checksums-all.txt
         run: |
           set -euo pipefail
-          parts=(
-            checksums/attest-checksums-linux-x64.txt
-            checksums/attest-checksums-linux-arm64.txt
-            checksums/attest-checksums-arch-x86_64.txt
-            checksums/attest-checksums-arch-aarch64.txt
+          shopt -s nullglob
+          files=(assets/*)
+          if (( ${#files[@]} != 8 )); then
+            echo "期望 8 个构建产物，实际 ${#files[@]} 个" >&2
+            ls -la assets >&2 || true
+            exit 1
+          fi
+
+          arch_x64=(assets/dsh-desktop-linux-*-x86_64.pkg.tar.zst)
+          if (( ${#arch_x64[@]} != 1 )); then
+            echo "期望恰好 1 个 x86_64 Arch 包，实际 ${#arch_x64[@]} 个" >&2
+            exit 1
+          fi
+          arch_x64_name="$(basename "${arch_x64[0]}")"
+          re_arch='^dsh-desktop-linux-([0-9]+\.[0-9]+\.[0-9]+((alpha|beta|rc)[0-9]+)?)-([1-9][0-9]*)-x86_64\.pkg\.tar\.zst$'
+          if [[ ! "$arch_x64_name" =~ $re_arch ]]; then
+            echo "x86_64 Arch 包名格式非法：$arch_x64_name" >&2
+            exit 1
+          fi
+          pkg_ver="${BASH_REMATCH[1]}"
+          pkg_rel="${BASH_REMATCH[4]}"
+
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if [[ "$GITHUB_REF_NAME" != "v${pkg_ver}" && "$GITHUB_REF_NAME" != "v${pkg_ver}-${pkg_rel}" ]]; then
+              echo "触发构建的 tag '$GITHUB_REF_NAME' 与产物的 pkgver='$pkg_ver' pkgrel='$pkg_rel' 不一致" >&2
+              exit 1
+            fi
+          fi
+
+          upstream_ver="$pkg_ver"
+          if [[ "$pkg_ver" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(alpha|beta|rc)([0-9]+)$ ]]; then
+            upstream_ver="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+          fi
+
+          expected_files=(
+            "deepseek-harness-${upstream_ver}-linux-x86_64-unsigned.AppImage"
+            "deepseek-harness-${upstream_ver}-linux-amd64-unsigned.deb"
+            "deepseek-harness-${upstream_ver}-linux-x86_64-unsigned.rpm"
+            "deepseek-harness-${upstream_ver}-linux-arm64-unsigned.AppImage"
+            "deepseek-harness-${upstream_ver}-linux-arm64-unsigned.deb"
+            "deepseek-harness-${upstream_ver}-linux-aarch64-unsigned.rpm"
+            "dsh-desktop-linux-${pkg_ver}-${pkg_rel}-x86_64.pkg.tar.zst"
+            "dsh-desktop-linux-${pkg_ver}-${pkg_rel}-aarch64.pkg.tar.zst"
           )
-          for p in "${parts[@]}"; do
-            if [[ ! -f "$p" ]]; then
-              echo "缺少校验清单文件：$p" >&2
-              ls -la checksums >&2 || true
+          for ef in "${expected_files[@]}"; do
+            if [[ ! -f "assets/$ef" ]]; then
+              echo "缺少期望的产物文件：$ef（实际：$(ls -1 assets | tr '\n' ' ')）" >&2
               exit 1
             fi
           done
-          LC_ALL=C sort -k2 "${parts[@]}" > "$OUT_FILE"
+
+          (
+            cd assets
+            LC_ALL=C sha256sum -- * | LC_ALL=C sort -k2
+          ) > SHA256SUMS
+          cp SHA256SUMS "$OUT_FILE"
+          sha256sum -- SHA256SUMS >> "$OUT_FILE"
+
           mapfile -t lines < "$OUT_FILE"
-          if (( ${#lines[@]} != 8 )); then
-            echo "校验清单行数应为 8，实际 ${#lines[@]}" >&2
+          if (( ${#lines[@]} != 9 )); then
+            echo "校验清单行数应为 9，实际 ${#lines[@]}" >&2
             cat "$OUT_FILE" >&2
             exit 1
           fi
@@ -570,7 +693,7 @@ jobs:
           done
           cat "$OUT_FILE"
 
-      - name: 统一签发构建溯源证明（8 件正式产物）
+      - name: 统一签发构建溯源证明（8 件正式产物 + SHA256SUMS）
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-checksums: ${{ runner.temp }}/attest-checksums-all.txt
