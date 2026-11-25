@@ -477,8 +477,8 @@ if link_errors:
 else:
     emit("PASS", f"文档本地链接与图片目标检查通过（{len(md_files)} 份文档共 {link_count} 处相对链接）")
 
-# == 5. GitHub Workflow YAML 与 Action SHA 锁定 ==
-print("HEAD\t== 5. GitHub Workflow YAML 与 Action SHA 锁定 ==")
+# == 5. GitHub Workflow / Dependabot YAML 与 Action SHA 锁定 ==
+print("HEAD\t== 5. GitHub Workflow / Dependabot YAML 与 Action SHA 锁定 ==")
 
 wf_files = sorted(
     glob.glob(os.path.join(root, ".github", "workflows", "*.yml"))
@@ -534,6 +534,71 @@ else:
                 emit("FAIL", err)
         else:
             emit("PASS", f"全部 Workflow YAML 语法有效，且 {pinned_count} 处外部 Action 均锁定 40 位 SHA（{len(wf_files)} 个文件）")
+
+        dep_yml = os.path.join(root, ".github", "dependabot.yml")
+        dep_yaml = os.path.join(root, ".github", "dependabot.yaml")
+        has_yml = os.path.isfile(dep_yml)
+        has_yaml = os.path.isfile(dep_yaml)
+        dep_errors = []
+        dep_updates = []
+        if has_yml and has_yaml:
+            dep_errors.append("同时存在 .github/dependabot.yml 与 .github/dependabot.yaml")
+        elif not has_yml and not has_yaml:
+            dep_errors.append(".github/dependabot.yml 缺失")
+        elif has_yaml:
+            dep_errors.append("请统一命名为 .github/dependabot.yml（当前为 .github/dependabot.yaml）")
+        else:
+            try:
+                dep_doc = yaml.safe_load(open(dep_yml, encoding="utf-8"))
+            except yaml.YAMLError as exc:
+                dep_errors.append(f".github/dependabot.yml YAML 解析失败：{exc}")
+            else:
+                if not isinstance(dep_doc, dict) or dep_doc.get("version") != 2:
+                    dep_errors.append(".github/dependabot.yml 顶层必须包含 version: 2")
+                updates = dep_doc.get("updates") if isinstance(dep_doc, dict) else None
+                if not isinstance(updates, list) or len(updates) == 0:
+                    dep_errors.append(".github/dependabot.yml 的 updates 必须为非空列表")
+                else:
+                    dep_updates = updates
+                    for idx, item in enumerate(updates):
+                        prefix = f".github/dependabot.yml updates[{idx}]"
+                        if not isinstance(item, dict):
+                            dep_errors.append(f"{prefix} 必须为映射")
+                            continue
+                        eco = item.get("package-ecosystem")
+                        if not isinstance(eco, str) or not eco.strip():
+                            dep_errors.append(f"{prefix} 缺少非空字符串 package-ecosystem")
+                        directory = item.get("directory")
+                        directories = item.get("directories")
+                        has_dir = isinstance(directory, str) and bool(directory.strip())
+                        has_dirs = (
+                            isinstance(directories, list)
+                            and len(directories) > 0
+                            and all(isinstance(d, str) and bool(d.strip()) for d in directories)
+                        )
+                        if not (has_dir or has_dirs):
+                            dep_errors.append(f"{prefix} 缺少有效 directory 或 directories")
+                        sched = item.get("schedule")
+                        if not isinstance(sched, dict) or not isinstance(sched.get("interval"), str) or not sched["interval"].strip():
+                            dep_errors.append(f"{prefix}.schedule 缺少非空字符串 interval")
+                        if "cooldown" in item:
+                            cd = item.get("cooldown")
+                            if not isinstance(cd, dict):
+                                dep_errors.append(f"{prefix}.cooldown 必须为映射")
+                            else:
+                                for ck in ("default-days", "semver-major-days", "semver-minor-days", "semver-patch-days"):
+                                    if ck in cd:
+                                        cv = cd[ck]
+                                        if isinstance(cv, bool) or not isinstance(cv, int) or cv <= 0:
+                                            dep_errors.append(f"{prefix}.cooldown.{ck} 必须为正整数")
+                        if "commit-message" in item and not isinstance(item.get("commit-message"), dict):
+                            dep_errors.append(f"{prefix}.commit-message 必须为映射")
+
+        if dep_errors:
+            for err in dep_errors:
+                emit("FAIL", err)
+        else:
+            emit("PASS", f".github/dependabot.yml 语法与 version: 2 基础结构有效（{len(dep_updates)} 项生态配置）")
 PY
 
   if (( py_rc != 0 )); then

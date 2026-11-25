@@ -1,0 +1,23 @@
+version: 2
+
+updates:
+  # 本仓库不含应用源码，唯一纳入版本控制的外部依赖是 .github/workflows/ 下
+  # 按 40 位 commit SHA 锁定的 GitHub Actions（Dependabot 会同步更新 SHA 与行尾版本注释）。
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
