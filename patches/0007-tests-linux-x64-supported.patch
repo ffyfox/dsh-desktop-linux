@@ -1,8 +1,8 @@
 diff --git a/apps/desktop-publisher/tests/desktop-auto-update-environment.spec.ts b/apps/desktop-publisher/tests/desktop-auto-update-environment.spec.ts
-index 8b49573..33be323 100644
+index 3e333b7..1f86a5c 100644
 --- a/apps/desktop-publisher/tests/desktop-auto-update-environment.spec.ts
 +++ b/apps/desktop-publisher/tests/desktop-auto-update-environment.spec.ts
-@@ -108,8 +108,11 @@ describe('desktop auto-update environment', () => {
+@@ -110,8 +110,11 @@ describe('desktop auto-update environment', () => {
      expect(() => resolveDesktopAutoUpdateEnvironment({
        DSH_DESKTOP_AUTO_UPDATE_ENV: 'staging',
      })).toThrow(/test.*production/u)
@@ -15,7 +15,7 @@ index 8b49573..33be323 100644
 +    expect(() => resolveDesktopAutoUpdateTarget('freebsd', 'x64')).toThrow(/unsupported target/u)
    })
  
-   it('uses Nightly metadata for stable and prerelease Desktop versions', () => {
+   it('uses stable metadata by default and nightly metadata when explicitly selected', () => {
 diff --git a/apps/desktop/tests/desktop-build-paths.spec.ts b/apps/desktop/tests/desktop-build-paths.spec.ts
 index f9891eb..5631a5d 100644
 --- a/apps/desktop/tests/desktop-build-paths.spec.ts

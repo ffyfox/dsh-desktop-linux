@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/electron-builder.config.d.mts b/apps/desktop/electron-builder.config.d.mts
-index 2973a6e..55411cb 100644
+index a19b1e6..0cfbdd3 100644
 --- a/apps/desktop/electron-builder.config.d.mts
 +++ b/apps/desktop/electron-builder.config.d.mts
 @@ -46,6 +46,19 @@ export interface DesktopElectronBuilderConfig {
@@ -23,11 +23,11 @@ index 2973a6e..55411cb 100644
      readonly uninstallDisplayName: '${productName}'
      readonly include: string
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index a777a05..be5f5b0 100644
+index 3478a30..ef4088f 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
-@@ -23,7 +23,8 @@ import {
- import { resolveDesktopAutoUpdateConfig } from '@deepseek-ai/dsh-desktop-publisher/desktop-auto-update-environment.mjs'
+@@ -27,7 +27,8 @@ import {
+ } from '@deepseek-ai/dsh-desktop-publisher/desktop-auto-update-environment.mjs'
  import { resolveDesktopBuildCommit } from './desktop-build-commit.mjs'
  import { resolveDesktopBuildVersion } from './desktop-build-version.mjs'
 -import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
@@ -36,7 +36,7 @@ index a777a05..be5f5b0 100644
  import { desktopArtifactOutput, desktopTargetBuildPaths, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
  import { installWindowsDirectoryInstaller } from './windows-directory-installer.mjs'
  import { preserveWindowsRuntimeSignature, signWindowsCode } from './windows-runtime-signature.mjs'
-@@ -66,7 +67,13 @@ export function createElectronBuilderConfig(
+@@ -68,7 +69,13 @@ export function createElectronBuilderConfig(
    if (skipNotarization && (unsigned || resolvedPlatform !== 'darwin')) throw new Error('Skipping notarization requires a signed macOS build')
    const packagesMacOS = targetPlatform === 'darwin' || (targetPlatform === undefined && hostPlatform === 'darwin')
    const packagesWindows = resolvedPlatform === 'win32'
@@ -51,9 +51,9 @@ index a777a05..be5f5b0 100644
    if (resolvedPlatform === 'win32') installWindowsDirectoryInstaller()
    const macOSSigning = packagesMacOS && !unsigned ? resolveMacOSSigningEnvironment(env) : undefined
    if (packagesMacOS && !unsigned && !skipNotarization) resolveMacOSNotarizationEnvironment(env)
-@@ -113,6 +120,10 @@ export function createElectronBuilderConfig(
+@@ -116,6 +123,10 @@ export function createElectronBuilderConfig(
        dshDesktopAppId: appId,
-       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
+       dshDesktopUpdateChannel: update?.channel ?? resolveDesktopUpdateChannel(env),
        ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
 +      // Read by Electron as the window app_id and by the Linux target as the .desktop filename.
 +      ...(resolvedPlatform === 'linux' ? { desktopName: 'deepseek-harness' } : {}),
@@ -62,7 +62,7 @@ index a777a05..be5f5b0 100644
        ...buildVersion === productVersion ? {} : { version: buildVersion },
        ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
      },
-@@ -122,7 +133,10 @@ export function createElectronBuilderConfig(
+@@ -125,7 +136,10 @@ export function createElectronBuilderConfig(
      // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
      artifactName: `deepseek-harness-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
      directories: { output: output.directory },
@@ -74,7 +74,7 @@ index a777a05..be5f5b0 100644
      electronDist: buildPaths.electron,
      electronFuses: { runAsNode: true },
      beforeBuild: async () => {
-@@ -255,8 +269,47 @@ export function createElectronBuilderConfig(
+@@ -259,8 +273,47 @@ export function createElectronBuilderConfig(
        target: ['nsis'],
      },
      linux: {

@@ -1,5 +1,5 @@
 diff --git a/apps/desktop/scripts/dev.ts b/apps/desktop/scripts/dev.ts
-index 0753678..047e7dc 100644
+index 78af293..9a61e18 100644
 --- a/apps/desktop/scripts/dev.ts
 +++ b/apps/desktop/scripts/dev.ts
 @@ -8,6 +8,7 @@ import { parseArgs } from 'node:util'
@@ -10,7 +10,7 @@ index 0753678..047e7dc 100644
  import { prepareDevelopmentProject } from './development-project.ts'
  import { prepareDevelopmentApp } from './development-app.ts'
  import { prepareDevelopmentState } from './development-state.ts'
-@@ -104,12 +105,17 @@ async function main(): Promise<void> {
+@@ -124,12 +125,17 @@ async function main(): Promise<void> {
    }
    const version = packageVersion(join(APP_ROOT, 'package.json'), 'desktop package')
    const pnpmVersion = packageVersion(join(APP_ROOT, 'node_modules', 'pnpm', 'package.json'), 'pnpm package')
@@ -30,7 +30,7 @@ index 0753678..047e7dc 100644
      pnpmVersion,
    }
    prepareDevelopmentProject({
-@@ -120,7 +126,6 @@ async function main(): Promise<void> {
+@@ -140,7 +146,6 @@ async function main(): Promise<void> {
      release,
      target: resolveDesktopBuildTarget(),
    })
@@ -148,7 +148,7 @@ index a67bc28..0fbc810 100644
      await rm(cache, { recursive: true, force: true })
    }
 diff --git a/apps/desktop/scripts/smoke-runtime.ts b/apps/desktop/scripts/smoke-runtime.ts
-index e06f95c..9e202ed 100644
+index 175aa3e..22f3b30 100644
 --- a/apps/desktop/scripts/smoke-runtime.ts
 +++ b/apps/desktop/scripts/smoke-runtime.ts
 @@ -9,6 +9,7 @@ import { promisify } from 'node:util'
@@ -176,7 +176,7 @@ index e06f95c..9e202ed 100644
  ): Promise<void> {
    const home = mkdtempSync(join(tmpdir(), 'dsh-desktop-smoke-'))
    const profile = join(home, 'profiles', 'desktop')
-@@ -73,7 +74,7 @@ export function apply(ctx) {
+@@ -74,7 +75,7 @@ export function apply(ctx) {
      writeFileSync(join(installedPlugin, 'bundle.yml'), `- insert:\n    - id: ${installedName}\n      name: ${installedName}\n      inject: [webServer]\n`)
      appendFileSync(join(profile, 'pnpm-workspace.yaml'), 'offline: true\nupdateNotifier: false\n')
      const cli = join(root, 'node_modules', '@deepseek-ai', 'dsh-desktop-host', 'lib', 'cli.js')

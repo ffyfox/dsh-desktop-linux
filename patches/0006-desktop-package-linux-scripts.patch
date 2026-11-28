@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/package.json b/apps/desktop/package.json
-index 505625c..cfa65bd 100644
+index ef7d6e2..973e099 100644
 --- a/apps/desktop/package.json
 +++ b/apps/desktop/package.json
-@@ -39,6 +39,10 @@
+@@ -40,6 +40,10 @@
      "package:win:x64": "tsx scripts/package-target.ts win-x64",
      "package:win:x64:unsigned": "tsx scripts/package-target.ts win-x64 --unsigned",
      "package:win:x64:dir": "tsx scripts/package-target.ts win-x64 --dir",
@@ -14,7 +14,7 @@ index 505625c..cfa65bd 100644
      "upload:mac:x64": "tsx scripts/upload-target.ts mac-x64",
      "upload:win:x64": "tsx scripts/upload-target.ts win-x64",
 diff --git a/packages/client/ui-brand-official/src/client/index.ts b/packages/client/ui-brand-official/src/client/index.ts
-index e5dc78b..75cc2d5 100644
+index 4d6ee21..f49a25c 100644
 --- a/packages/client/ui-brand-official/src/client/index.ts
 +++ b/packages/client/ui-brand-official/src/client/index.ts
 @@ -18,7 +18,10 @@ export function apply(ctx: ClientContext): void {
@@ -30,11 +30,11 @@ index e5dc78b..75cc2d5 100644
      ctx.slots.inject('sidebar.brand.name', function* () {
        yield ctx.slots.register({ name: 'sidebar.brand.mark' }, OfficialBrandMark)
 diff --git a/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx b/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx
-index 306023b..3475150 100644
+index 86944c9..dcb4af6 100644
 --- a/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx
 +++ b/packages/client/ui-brand-official/tests/browser-plugin.client.spec.tsx
-@@ -46,13 +46,26 @@ describe('official browser-brand plugin', () => {
-     expect(inject).toEqual(['slots'])
+@@ -48,13 +48,26 @@ describe('official browser-brand plugin', () => {
+     expect(inject).toEqual(['slots', 'theme'])
    })
  
 -  it('keeps local sidebar branding and provides the same blank-home feedback', async () => {

@@ -15,10 +15,10 @@ index 0000000..cb18b79
 +  return process.platform === 'linux' && process.env.DSH_DESKTOP_FRAMELESS === '1'
 +}
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 83a0efb..f937b1b 100644
+index 4e2fa82..7c1944a 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -37,7 +37,9 @@ import { DesktopBackendController } from './backend-controller.ts'
+@@ -39,7 +39,9 @@ import { DesktopBackendController } from './backend-controller.ts'
  import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
  import { readDeviceInfo } from './device-info.ts'
  import { GLASS_ARGUMENT, desktopGlass, glassTint } from './glass-mode.ts'
@@ -28,7 +28,7 @@ index 83a0efb..f937b1b 100644
  import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
  import type { DesktopMessages } from './locale.ts'
  import { claimDesktopSingleInstance } from './single-instance.ts'
-@@ -267,8 +269,20 @@ function platformLoginUrl(authorizeUrl: string): string {
+@@ -271,8 +273,20 @@ function platformLoginUrl(authorizeUrl: string): string {
    return url.href
  }
  
@@ -50,7 +50,7 @@ index 83a0efb..f937b1b 100644
    const window = new BrowserWindow({
      width: 1280,
      height: 820,
-@@ -287,6 +301,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -291,6 +305,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
          symbolColor: nativeTheme.shouldUseDarkColors ? '#f9fafb' : '#0f1115' },
      } : {}),
@@ -64,7 +64,7 @@ index 83a0efb..f937b1b 100644
      // hiddenInset places traffic lights inside the sidebar; sidebar vibrancy
      // needs a transparent window background to show through the page.
      ...(process.platform === 'darwin' ? {
-@@ -307,8 +328,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -311,8 +332,13 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        webviewTag: primary,
        devTools: true,
        ...(glass ? { additionalArguments: [GLASS_ARGUMENT] } : {}),
@@ -78,7 +78,7 @@ index 83a0efb..f937b1b 100644
    // Linux draws the caption menubar inside the page; a native menu bar would double that strip.
    // The application menu stays set so its accelerators keep working. Glass mode has no caption,
    // so the menu bar auto-hides instead and Alt reveals it, keeping the menu out of the window's content.
-@@ -320,7 +346,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -324,7 +350,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
      if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
      return { action: 'deny' }
    })
@@ -87,7 +87,7 @@ index 83a0efb..f937b1b 100644
      // Fullscreen hides native window controls; overlays drop their caption clearance.
      const sendFullscreen = (): void => {
        if (!window.isDestroyed()) window.webContents.send(DESKTOP_IPC.windowFullscreen, window.isFullScreen())
-@@ -401,6 +427,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -405,6 +431,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
  }
  
  async function main(): Promise<void> {
@@ -99,7 +99,7 @@ index 83a0efb..f937b1b 100644
    const desktopSettings = await readDesktopSettings(app.getPath('userData'))
    void pruneCrashReports(app.getPath('logs'))
    const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
-@@ -839,7 +870,7 @@ async function main(): Promise<void> {
+@@ -870,7 +901,7 @@ async function main(): Promise<void> {
        if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname.startsWith('/assets/')
          || ['/favicon.svg', '/manifest.webmanifest'].includes(url.pathname)) {
          const root = join(resources.dsh, 'node_modules', '@deepseek-ai', 'dsh-web-frontend', 'dist')
@@ -108,7 +108,7 @@ index 83a0efb..f937b1b 100644
            ? serveWebDocument(request, root, glassDocument(glassTint()))
            : serveWebDocument(request, root)
        }
-@@ -1364,8 +1395,10 @@ async function main(): Promise<void> {
+@@ -1428,8 +1459,10 @@ async function main(): Promise<void> {
        // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
        const validColor = (value: unknown): value is string => typeof value === 'string'
          && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
@@ -122,7 +122,7 @@ index 83a0efb..f937b1b 100644
    }
  
 diff --git a/apps/desktop/src/preload-menu.ts b/apps/desktop/src/preload-menu.ts
-index f7b8812..4822da4 100644
+index f0d68d4..2c07fa2 100644
 --- a/apps/desktop/src/preload-menu.ts
 +++ b/apps/desktop/src/preload-menu.ts
 @@ -12,8 +12,11 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
@@ -137,7 +137,7 @@ index f7b8812..4822da4 100644
 +    :host { position: fixed; top: 0; left: calc(env(titlebar-area-x, 0px) + var(--dsh-windows-menu-start, 48px)); z-index: 1100;
        height: var(--dsh-windows-titlebar-height); display: flex; align-items: center;
        font-family: var(--dsw-font-family); -webkit-app-region: no-drag; }
-     [role=menubar] { display: flex; gap: 2px; }
+     :host-context(html[data-fullscreen]) { display: none; }
 diff --git a/apps/desktop/src/preload-platform.ts b/apps/desktop/src/preload-platform.ts
 index 1e197b0..ab1f1cf 100644
 --- a/apps/desktop/src/preload-platform.ts
@@ -440,10 +440,10 @@ index 0000000..033f02d
 +  })
 +})
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index 0e602d8..facf079 100644
+index 479088c..c60410a 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -3,6 +3,7 @@ import type { DesktopHostProcess } from '../src/host-process.ts'
+@@ -3,6 +3,7 @@ import type { DesktopHostProcessOptions } from '../src/host-process.ts'
  import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
  import { WINDOWS_TITLEBAR_HEIGHT } from '../src/windows-layout.ts'
  import { GLASS_ARGUMENT } from '../src/glass-mode.ts'
@@ -451,7 +451,7 @@ index 0e602d8..facf079 100644
  import { glassDocument } from '../src/glass-document.ts'
  import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
  import type { IpcMainInvokeEvent } from 'electron'
-@@ -1320,6 +1321,120 @@ describe('desktop main startup', () => {
+@@ -1375,6 +1376,120 @@ describe('desktop main startup', () => {
      expect(window.options).not.toHaveProperty('webPreferences.additionalArguments')
    })
  
@@ -573,12 +573,12 @@ index 0e602d8..facf079 100644
      const { serveWebDocument } = await import('../src/web-document.ts')
      vi.mocked(serveWebDocument).mockResolvedValue(new Response('shell document'))
 diff --git a/apps/desktop/tests/preload-menu.client.spec.ts b/apps/desktop/tests/preload-menu.client.spec.ts
-index 9454636..859fbbb 100644
+index a106e82..16897a3 100644
 --- a/apps/desktop/tests/preload-menu.client.spec.ts
 +++ b/apps/desktop/tests/preload-menu.client.spec.ts
-@@ -141,3 +141,9 @@ it('restores a contenteditable selection before opening Edit with the keyboard',
-   expect(document.getSelection()!.toString()).toBe('itable')
-   await vi.waitFor(() => { expect(buttons[1]!.getAttribute('aria-expanded')).toBe('false') })
+@@ -147,3 +147,9 @@ it('hides the caption menu when the document enters native fullscreen', () => {
+   const style = document.querySelector('[data-windows-menu]')!.shadowRoot!.querySelector('style')!
+   expect(style.textContent).toContain(':host-context(html[data-fullscreen]) { display: none; }')
  })
 +
 +it('offsets the caption menubar by env(titlebar-area-x) for left-placed window controls', () => {
@@ -903,10 +903,10 @@ index 2100de7..724ab3f 100644
      const window = createWindow()
      const loaded = Promise.withResolvers<undefined>()
 diff --git a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
-index 016b596..a9ca7b4 100644
+index 01ff387..e12f4dd 100644
 --- a/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
 +++ b/packages/client/ui-sidebar/src/client/SidebarRoot.module.css
-@@ -52,7 +52,7 @@
+@@ -48,7 +48,7 @@
  :global([data-windows-titlebar]) .toggle {
    position: fixed;
    top: calc((var(--dsh-windows-titlebar-height) - 28px) / 2);
@@ -915,7 +915,7 @@ index 016b596..a9ca7b4 100644
    z-index: 30;
    -webkit-app-region: no-drag;
  }
-@@ -98,7 +98,7 @@
+@@ -94,7 +94,7 @@
  :global([data-windows-titlebar]) .collapsed .newSession {
    position: fixed;
    top: calc((var(--dsh-windows-titlebar-height) - 28px) / 2);
@@ -925,10 +925,10 @@ index 016b596..a9ca7b4 100644
    padding: 0;
    border: none;
 diff --git a/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts b/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts
-index 51cc466..b9c6d4b 100644
+index 3a290c1..72cb64e 100644
 --- a/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts
 +++ b/packages/client/ui-sidebar/tests/sidebar-styles.client.spec.ts
-@@ -227,4 +227,13 @@ describe('SidebarRoot.module.css', () => {
+@@ -240,4 +240,13 @@ describe('SidebarRoot.module.css', () => {
      expect(collapsed?.get('right')).toBe('5px')
      expect(collapsed?.get('top')).toBe('5px')
    })
@@ -943,7 +943,7 @@ index 51cc466..b9c6d4b 100644
 +  })
  })
 diff --git a/tsconfig.client.json b/tsconfig.client.json
-index d6a347c..605d27d 100644
+index d28aaae..8eeb58a 100644
 --- a/tsconfig.client.json
 +++ b/tsconfig.client.json
 @@ -21,6 +21,7 @@
