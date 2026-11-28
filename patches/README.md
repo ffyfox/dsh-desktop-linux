@@ -1,6 +1,6 @@
 # 补丁
 
-按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `4b399c39`（tag `dsh-v0.2.3-alpha.2`）。
+按文件名顺序应用（见 `scripts/apply-patches.sh`），全部相对上游 `841f76d3`（tag `dsh-v0.2.3-alpha.3`）。
 
 组织约定：**一条改动只属于一个补丁**。每个补丁都是相对同一个基线的独立 diff，改动互不重复、
 按编号应用（顺序依赖见下）。补丁由 `git diff -- <files>` 从开发工作树生成；**一个文件可以被
@@ -27,11 +27,11 @@ hunk 一起带进来。
 `tests/preload-windows.client.spec.ts`、`tests/welcome-window.spec.ts` 与 `packages/client/ui-sidebar/src/client/SidebarRoot.module.css`，同样依赖于前序补丁落位；因此 `apply-patches.sh --check` 对干净树只会让
 `0001`–`0016` 逐个通过，全套验证需走顺序 `git apply` 与 `patch -Np1`。
 
-已验证（0.2.3-alpha.2）：相对 `0.2.3-alpha.1` 共 5 笔提交（核心为 Node 门槛升至 `^24.22.3 || >=26.13.1`、Electron `44.7.0` → `44.11.5`、`primary-runtime` Node `24.21.0` → `24.22.3`、`node-addon-require-builtin` `0.1.9` → `0.1.10` 与 `undici` 安全覆写，加 vendor 与工作区版本号更新）；17 个补丁零重生、与 `0.2.3-alpha.1` 逐字节一致（仅 `0006` 触及 `apps/desktop/package.json`，零冲突零偏移）。
-`0001`–`0016` 在干净树独立 `git apply --check` 全过；17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.3-alpha.2`）与 `git archive` 上，`patch -Np1 --fuzz=0`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）均干净通过且两条路线逐字节一致；`makepkg --verifysource` 校验 19 项 source 全部通过。
-`build.sh --all` 一次出齐三格式：AppImage `375,610,759` B（sha256 `d20fd632…`）、deb `296,977,756` B（`01509fce…`）、rpm `248,039,820` B（`3f236be1…`），`runtime:primary-smoke`、`runtime:smoke` 与 `smoke-packaged-runtime` 均通过。
-`verify.sh --runtime` **49 通过 / 0 失败 / 7 跳过**（6 个为旧版 `0.2.2-rc.5`/`0.2.3-alpha.1` 产物跳过、1 个为 `3080` 未监听）：核心二进制最高 GLIBC `2.28`（≤ 2.31）、可选语音 `2.32`（≤ 2.32），Host 跑在 `primary-runtime` Node `24.22.3` 上且收到 `DSH_DESKTOP_RESOURCES_PATH`（`0017`），`data-windows-titlebar` 与 `[data-windows-menu]` 在场（`0016`），2 个渲染进程均在独立 user namespace 且 seccomp 生效，StatusNotifierItem 托盘菜单可读，共享根隔离且真实 `~/.dsh` 未被触碰。产物内 `resources/runtime/cli` 不存在、`dsh/package.json` 版本 `0.2.3-alpha.2`、Electron `44.11.5`、`resources/app/package.json` 的 `dshBuildCommit` 记 `4b399c39…`（`dshBuildDirty: true`）。
-去代理下上游桌面与发布器单测（`apps/desktop/tests` + `apps/desktop-host/tests` + `apps/desktop-publisher/tests` + `apps/cli/tests/desktop-host.e2e.ts`）`198` 文件 `2418` 通过 / `70` 跳过 / `0` 失败，补丁关联客户端包及构建环境单测（`ui-layout`、`ui-sidebar*`、`ui-brand-official`、`ui-plugin-manager`、`ui-schedule`、`client-build-environment`）`171` 文件 `2895` 用例全通过。
+已验证（0.2.3-alpha.3）：相对 `0.2.3-alpha.2` 共 1150 笔提交（核心变化：React `18.2.0` → `19.3.1`、Linux Office 引擎由 `@deepseek-ai/libreoffice-kit-wasm` 切换为原生 `@deepseek-ai/libreoffice-kit-linux-{x64,arm64}-glibc@0.2.4`、`DesktopHostProcess` 构造改为 `options` 对象并新增 `frameReceiverPath`/`channels`、`prepare-dsh.ts` 引入 `runtime:native-packages`、移除旧版 `installed-update-*`/`preparedRuntimeVersion` 并改默认更新通道为 `stable`；Node 门槛 `^24.22.3 || >=26.13.1`、pnpm `11.28.5`、Electron `44.11.5` 与 `primary-runtime` Node `24.22.3` 均未变）；17 个补丁中 3 个逐字节未变（`0010`/`0011`/`0012`）、9 个干净三路合并、5 个按上游结构手工适配（`0004`/`0008`/`0017`/`0018`/`0019`）。
+`0001`–`0016` 在干净树独立 `git apply --check` 全过；17 个补丁按序打在完整的上游 release 源码包（tag `dsh-v0.2.3-alpha.3`）与 `git archive` 上，`patch -Np1 --fuzz=0`（makepkg 的 `prepare()`）与 `git apply`（`apply-patches.sh` / CI）均干净通过且两条路线逐字节一致；`makepkg --verifysource` 校验 19 项 source 全部通过。
+`build.sh --all` 一次出齐三格式：AppImage `433,395,822` B（sha256 `9ba1c204…`）、deb `341,376,536` B（`fb3bd239…`）、rpm `292,262,035` B（`e96d085a…`），`runtime:native-packages`、`runtime:primary-smoke`、`runtime:smoke` 与 `smoke-packaged-runtime`（含原生 LibreOffice 文档转换往返）均通过。
+`verify.sh --runtime` **49 通过 / 0 失败 / 7 跳过**（6 个为旧版 `0.2.3-alpha.1`/`0.2.3-alpha.2` 产物跳过、1 个为 `3080` 未监听）：核心二进制最高 GLIBC `2.28`（≤ 2.31）、原生 LibreOffice 二进制 `bin/dsoffice` 最高 GLIBC `2.28`（≤ 2.31）、可选语音 `2.32`（≤ 2.32），Host 跑在 `primary-runtime` Node `24.22.3` 上且收到 `DSH_DESKTOP_RESOURCES_PATH`（`0017`），`data-windows-titlebar` 与 `[data-windows-menu]` 在场（`0016`），2 个渲染进程均在独立 user namespace 且 seccomp 生效，StatusNotifierItem 托盘菜单可读，共享根隔离且真实 `~/.dsh` 未被触碰。产物内 `resources/runtime/cli` 不存在、`dsh/package.json` 版本 `0.2.3-alpha.3`、Electron `44.11.5`、`resources/app/package.json` 的 `dshBuildCommit` 记 `841f76d3…`（`dshBuildDirty: true`）。
+去代理下上游桌面单测（`apps/desktop/tests` + `apps/desktop-host/tests`）`181` 文件（`176` 通过 / `5` 跳过）`2265` 通过 / `42` 跳过 / `0` 失败，补丁波及的 6 个包外单测（`desktop-publisher`、`ui-brand-official`、`ui-layout/app-frame`、`ui-sidebar`、`client-build-environment`）`6` 文件 `168` 用例全通过。
 
 **编号 `0014` 已作废，空号不复用。** 它当年把 lockfile 里 electron 的解析从 44.0.0 提到 44.4.5
 （那个版本的 Linux 托盘在 KDE 与 GNOME 下都注册不上）；0.2.1-alpha.2 的 lockfile 自己解析到 44.7.0，
@@ -64,7 +64,7 @@ hunk 一起带进来。
 
 | 补丁 | 覆盖文件 | 内容 |
 |---|---|---|
-| `0008-desktop-host-runtime-standalone-node.patch` | `src/node-environment.ts`、`src/host-process.ts`、`src/main.ts`、`desktop-host/src/{index,cli}.ts`、`scripts/node-bin/node`、6 个 spec/e2e | 引入 `DesktopNodeRuntime`；Linux 上 Host 走 primary-runtime 的真 Node（Host 入口把 `process.argv[4]` 记进 `DSH_PRIMARY_RUNTIME`，`runtimeArchivePath()` 位于 `cli.ts`）；`ELECTRON_RUN_AS_NODE` 只在真 Electron 运行时下设置；node shim 缺 `DSH_DESKTOP_NODE_EXECUTABLE` 时报错退出 78（不再静默 `exec` 空路径，那会打成 `line 6: exec: : not found` 的 exit 127）；`dsh` CLI 在「真目录树」布局下按 `resources/runtime` 找 supportDir（关掉 asar 后原来那段推导会落到 `resources/app/runtime`，见「注意」）。`desktopNodeRuntime()` 的返回值从字符串变成对象，6 个相关 spec/e2e 里 `DesktopHostProcess` 的 `node` 参数与断言同步改成 `DesktopNodeRuntime` 对象 |
+| `0008-desktop-host-runtime-standalone-node.patch` | `src/node-environment.ts`、`src/host-process.ts`、`src/main.ts`、`desktop-host/src/{index,cli}.ts`、`scripts/node-bin/node`、7 个 spec/e2e | 引入 `DesktopNodeRuntime`；Linux 上 Host 走 primary-runtime 的真 Node（Host 入口把 `process.argv[4]` 记进 `DSH_PRIMARY_RUNTIME`，`runtimeArchivePath()` 位于 `cli.ts`）；`ELECTRON_RUN_AS_NODE` 只在真 Electron 运行时下设置；node shim 缺 `DSH_DESKTOP_NODE_EXECUTABLE` 时报错退出 78（不再静默 `exec` 空路径，那会打成 `line 6: exec: : not found` 的 exit 127）；`dsh` CLI 在「真目录树」布局下按 `resources/runtime` 找 supportDir（关掉 asar 后原来那段推导会落到 `resources/app/runtime`，见「注意」）。`desktopNodeRuntime()` 的返回值从字符串变成对象，7 个相关 spec/e2e（含 `shared-texture-channel.spec.ts`）里 `DesktopHostProcess` 的 `node` 参数与断言同步改成 `DesktopNodeRuntime` 对象 |
 | `0009-desktop-packaging-host-runtime.patch` | `scripts/dev.ts`、`scripts/smoke-{runtime,prepared-runtime,packaged-runtime}.ts`、`scripts/sign-primary-runtime.ts`、`tests/fixtures/{runtime-payload-smoke,pnpm-smoke}.mjs`、`tests/{prepared-runtime-smoke,smoke-runtime}.spec.ts` | 把 Host 运行时贯穿 dev / 打包 / 冒烟；按目标架构计算未打包目录（electron-builder 以 x64 为默认架构，x64 为 `linux-unpacked`，arm64 为 `linux-arm64-unpacked`）；payload smoke 的 Electron 专属断言改为按平台判断 |
 | `0010-desktop-linux-policy-opt-out.patch` | `desktop-policy-environment.{mjs,d.mts}`、`tests/desktop-policy-environment.spec.ts` | 新增 `desktopPlatformEmbedsPolicy()`：策略服务只认 `desktop-win` / `desktop-mac`，Linux 不参与 |
 
@@ -288,9 +288,9 @@ GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩�
 ## 注意
 
 - **补丁全部应用后，上游自己的桌面单测应该零失败 —— 这是「改了行为、spec 有没有跟上」的判据。**
-  实测 2026-11-22（0.2.3-alpha.2）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
-  apps/desktop/tests apps/desktop-host/tests apps/desktop-publisher/tests apps/cli/tests/desktop-host.e2e.ts`
-  → 0 失败（198 个文件：193 通过 / 5 跳过；2488 个用例：2418 通过 / 70 跳过）。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、
+  实测 2026-11-28（0.2.3-alpha.3）：`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm exec vitest run
+  apps/desktop/tests apps/desktop-host/tests`
+  → 0 失败（181 个文件：176 通过 / 5 跳过；2307 个用例：2265 通过 / 42 跳过）；补丁波及的 6 个包外 spec（含 `desktop-publisher`、`ui-layout/app-frame` 与 `ui-sidebar`）168/168 通过。**改源码行为的补丁要在同一个补丁里改掉对应的 spec**（`0008`、
   `0016` 就是这么做的，其中 `0008` 与 `0016` 共用 `tests/main-startup.spec.ts`）。`scripts/` 与 CI
   都不跑上游单测。跑的时候注意三点：用隔离版 pnpm 11（`~/.local/share/dsh-pnpm-11/node_modules/.bin/pnpm`，
   本机 11.7.0；本机 `/usr/bin/pnpm` 已是 12.14.0 的 ELF、`~/.npm-global/bin/pnpm` 是 9.15.4，
@@ -351,6 +351,8 @@ GNOME 的桌面双击最大化还没跑（留给实机复核与三发行版矩�
   `command-manager-entry.js` 走 `/usr/local/bin/dsh` 与 PowerShell；而 rc.2 里触发这套东西的菜单项
   本身就 gate 在 `darwin` / `win32`。Linux 上没有入口，硬跑还会把 macOS 启动器塞进产物，
   所以这一段包进 `if (platform !== 'linux')`，Linux 不产出 `runtime/cli`。
+- **`0.2.3-alpha.3` 新增的 `runtime:native-packages` 目前在 Linux 上为空操作，需在后续同步留意。**
+  `apps/desktop/scripts/native-package-builds.mjs` 会扫描 `@deepseek-ai/dsh-*` 包中声明的 `dsh.native` 字段并编译校验 `.node` 产物，但其 `matchingArchitecture()` 当前仅识别 Mach-O（`darwin`）与 PE（`win32`），对 Linux ELF 恒返回 `false`。目前上游工作区中 0 个包声明 `dsh.native`，因此 `prepare:dsh` 在 Linux 上直接跳过；若后续版本有任何 `@deepseek-ai/dsh-*` 启用该字段，须为 Linux ELF 补齐架构校验分支。
 - **`dsh` CLI 找 runtime 的路径取决于 asar 开不开（`0008` 的教训）。** `apps/desktop-host/src/cli.ts`
   自己推 supportDir：打成 asar 时 payload 在 `resources/app.asar/dsh`，runtime 就挨着归档文件
   （`resources/runtime`）；Linux 关掉 asar 后 payload 是真实的 `resources/app/dsh`，同一段推导

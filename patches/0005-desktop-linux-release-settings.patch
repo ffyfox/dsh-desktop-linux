@@ -1,5 +1,5 @@
 diff --git a/.gitignore b/.gitignore
-index 7024b06..a208663 100644
+index ca0e8cf..7fd7404 100644
 --- a/.gitignore
 +++ b/.gitignore
 @@ -2,6 +2,7 @@ CLAUDE.local.md

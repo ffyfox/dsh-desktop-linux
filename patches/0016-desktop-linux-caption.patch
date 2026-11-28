@@ -1,8 +1,8 @@
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 976721e..db8d9b7 100644
+index c90a110..ca7cfd3 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -297,6 +297,9 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -299,6 +299,9 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        devTools: true,
      },
    })
@@ -12,7 +12,7 @@ index 976721e..db8d9b7 100644
    window.webContents.setWindowOpenHandler(({ url }) => {
      if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
      return { action: 'deny' }
-@@ -362,7 +365,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -364,7 +367,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
        const messages = currentDesktopLocale().messages
        Menu.buildFromTemplate(items.map(item => ({
          ...item,
@@ -22,7 +22,7 @@ index 976721e..db8d9b7 100644
            ? { label: messages[item.role as keyof typeof messages] } : {}),
          accelerator: '',
        }))).popup({ window })
-@@ -1201,9 +1205,32 @@ async function main(): Promise<void> {
+@@ -1262,9 +1266,32 @@ async function main(): Promise<void> {
      ] },
      { label: messages.speechMenu, submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] },
    ] })
@@ -56,7 +56,7 @@ index 976721e..db8d9b7 100644
    const hideCommands: MenuItemConstructorOptions[] = darwin
      ? [{ role: 'hide', label: currentDesktopLocale().messages.hideApplication },
        { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
-@@ -1235,8 +1262,9 @@ async function main(): Promise<void> {
+@@ -1296,8 +1323,9 @@ async function main(): Promise<void> {
      { role: 'toggleDevTools', label: currentDesktopLocale().messages.toggleDevToolsMenu },
      { type: 'separator' },
      ...hideCommands,
@@ -67,7 +67,7 @@ index 976721e..db8d9b7 100644
    ]
    const devToolsF12Shortcut: MenuItemConstructorOptions = { role: 'toggleDevTools', visible: false, accelerator: 'F12' }
    const windowsDevToolsShortcuts: MenuItemConstructorOptions[] = [
-@@ -1284,7 +1312,8 @@ async function main(): Promise<void> {
+@@ -1338,7 +1366,8 @@ async function main(): Promise<void> {
      ...(process.platform === 'win32' ? { icon: nativeImage.createFromPath(trayIconPath) } : {}),
    })
  
@@ -77,7 +77,7 @@ index 976721e..db8d9b7 100644
      ipcMain.handle(DESKTOP_IPC.windowsMenu, (event, name: unknown, x: unknown, y: unknown) => {
        assertDesktopSender(event, ['app'])
        if (mainWindow === undefined || event.sender !== mainWindow.webContents
-@@ -1293,25 +1322,9 @@ async function main(): Promise<void> {
+@@ -1347,25 +1376,9 @@ async function main(): Promise<void> {
          || typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)
          || x < 0 || y < 0 || x > 100_000 || y > 100_000) throw new Error('desktop menu: invalid popup request')
        const window = mainWindow
@@ -106,7 +106,7 @@ index 976721e..db8d9b7 100644
        const zoom = mainWindow.webContents.getZoomFactor()
        return new Promise<void>((resolve) => {
          Menu.buildFromTemplate(items).popup({ window, x: Math.round(x * zoom), y: Math.round(y * zoom), callback: resolve })
-@@ -1325,7 +1338,8 @@ async function main(): Promise<void> {
+@@ -1379,7 +1392,8 @@ async function main(): Promise<void> {
        // Empty colors precede client stylesheet installation; only CSS color values cross IPC.
        const validColor = (value: unknown): value is string => typeof value === 'string'
          && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
@@ -148,10 +148,10 @@ index 61fda9e..364f580 100644
    let active = true
    const disposeHandlers = (): void => {
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index 866267f..7f0bbb5 100644
+index dda2a63..a2b1589 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -135,6 +135,7 @@ const harness = await vi.hoisted(async () => {
+@@ -145,6 +145,7 @@ const harness = await vi.hoisted(async () => {
      }
      static getAllWindows() { return windows.filter(window => !window.destroyed) }
      setMenu() {}
@@ -159,7 +159,7 @@ index 866267f..7f0bbb5 100644
      getContentBounds() { return { x: 0, y: 0, width: 900, height: 650 } }
      setBounds() {}
      setTitle = vi.fn()
-@@ -1432,22 +1433,25 @@ describe('desktop main startup', () => {
+@@ -1482,22 +1483,25 @@ describe('desktop main startup', () => {
        item.role ?? (item.type === 'separator' ? 'separator' : item.label)
      const template = harness.menu.buildFromTemplate.mock.calls
        .map(call => call[0])
